@@ -8,6 +8,7 @@ module D4Plot
   class PlotRenderer
     property hover_index : Int32? = nil
     property selection : Tuple(Float64, Float64)? = nil
+    property preview_region : Region? = nil
 
     def initialize
       @annotation_renderer = AnnotationRenderer.new
@@ -28,7 +29,7 @@ module D4Plot
         return
       end
       layout = geometry(width, height, annotation_track)
-      region = view.region
+      region = @preview_region || view.region
       label(ctx, "#{region.chromosome}:#{DisplayFormat.position(region.start1)}–#{DisplayFormat.position(region.end1)}  |  #{DisplayFormat.position(region.length)} bp", layout.left, 8.0, layout.width, :left, 13.0)
       draw_overview(ctx, layout, region, chromosomes)
       range = settings.y_range(view.points.min_of(&.[1]), view.points.max_of(&.[1]))
@@ -38,15 +39,18 @@ module D4Plot
       draw_grid(ctx, layout, range)
       ctx.save
       ctx.clip_path { |path| path.add_rectangle(layout.left, layout.top, layout.width, layout.height) }
-      draw_bins(ctx, view, layout, range, settings)
+      draw_bins(ctx, view, region, layout, range, settings)
+      draw_unread(ctx, view.region, region, layout) if @preview_region
       draw_reference_lines(ctx, layout, range, settings)
       draw_inspection(ctx, view, layout)
       ctx.restore
-      draw_ticks(ctx, layout, region)
+      draw_ticks(ctx, layout, region) if settings.show_axis_ticks?
       annotation_height = AnnotationRenderer.height_for(annotation_track)
       @annotation_renderer.draw(ctx, annotation_track, region, layout.left, layout.annotation_top, layout.width, annotation_height)
       if loading
         label(ctx, "Loading requested region… previous view shown", layout.left, layout.top + 8, layout.width, :center)
+      elsif @preview_region
+        label(ctx, "Drag preview — release to load; shaded area is unread", layout.left, layout.top + 8, layout.width, :center)
       end
     end
 
@@ -76,28 +80,38 @@ module D4Plot
       end
     end
 
-    private def draw_bins(ctx, view, layout, range, settings)
+    private def draw_bins(ctx, view, region, layout, range, settings)
       red, green, blue, alpha = settings.plot_color
       baseline = y_for(0.0.clamp(range[0], range[1]), layout, range)
       ctx.fill_path(brush(red, green, blue, alpha * 0.25)) do |path|
-        path.new_figure(layout.left, baseline)
+        path.new_figure(layout.x_for(view.region.start0.to_i64, region), baseline)
         view.points.each_with_index do |point, index|
           left, right = view.bin_edges(index)
           y = y_for(point[1], layout, range)
-          path.line_to(layout.x_for(left, view.region), y)
-          path.line_to(layout.x_for(right, view.region), y)
+          path.line_to(layout.x_for(left, region), y)
+          path.line_to(layout.x_for(right, region), y)
         end
-        path.line_to(layout.left + layout.width, baseline)
+        path.line_to(layout.x_for(view.region.end0_exclusive.to_i64, region), baseline)
         path.close_figure
       end
       ctx.stroke_path(brush(red, green, blue, alpha), thickness: 1.5) do |path|
-        path.new_figure(layout.left, y_for(view.points.first[1], layout, range))
+        path.new_figure(layout.x_for(view.region.start0.to_i64, region), y_for(view.points.first[1], layout, range))
         view.points.each_with_index do |point, index|
           left, right = view.bin_edges(index)
           y = y_for(point[1], layout, range)
-          path.line_to(layout.x_for(left, view.region), y)
-          path.line_to(layout.x_for(right, view.region), y)
+          path.line_to(layout.x_for(left, region), y)
+          path.line_to(layout.x_for(right, region), y)
         end
+      end
+    end
+
+    private def draw_unread(ctx, loaded, region, layout)
+      # Mark only the uncovered part, rather than drawing fabricated zero bins.
+      left = layout.x_for(loaded.start0.to_i64, region).clamp(layout.left, layout.left + layout.width)
+      right = layout.x_for(loaded.end0_exclusive.to_i64, region).clamp(layout.left, layout.left + layout.width)
+      ctx.fill_path(brush(0.88, 0.89, 0.90)) do |path|
+        path.add_rectangle(layout.left, layout.top, left - layout.left, layout.height)
+        path.add_rectangle(right, layout.top, layout.left + layout.width - right, layout.height)
       end
     end
 

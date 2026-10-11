@@ -40,6 +40,10 @@ module D4Plot
     @region_entry = UIng::Entry.new
     @go = UIng::Button.new("Go")
     @tools = Toolbar.new
+    @details = UIng::Box.new(:vertical)
+    @details_toggle = UIng::Button.new("Show details")
+    @details_visible = false
+    @progress = UIng::ProgressBar.new
     @annotation_label = UIng::Label.new("No annotations — use GFF3, GTF or BED from the same assembly.")
     @remove_annotation = UIng::Button.new("Remove")
     @status = UIng::Label.new("Open a D4 file to begin. Coordinates are 1-based, inclusive.")
@@ -108,6 +112,7 @@ module D4Plot
       files.append(@file_label, true)
       files.append(UIng::Label.new("Track"), false)
       files.append(@track_combo, false)
+      files.append(@details_toggle, false)
       root.append(files, false)
 
       location = row
@@ -121,16 +126,30 @@ module D4Plot
       annotations = row
       annotations.append(@annotation_label, true)
       annotations.append(@remove_annotation, false)
-      root.append(annotations, false)
+      @details.padded = true
+      @details.append(annotations, false)
+      @details.append(UIng::Label.new("Drag: pan   |   Shift+drag: select range   |   Double-click: zoom   |   Plot keys: ← → + − Home   |   Esc: cancel"), false)
+      @details.append(UIng::Label.new("Coordinates: 1-based, inclusive. Bins show means; zoom in to resolve narrow peaks."), false)
+      root.append(@details, false)
+      @details.hide
       root.append(@area, true)
       root.append(@inspection, false)
-      root.append(@status, false)
-      root.append(UIng::Label.new("Drag: pan   |   Shift+drag: select range   |   Double-click: zoom   |   Plot keys: ← → + − Home   |   Esc: cancel"), false)
+      status = row
+      status.append(@status, true)
+      status.append(@progress, false)
+      root.append(status, false)
+      @progress.value = -1
+      @progress.hide
       @window.toolbar = @tools.native
       @window.child = root
     end
 
     private def setup_handlers
+      @details_toggle.on_clicked do
+        @details_visible = !@details_visible
+        @details_visible ? @details.show : @details.hide
+        @details_toggle.text = @details_visible ? "Hide details" : "Show details"
+      end
       @tools.open.on_clicked { open_file_dialog }
       @tools.annotations.on_clicked { open_annotation_dialog }
       @tools.settings.on_clicked { open_settings }
@@ -160,7 +179,7 @@ module D4Plot
           @area.queue_redraw_all
         end
       end
-      @handler.drag_broken { clear_drag }
+      @handler.drag_broken { clear_drag; @area.queue_redraw_all }
       @handler.key_event { |_, event| key_event(event) }
     end
 
@@ -356,6 +375,9 @@ module D4Plot
       if path = @window.open_file
         @annotation_path = path
         @annotation_label.text = "#{File.basename(path)} | chromosome names must match; verify the reference assembly."
+        @details_visible = true
+        @details.show
+        @details_toggle.text = "Hide details"
         refresh
       end
     end
@@ -402,6 +424,7 @@ module D4Plot
     end
 
     private def update_controls
+      @loading ? @progress.show : @progress.hide
       ready = !@path.nil? && !@chromosomes.empty?
       ready ? @go.enable : @go.disable
       [@tools.annotations, @tools.left, @tools.right, @tools.zoom_in, @tools.zoom_out, @tools.whole].each do |control|
@@ -427,7 +450,7 @@ module D4Plot
       layout = @renderer.geometry(event.area_width, event.area_height, @annotation)
       fraction = layout.fraction(event.x)
       inside = layout.contains?(event.x, event.y)
-      if inside
+      if inside && @drag.nil?
         index = view.bin_at(fraction)
         @inspection.text = view.inspect_bin(index)
         @renderer.hover_index = index
@@ -441,7 +464,14 @@ module D4Plot
       elsif event.up == 3 && inside
         zoom(0.5, fraction)
       elsif drag = @drag
-        @renderer.selection = {drag[0], fraction} if drag[2]
+        if drag[2]
+          @renderer.selection = {drag[0], fraction}
+          @inspection.text = "Release to zoom into the selected range. Esc to cancel."
+        else
+          preview = drag[1].pan(drag[0] - fraction, @chromosomes[drag[1].chromosome])
+          @renderer.preview_region = preview
+          @inspection.text = "Preview: #{preview}. Release to load; shaded areas have not been read. Esc to cancel."
+        end
       end
       @area.queue_redraw_all
     end
@@ -472,23 +502,29 @@ module D4Plot
         end0 = region.start0.to_i64 + (right * region.length).ceil.to_i64
         request_view(Region.bounded(region.chromosome, start0, end0 - start0, @chromosomes[region.chromosome]))
       else
-        left = region.start0.to_i64 + ((start - fraction) * region.length).round.to_i64
-        request_view(Region.bounded(region.chromosome, left, region.length.to_i64, @chromosomes[region.chromosome]))
+        request_view(region.pan(start - fraction, @chromosomes[region.chromosome]))
       end
     end
 
     private def clear_drag
       @drag = nil
       @renderer.selection = nil
+      @renderer.preview_region = nil
+      @renderer.hover_index = nil
+      if view = @view
+        @inspection.text = "#{view.resolution}. Hover to inspect; zoom in to resolve peaks within a bin."
+      end
     end
 
     private def key_event(event) : Bool
       return false if event.up?
       case event.ext_key
-      when UIng::Area::ExtKey::Left   then move(-0.5)
-      when UIng::Area::ExtKey::Right  then move(0.5)
-      when UIng::Area::ExtKey::Home   then whole_chromosome
-      when UIng::Area::ExtKey::Escape then cancel_loading
+      when UIng::Area::ExtKey::Left  then move(-0.5)
+      when UIng::Area::ExtKey::Right then move(0.5)
+      when UIng::Area::ExtKey::Home  then whole_chromosome
+      when UIng::Area::ExtKey::Escape
+        @drag ? clear_drag : cancel_loading
+        @area.queue_redraw_all
       else
         case event.key
         when '+', '='   then zoom(2.0)

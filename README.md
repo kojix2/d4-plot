@@ -41,6 +41,9 @@ Choose a track and chromosome, enter a region, then click **Go**. Region input a
 | Inspect values | Hover for the exact bin interval and mean |
 | Keyboard navigation | Focus the plot, then use Left / Right, + / −, Home, or Esc |
 | Resolution, Y scale and reference lines | Display |
+| Toolbar and guidance | Icons only by default; **Show details** toggles annotation and navigation hints |
+
+Dragging previews the new region; release to load it. Press **Esc** to cancel a drag or an active read.
 
 The graph shows **bin means**, with the D4 denominator applied. Bin widths are shown in bp; narrow peaks can be hidden by averaging, so zoom in to inspect them. The region mean is weighted by bin width. Automatic Y scaling includes negative values; a fixed Y scale helps compare different regions. D4 signal is not assumed to be read depth or normalized between samples.
 

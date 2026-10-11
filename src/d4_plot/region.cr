@@ -58,5 +58,11 @@ module D4Plot
     def length
       end0_exclusive - start0
     end
+
+    # One calculation for both the drag preview and the committed request.
+    def pan(fraction : Float64, chromosome_size : UInt32) : Region
+      delta = (fraction * length).round.to_i64
+      Region.bounded(chromosome, start0.to_i64 + delta, length.to_i64, chromosome_size)
+    end
   end
 end
