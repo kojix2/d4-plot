@@ -1,0 +1,10 @@
+version: 2.0
+shards:
+  d4:
+    git: https://github.com/kojix2/d4.cr.git
+    version: 0.1.0+git.commit.a5f7bc5ce261890a68ccd62b370dfbd0d6161d6b
+
+  uing:
+    git: https://github.com/kojix2/uing.git
+    version: 0.5.1+git.commit.a92f3b7117662b618d734bce937d62c3e7dc47e7
+
