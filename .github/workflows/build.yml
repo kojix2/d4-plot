@@ -33,7 +33,7 @@ jobs:
         if: matrix.os == 'windows'
         uses: microsoft/setup-msbuild@v3
 
-        - name: Setup Windows SDK
+      - name: Setup Windows SDK
         if: matrix.os == 'windows'
         uses: fbactions/setup-windows-sdk@v1
         with:
