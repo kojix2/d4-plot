@@ -2,5 +2,6 @@
 /lib/
 /bin/
 /build/
+/dist/
 /.shards/
 *.dwarf

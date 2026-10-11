@@ -1,0 +1,102 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - run: shards update
+      - name: Build static Windows executable
+        run: shards build --release --no-debug --static --link-flags=/SUBSYSTEM:WINDOWS
+      - name: Package Windows ZIP
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $archive = "dist/d4-plot-$($env:GITHUB_REF_NAME)-windows-x64.zip"
+          Compress-Archive -Path bin/d4-plot.exe,README.md,LICENSE -DestinationPath $archive
+      - name: Build Windows installer
+        run: |
+          $iscc = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) |
+            ForEach-Object { Get-Item -Path (Join-Path $_ 'Inno Setup *\ISCC.exe') -ErrorAction SilentlyContinue } |
+            Sort-Object -Property FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          & $iscc "-dAppVersion=$version" scripts/package-windows.iss
+      - uses: actions/upload-artifact@v7
+        with:
+          name: d4-plot-windows-x64
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+
+  macos:
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+      - run: brew install dylibbundler
+      - run: shards update
+      - run: shards build --release --no-debug
+      - name: Package app bundle
+        run: bash scripts/package-macos.sh "$GITHUB_REF_NAME" "${{ matrix.arch }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: d4-plot-macos-${{ matrix.arch }}
+          path: dist/*.zip
+
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+      - name: Install GUI and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev dpkg-dev
+      - run: shards update
+      - run: shards build --release --no-debug
+      - name: Package Debian archive
+        run: bash scripts/package-deb.sh "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: d4-plot-ubuntu-amd64
+          path: dist/*.deb
+
+  publish:
+    needs: [windows, macos, ubuntu]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: d4-plot-*
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: release-assets/*
