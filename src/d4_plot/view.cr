@@ -16,9 +16,13 @@ module D4Plot
   class SampledView
     getter region : Region
     getter points : Array(PlotPoint)
+    getter minimum : Float64, maximum : Float64, mean : Float64
 
     def initialize(@region : Region, @points : Array(PlotPoint))
       raise ArgumentError.new("No samples returned") if points.empty?
+      @minimum = points.min_of(&.[1])
+      @maximum = points.max_of(&.[1])
+      @mean = weighted_mean
     end
 
     def bin_edges(index : Int32) : Tuple(Int64, Int64)
@@ -36,7 +40,7 @@ module D4Plot
       (offset < boundary ? offset // (base + 1) : extra + (offset - boundary) // base).to_i
     end
 
-    def mean : Float64
+    private def weighted_mean : Float64
       total = 0.0
       @points.each_with_index do |point, index|
         left, right = bin_edges(index)

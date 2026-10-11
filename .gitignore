@@ -3,5 +3,6 @@
 /bin/
 /build/
 /dist/
+/demo/
 /.shards/
 *.dwarf

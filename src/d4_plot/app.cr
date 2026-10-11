@@ -17,14 +17,21 @@ module D4Plot
     @settings_window : SettingsWindow?
     @loader = ViewLoader.new
     @history = ViewHistory.new
-    @path : String?
-    @track_name = ""
-    @tracks = {} of String => Hash(String, UInt32)
-    @denominators = {} of String => Float64
-    @track_names = [] of String
+    @layers = [] of TrackLayer
+    @selected = 0
+    @completed_region : Region?
     @chromosomes = {} of String => UInt32
     @chromosome_names = [] of String
-    @view : SampledView?
+    @canvas_width = 1056
+    @row_height = 220.0
+    @add = UIng::Button.new("Add D4…")
+    @remove = UIng::Button.new("Remove")
+    @up = UIng::Button.new("Up")
+    @down = UIng::Button.new("Down")
+    @show = UIng::Checkbox.new("Show")
+    @shared_y = UIng::Checkbox.new("Shared Y")
+    @height = UIng::Combobox.new
+    @source_entry = UIng::Entry.new(read_only: true)
     @annotation : AnnotationTrack?
     @annotation_path : String?
     @request_id = 0
@@ -52,7 +59,7 @@ module D4Plot
     def self.create_menu_bar
       file = UIng::Menu.new("File")
       open = file.append_item("Open D4…")
-      export = file.append_item("Export displayed bins…")
+      export = file.append_item("Export selected track bins…")
       settings = file.append_preferences_item
       file.append_quit_item
       help = UIng::Menu.new("Help")
@@ -63,9 +70,10 @@ module D4Plot
 
     def initialize(menu_items)
       @window = UIng::Window.new(PROGRAM_NAME, 1120, 780, menubar: true, margined: true)
-      @area = UIng::Area.new(@handler)
+      @area = UIng::Area.new(@handler, @canvas_width, 400)
       setup_ui
       setup_handlers
+      @window.on_content_size_changed { |_, _| resize_canvas }
       menu_items[:open].on_clicked { open_file_dialog }
       menu_items[:export].on_clicked { export_view }
       menu_items[:settings].on_clicked { open_settings }
@@ -84,9 +92,14 @@ module D4Plot
       update_controls
     end
 
-    def run(path : String? = nil, region : String? = nil)
+    def run(paths : Array(String) = [] of String, region : String? = nil)
       @window.show
-      load_d4_file(path, region) if path
+      resize_canvas
+      paths.each_with_index { |path, index| load_d4_file(path, append: index > 0) }
+      if region && !@layers.empty?
+        @region_entry.text = region
+        go_to_entry
+      end
       # Advance both event loops: tabix pipe readers and child-process
       # notifications need Crystal's scheduler as well as the native UI loop.
       UIng.main_steps
@@ -109,9 +122,13 @@ module D4Plot
       root = UIng::Box.new(:vertical)
       root.padded = true
       files = row
-      files.append(@file_label, true)
-      files.append(UIng::Label.new("Track"), false)
-      files.append(@track_combo, false)
+      files.append(@file_label, false)
+      files.append(@track_combo, true)
+      files.append(@show, false)
+      files.append(@up, false)
+      files.append(@down, false)
+      files.append(@remove, false)
+      files.append(@add, false)
       files.append(@details_toggle, false)
       root.append(files, false)
 
@@ -121,12 +138,18 @@ module D4Plot
       location.append(UIng::Label.new("Region (1-based)"), false)
       location.append(@region_entry, true)
       location.append(@go, false)
+      location.append(@shared_y, false)
+      location.append(UIng::Label.new("Height"), false)
+      ["Compact", "Normal", "Large"].each { |name| @height.append(name) }
+      @height.selected = 1
+      location.append(@height, false)
       root.append(location, false)
 
       annotations = row
       annotations.append(@annotation_label, true)
       annotations.append(@remove_annotation, false)
       @details.padded = true
+      @details.append(@source_entry, false)
       @details.append(annotations, false)
       @details.append(UIng::Label.new("Drag: pan   |   Shift+drag: select range   |   Double-click: zoom   |   Plot keys: ← → + − Home   |   Esc: cancel"), false)
       @details.append(UIng::Label.new("Coordinates: 1-based, inclusive. Bins show means; zoom in to resolve narrow peaks."), false)
@@ -155,7 +178,27 @@ module D4Plot
       @tools.settings.on_clicked { open_settings }
       @go.on_clicked { go_to_entry }
       @chromosome_combo.on_selected { |index| select_chromosome(index) unless @updating }
-      @track_combo.on_selected { |index| select_track(index) unless @updating }
+      @track_combo.on_selected { |index| select_layer(index) unless @updating }
+      @add.on_clicked { open_file_dialog(true) }
+      @remove.on_clicked { remove_layer }
+      @up.on_clicked { reorder_layer(-1) }
+      @down.on_clicked { reorder_layer(1) }
+      @show.on_toggled do
+        unless @updating
+          if layer = selected_layer
+            layer.visible = @show.checked?
+            clear_drag
+            resize_canvas
+            refresh
+          end
+        end
+      end
+      @shared_y.on_toggled { @area.queue_redraw_all }
+      @height.on_selected do |index|
+        @row_height = {160.0, 220.0, 300.0}[index]
+        clear_drag
+        resize_canvas
+      end
       @tools.zoom_in.on_clicked { zoom(2.0) }
       @tools.zoom_out.on_clicked { zoom(0.5) }
       @tools.left.on_clicked { move(-0.5) }
@@ -171,7 +214,10 @@ module D4Plot
         @annotation_label.text = "No annotations — use GFF3, GTF or BED from the same assembly."
         refresh
       end
-      @handler.draw { |_, params| @renderer.draw(params, @view, @settings, @chromosomes, @annotation, @loading) }
+      @handler.draw do |_, params|
+        @renderer.draw(params, visible_layers, @completed_region, @settings, @chromosomes, @annotation, @loading,
+          stack_geometry, @shared_y.checked?, selected_layer.try(&.source.key))
+      end
       @handler.mouse_event { |_, event| mouse_event(event) }
       @handler.mouse_crossed do |_, left|
         if left
@@ -183,63 +229,78 @@ module D4Plot
       @handler.key_event { |_, event| key_event(event) }
     end
 
-    private def open_file_dialog
+    private def selected_layer : TrackLayer?
+      @layers[@selected]?
+    end
+
+    private def visible_layers
+      @layers.select(&.visible?)
+    end
+
+    private def stack_geometry
+      StackGeometry.new(@canvas_width.to_f64, @row_height, visible_layers.size)
+    end
+
+    private def resize_canvas
+      @canvas_width = Math.max(@window.content_size[0] - 64, 240)
+      @area.set_size(@canvas_width, stack_geometry.height(AnnotationRenderer.height_for(@annotation)))
+      @area.queue_redraw_all
+    end
+
+    private def open_file_dialog(append : Bool = false)
       if path = @window.open_file
-        load_d4_file(path)
+        load_d4_file(path, append: append)
       end
     end
 
-    private def load_d4_file(path : String, region_text : String? = nil)
-      tracks = {} of String => Hash(String, UInt32)
-      denominators = {} of String => Float64
-      D4.open(path) do |file|
-        file.each_track do |track|
-          tracks[track.name] = track.chromosomes.reject { |chromosome| chromosome.size == 0 }.to_h { |chromosome| {chromosome.name, chromosome.size.to_u32} }
-          denominators[track.name] = track.metadata.denominator
-        end
+    private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false)
+      sources = TrackSource.load(path)
+      candidates = append ? @layers.dup : [] of TrackLayer
+      sources.each do |source|
+        candidates << TrackLayer.new(source) unless candidates.any? { |layer| layer.source.key == source.key }
       end
-      raise "This D4 file has no non-empty chromosomes." if tracks.values.all?(&.empty?)
+      # Validate the complete candidate set before replacing the workspace.
+      TrackSource.chromosomes(candidates.map(&.source))
       cancel_loading
-      @path = path
-      @view = nil
-      @tracks = tracks
-      @denominators = denominators
-      @track_names = tracks.keys
-      @file_label.text = File.basename(path)
-      @window.title = "#{PROGRAM_NAME} — #{File.basename(path)}"
-      @annotation = nil
-      @annotation_path = nil
-      @annotation_label.text = "Assembly not recorded in D4 — choose annotations from the matching assembly."
-      @updating = true
-      @track_combo.clear
-      @track_names.each { |name| @track_combo.append(name.empty? ? "Default" : name) }
-      index = @track_names.index { |name| !tracks[name].empty? } || 0
-      @track_combo.selected = index
-      @updating = false
-      select_track(index, region_text)
+      @layers = candidates
+      unless append
+        @completed_region = nil
+        @annotation = nil
+        @annotation_path = nil
+        @annotation_label.text = "Assembly is not verified — use matching annotations and D4 files."
+        @selected = 0
+        @area.scroll_to(0, 0, 1, 1)
+      end
+      rebuild_layers(region_text)
     rescue ex
       @updating = false
       show_error("Could not open D4 file", ex)
     end
 
-    private def select_track(index : Int32, region_text : String? = nil)
-      return unless name = @track_names[index]?
+    private def rebuild_layers(region_text : String? = nil)
       previous = active_region
-      cancel_loading
-      @track_name = name
-      @chromosomes = @tracks[name]
+      @chromosomes = TrackSource.chromosomes(@layers.map(&.source))
       @chromosome_names = @chromosomes.keys
-      @view = nil
-      @annotation = nil
       @history.clear
+      @selected = @selected.clamp(0, Math.max(@layers.size - 1, 0))
       @updating = true
+      @track_combo.clear
+      @layers.each_with_index { |layer, i| @track_combo.append("#{i + 1}. #{layer.source.label}") }
+      @track_combo.selected = @layers.empty? ? nil : @selected
       @chromosome_combo.clear
-      @chromosome_names.each { |chromosome| @chromosome_combo.append(chromosome) }
-      @chromosome_combo.selected = @chromosome_names.empty? ? nil : 0
+      @chromosome_names.each { |name| @chromosome_combo.append(name) }
       @updating = false
-      @area.queue_redraw_all
-      if @chromosome_names.empty?
-        @status.text = "This track has no non-empty chromosomes. Select another track."
+      @file_label.text = "Tracks (#{@layers.size})"
+      @window.title = "#{PROGRAM_NAME} — #{@layers.size} tracks"
+      select_layer(@selected, false)
+      if @layers.empty?
+        @completed_region = nil
+        @annotation = nil
+        @annotation_path = nil
+        @annotation_label.text = "No annotations — use GFF3, GTF or BED from the same assembly."
+        @region_entry.text = ""
+        @source_entry.text = ""
+        @status.text = "Open or add a D4 file to begin."
         update_controls
       elsif region_text
         @region_entry.text = region_text
@@ -247,8 +308,45 @@ module D4Plot
       elsif previous && @chromosomes[previous.chromosome]?.try { |size| previous.end1 <= size }
         request_view(previous)
       else
+        @completed_region = nil
         select_chromosome(0)
       end
+      resize_canvas
+    end
+
+    private def select_layer(index : Int32, scroll : Bool = true)
+      return unless layer = @layers[index]?
+      @selected = index
+      @updating = true
+      @track_combo.selected = index
+      @show.checked = layer.visible?
+      @source_entry.text = "#{layer.source.path} | track: #{layer.source.name.empty? ? "Default" : layer.source.name} | D4 denominator: #{layer.source.denominator}"
+      @updating = false
+      if scroll && (visible_index = visible_layers.index(layer))
+        @area.scroll_to(0, stack_geometry.row_top(visible_index), 1, @row_height)
+      end
+      update_controls
+      @area.queue_redraw_all
+    end
+
+    private def remove_layer
+      return unless selected_layer
+      cancel_loading
+      @layers.delete_at(@selected)
+      rebuild_layers
+    end
+
+    private def reorder_layer(delta : Int32)
+      target = @selected + delta
+      return unless 0 <= target < @layers.size
+      # Ordering does not affect data identity or require a new read.
+      @layers.swap(@selected, target)
+      @selected = target
+      @updating = true
+      @track_combo.clear
+      @layers.each_with_index { |layer, i| @track_combo.append("#{i + 1}. #{layer.source.label}") }
+      @updating = false
+      select_layer(target)
     end
 
     private def select_chromosome(index : Int32)
@@ -263,7 +361,7 @@ module D4Plot
     end
 
     private def request_view(region : Region, history_move : Int32 = 0)
-      return unless path = @path
+      return if @layers.empty?
       region.validate!(@chromosomes)
       rollback_history
       @history_move = history_move
@@ -277,7 +375,7 @@ module D4Plot
       @loading = true
       @status.text = "Loading #{region}…"
       @inspection.text = "Loading requested region; the plot retains the previous completed view."
-      @request_id = @loader.submit(path, @track_name, region, @settings.point_count, @settings.use_sum_index?, @annotation_path, @settings.annotation_feature_limit)
+      @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @annotation_path, @settings.annotation_feature_limit)
       update_controls
       @area.queue_redraw_all
     end
@@ -291,23 +389,30 @@ module D4Plot
         rollback_history
         @status.text = "Read failed: #{error}"
         restore_location
-      elsif view = result.view
-        @view = view
+      else
+        # Publish the whole generation together. A failed/missing track has an
+        # explicit empty row; old-coordinate samples never survive a commit.
+        samples = result.layers.to_h { |sample| {sample.source.key, sample} }
+        @layers.each do |layer|
+          sample = samples[layer.source.key]?
+          layer.view = sample.try(&.view)
+          layer.error = sample.try(&.error)
+        end
+        @completed_region = result.request.region
         @annotation = result.annotation_track
-        @history.record(view.region) if @history_move == 0
+        @history.record(result.request.region) if @history_move == 0
         @history_move = 0
-        @region_entry.text = view.region.to_s
-        denominator = @denominators[@track_name]
-        scaling = denominator == 1 ? "" : " | D4 scale: ÷#{DisplayFormat.value(denominator)}"
-        @status.text = "#{DisplayFormat.position(view.region.length)} bp | #{view.points.size} bins | Region mean: #{DisplayFormat.value(view.mean)} | #{result.elapsed_ms.round(1)} ms#{scaling}"
-        @inspection.text = "#{view.resolution}. Hover to inspect; zoom in to resolve peaks within a bin."
+        @region_entry.text = result.request.region.to_s
+        failed = result.layers.count { |sample| !sample.error.nil? }
+        @status.text = "#{DisplayFormat.position(result.request.region.length)} bp | #{result.layers.size} visible tracks | #{failed} unavailable | #{result.elapsed_ms.round(1)} ms"
+        @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
       end
       update_controls
-      @area.queue_redraw_all
+      resize_canvas
     end
 
     private def active_region : Region?
-      @requested_region || @view.try(&.region)
+      @requested_region || @completed_region
     end
 
     private def zoom(factor : Float64, fraction : Float64 = 0.5)
@@ -350,6 +455,7 @@ module D4Plot
     end
 
     private def cancel_loading
+      clear_drag
       @loader.cancel
       @loading = false
       @requested_region = nil
@@ -361,17 +467,17 @@ module D4Plot
     end
 
     private def restore_location
-      if view = @view
-        @region_entry.text = view.region.to_s
-        @inspection.text = "#{view.resolution}. Hover to inspect a bin."
+      if region = @completed_region
+        @region_entry.text = region.to_s
+        @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
         @updating = true
-        @chromosome_combo.selected = @chromosome_names.index(view.region.chromosome)
+        @chromosome_combo.selected = @chromosome_names.index(region.chromosome)
         @updating = false
       end
     end
 
     private def open_annotation_dialog
-      return unless @path
+      return if @layers.empty?
       if path = @window.open_file
         @annotation_path = path
         @annotation_label.text = "#{File.basename(path)} | chromosome names must match; verify the reference assembly."
@@ -405,16 +511,17 @@ module D4Plot
     end
 
     private def export_view
-      return unless view = @view
-      return if @loading
+      return unless layer = selected_layer
+      return unless view = layer.view
+      return if @loading || !layer.visible? || view.region != @completed_region
       if path = @window.save_file
-        [@path, @annotation_path].compact.each do |source|
+        (@layers.map(&.source.path) + [@annotation_path].compact).each do |source|
           if File.expand_path(path) == File.expand_path(source) || (File.exists?(path) && File.same?(path, source))
             raise "Choose a different path from the input D4 or annotation file."
           end
         end
         File.open(path, "w") do |io|
-          io << "# Source: " << (@path || "").gsub(/[\r\n]/, " ") << "; track: " << @track_name.gsub(/[\r\n]/, " ") << '\n'
+          io << "# Source: " << layer.source.path.gsub(/[\r\n]/, " ") << "; track: " << layer.source.name.gsub(/[\r\n]/, " ") << '\n'
           view.write_bedgraph(io)
         end
         @status.text = "Exported #{view.points.size} bin means to #{File.basename(path)} (bedGraph, 0-based half-open)."
@@ -425,18 +532,33 @@ module D4Plot
 
     private def update_controls
       @loading ? @progress.show : @progress.hide
-      ready = !@path.nil? && !@chromosomes.empty?
-      ready ? @go.enable : @go.disable
+      update_region_controls
+      update_layer_controls
+      update_history_controls
+      @annotation_path ? @remove_annotation.enable : @remove_annotation.disable
+    end
+
+    private def update_region_controls
+      ready = !@layers.empty? && !@chromosomes.empty?
+      [@go, @chromosome_combo, @region_entry].each do |control|
+        ready ? control.enable : control.disable
+      end
       [@tools.annotations, @tools.left, @tools.right, @tools.zoom_in, @tools.zoom_out, @tools.whole].each do |control|
         ready ? control.enable : control.disable
       end
-      ready ? @chromosome_combo.enable : @chromosome_combo.disable
-      ready ? @region_entry.enable : @region_entry.disable
-      @track_names.size > 1 ? @track_combo.enable : @track_combo.disable
       @loading ? @tools.cancel.enable : @tools.cancel.disable
-      @view && !@loading ? @tools.export.enable : @tools.export.disable
-      update_history_controls
-      @annotation_path ? @remove_annotation.enable : @remove_annotation.disable
+    end
+
+    private def update_layer_controls
+      @layers.size > 1 ? @track_combo.enable : @track_combo.disable
+      [@remove, @show].each do |control|
+        @layers.empty? ? control.disable : control.enable
+      end
+      @selected > 0 ? @up.enable : @up.disable
+      @selected < @layers.size - 1 ? @down.enable : @down.disable
+      layer = selected_layer
+      exportable = layer && layer.visible? && layer.view.try(&.region) == @completed_region && !layer.view.nil? && !@loading
+      exportable ? @tools.export.enable : @tools.export.disable
     end
 
     private def update_history_controls
@@ -445,35 +567,63 @@ module D4Plot
     end
 
     private def mouse_event(event)
-      return unless view = @view
+      return unless region = @completed_region
       return if @loading
-      layout = @renderer.geometry(event.area_width, event.area_height, @annotation)
+      stack = stack_geometry
+      layers = visible_layers
+      index = stack.index_at(event.y)
+      layer = index ? layers[index]? : nil
+      layout = stack.plot(index || 0)
       fraction = layout.fraction(event.x)
-      inside = layout.contains?(event.x, event.y)
-      if inside && @drag.nil?
-        index = view.bin_at(fraction)
-        @inspection.text = view.inspect_bin(index)
-        @renderer.hover_index = index
-      else
-        @renderer.hover_index = nil
-      end
+      inside = !layer.nil? && layout.contains?(event.x, event.y)
+      inspect_mouse(layer, region, fraction, inside)
       if event.down == 1
-        start_mouse_action(event, view.region, layout, fraction, inside)
+        handle_mouse_down(event, layer, index, stack, region, layout, fraction, inside)
       elsif event.up == 1
         finish_drag(fraction, layout)
       elsif event.up == 3 && inside
         zoom(0.5, fraction)
       elsif drag = @drag
-        if drag[2]
-          @renderer.selection = {drag[0], fraction}
-          @inspection.text = "Release to zoom into the selected range. Esc to cancel."
-        else
-          preview = drag[1].pan(drag[0] - fraction, @chromosomes[drag[1].chromosome])
-          @renderer.preview_region = preview
-          @inspection.text = "Preview: #{preview}. Release to load; shaded areas have not been read. Esc to cancel."
-        end
+        preview_drag(drag, fraction)
       end
       @area.queue_redraw_all
+    end
+
+    private def inspect_mouse(layer : TrackLayer?, region : Region, fraction : Float64, inside : Bool)
+      @renderer.hover_index = nil
+      @renderer.hover_layer = nil
+      return unless inside && @drag.nil?
+      return unless layer
+      return unless view = layer.view
+      return unless view.region == region
+      bin = view.bin_at(fraction)
+      @inspection.text = "#{layer.source.label} | #{view.inspect_bin(bin)}"
+      @renderer.hover_index = bin
+      @renderer.hover_layer = layer.source.key
+    end
+
+    private def handle_mouse_down(event, layer : TrackLayer?, index : Int32?, stack : StackGeometry,
+                                  region : Region, layout : PlotGeometry, fraction : Float64, inside : Bool)
+      if layer && index
+        if layer_index = @layers.index(layer)
+          # A title click selects a track without changing the genomic region.
+          title_clicked = event.y < stack.row_top(index) + 28
+          select_layer(layer_index, false) if title_clicked || inside
+          return if title_clicked
+        end
+      end
+      start_mouse_action(event, region, layout, fraction, inside)
+    end
+
+    private def preview_drag(drag : Tuple(Float64, Region, Bool), fraction : Float64)
+      if drag[2]
+        @renderer.selection = {drag[0], fraction}
+        @inspection.text = "Release to select this range in all tracks. Esc to cancel."
+      else
+        preview = drag[1].pan(drag[0] - fraction, @chromosomes[drag[1].chromosome])
+        @renderer.preview_region = preview
+        @inspection.text = "Preview: #{preview}. Gray areas are unread. Release to load all tracks; Esc to cancel."
+      end
     end
 
     private def start_mouse_action(event, region, layout, fraction, inside)
@@ -511,9 +661,8 @@ module D4Plot
       @renderer.selection = nil
       @renderer.preview_region = nil
       @renderer.hover_index = nil
-      if view = @view
-        @inspection.text = "#{view.resolution}. Hover to inspect; zoom in to resolve peaks within a bin."
-      end
+      @renderer.hover_layer = nil
+      @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
     end
 
     private def key_event(event) : Bool
@@ -537,7 +686,7 @@ module D4Plot
     end
 
     private def show_help
-      @window.msg_box("Using D4 Plot", "Open a D4 file and select its track and chromosome.\nEnter chr:start-end, chr:position, or a chromosome name, then click Go. Commas in coordinates are accepted.\n\nCoordinates in the viewer are 1-based and inclusive. The signal shows the mean in each bin, with the D4 denominator applied. Zoom in to resolve narrow peaks; a flat bin can contain variation.\n\nDrag to pan; Shift+drag to select a range; double-click to zoom in; right-click to zoom out. Click the chromosome overview to jump. Back and Forward restore visited regions. Keyboard navigation works when the plot has focus.\n\nDisplay settings control resolution and Y scale. Use a fixed Y scale when comparing regions. D4 does not identify the reference assembly here: annotations must use the same assembly and exact chromosome names.\n\nExport bins writes the displayed means as bedGraph (0-based, half-open), not the original per-base signal.")
+      @window.msg_box("Using D4 Plot", "Open a D4 file to show all its tracks. Add D4 appends another file. Select a track using its title or the list; Show, Up, Down and Remove manage it. Shared Y compares visible tracks on one scale. All files must use the same reference assembly.\nEnter chr:start-end, chr:position, or a chromosome name, then click Go. Commas in coordinates are accepted.\n\nCoordinates in the viewer are 1-based and inclusive. The signal shows the mean in each bin, with the D4 denominator applied. Zoom in to resolve narrow peaks; a flat bin can contain variation.\n\nDrag to pan; Shift+drag to select a range; double-click to zoom in; right-click to zoom out. Click the chromosome overview to jump. Back and Forward restore visited regions. Keyboard navigation works when the plot has focus.\n\nDisplay settings control resolution, color and fixed Y scale for all tracks. Height controls the track rows. The native scrollbar moves vertically. Use a fixed Y scale when comparing regions. D4 does not identify the reference assembly here: annotations must use the same assembly and exact chromosome names.\n\nExport bins writes the selected visible track’s means as bedGraph (0-based, half-open), not the original per-base signal.")
     end
 
     private def show_error(title, error)

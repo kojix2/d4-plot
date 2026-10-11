@@ -1,11 +1,11 @@
-require "./view"
+require "./track_layer"
 require "./annotation"
 
 module D4Plot
-  record ViewRequest, id : Int32, path : String, track : String, region : Region,
+  record ViewRequest, id : Int32, sources : Array(TrackSource), region : Region,
     bins : Int32, use_index : Bool, annotation_path : String?, annotation_limit : Int32
 
-  record ViewResult, request : ViewRequest, view : SampledView?, annotation_track : AnnotationTrack?,
+  record ViewResult, request : ViewRequest, layers : Array(LayerSample), annotation_track : AnnotationTrack?,
     elapsed_ms : Float64, error : String?
 
   # One worker owns its file handles. Only the latest pending request/result is
@@ -28,11 +28,11 @@ module D4Plot
       @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-reader") { work }
     end
 
-    def submit(path, track, region, bins, use_index, annotation_path, annotation_limit) : Int32
+    def submit(sources : Array(TrackSource), region, bins, use_index, annotation_path, annotation_limit) : Int32
       id = @generation.add(1) + 1
       @mutex.synchronize do
         raise "Viewer is closed" if @closed
-        @pending = ViewRequest.new(id, path, track, region, bins, use_index, annotation_path, annotation_limit)
+        @pending = ViewRequest.new(id, sources.dup, region, bins, use_index, annotation_path, annotation_limit)
         @wake.signal
       end
       id
@@ -72,23 +72,40 @@ module D4Plot
         next unless request.id == @generation.get
         started = Time.instant
         begin
-          current_file = file_for(request.path)
           cancelled = -> { request.id != @generation.get }
-          points = DataSampler.downsample(current_file.track(request.track), request.region, request.bins, request.use_index, cancelled)
+          layers = request.sources.map do |source|
+            raise SamplingCancelled.new if cancelled.call
+            sample(source, request, cancelled)
+          end
+          raise SamplingCancelled.new if cancelled.call
           track = annotation_for(request)
-          result = ViewResult.new(request, SampledView.new(request.region, points), track, (Time.instant - started).total_milliseconds, nil)
+          result = ViewResult.new(request, layers, track, (Time.instant - started).total_milliseconds, nil)
         rescue SamplingCancelled
           next
         rescue ex
-          result = ViewResult.new(request, nil, nil, (Time.instant - started).total_milliseconds, ex.message || ex.class.name)
+          result = ViewResult.new(request, [] of LayerSample, nil, (Time.instant - started).total_milliseconds, ex.message || ex.class.name)
         end
         next unless request.id == @generation.get
         @mutex.synchronize do
-          @result = result unless @closed
+          @result = result unless @closed || request.id != @generation.get
         end
       end
     ensure
       @file.try(&.close)
+    end
+
+    private def sample(source, request, cancelled) : LayerSample
+      unless source.chromosomes.has_key?(request.region.chromosome)
+        return LayerSample.new(source, nil, "No data for #{request.region.chromosome} in this track")
+      end
+      request.region.validate!(source.chromosomes)
+      current_file = file_for(source.path)
+      points = DataSampler.downsample(current_file.track(source.name), request.region, request.bins, request.use_index, cancelled)
+      LayerSample.new(source, SampledView.new(request.region, points), nil)
+    rescue ex : SamplingCancelled
+      raise ex
+    rescue ex
+      LayerSample.new(source, nil, "Read failed: #{ex.message || ex.class.name}")
     end
 
     private def next_request : ViewRequest?

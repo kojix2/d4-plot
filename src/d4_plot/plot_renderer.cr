@@ -2,10 +2,11 @@ require "uing"
 require "./annotation_renderer"
 require "./plot_settings"
 require "./plot_geometry"
-require "./view"
+require "./track_layer"
 
 module D4Plot
   class PlotRenderer
+    property hover_layer : Tuple(String, String)? = nil
     property hover_index : Int32? = nil
     property selection : Tuple(Float64, Float64)? = nil
     property preview_region : Region? = nil
@@ -14,44 +15,73 @@ module D4Plot
       @annotation_renderer = AnnotationRenderer.new
     end
 
-    def geometry(width, height, annotation_track : AnnotationTrack?) : PlotGeometry
-      PlotGeometry.new(width, height, AnnotationRenderer.height_for(annotation_track))
-    end
-
-    def draw(params, view : SampledView?, settings : PlotSettings, chromosomes : Hash(String, UInt32), annotation_track : AnnotationTrack?, loading : Bool)
+    def draw(params, layers : Array(TrackLayer), completed_region : Region?, settings : PlotSettings,
+             chromosomes : Hash(String, UInt32), annotation_track : AnnotationTrack?, loading : Bool,
+             stack : StackGeometry, shared_y : Bool, selected : Tuple(String, String)?)
       ctx = params.context
-      width, height = params.area_width, params.area_height
-      ctx.fill_path(brush(1.0, 1.0, 1.0)) { |path| path.add_rectangle(0, 0, width, height) }
-      unless view
-        title = loading ? "Loading signal…" : "Open a D4 file to explore genomic signal"
-        label(ctx, title, 20.0, height / 2 - 40, width - 40, :center, 17.0)
-        label(ctx, "Choose a chromosome, then enter a region or use the zoom controls.", 20.0, height / 2, width - 40, :center)
+      ctx.fill_path(brush(1.0, 1.0, 1.0)) do |path|
+        path.add_rectangle(params.clip_x, params.clip_y, params.clip_width, params.clip_height)
+      end
+      region = @preview_region || completed_region
+      unless region
+        label(ctx, loading ? "Loading tracks…" : "Open a D4 file to explore genomic signal", 20.0, 90.0, stack.width - 40, :center, 17.0)
         return
       end
-      layout = geometry(width, height, annotation_track)
-      region = @preview_region || view.region
-      label(ctx, "#{region.chromosome}:#{DisplayFormat.position(region.start1)}–#{DisplayFormat.position(region.end1)}  |  #{DisplayFormat.position(region.length)} bp", layout.left, 8.0, layout.width, :left, 13.0)
+      layout = stack.plot(0)
+      label(ctx, "#{region.chromosome}:#{DisplayFormat.position(region.start1)}–#{DisplayFormat.position(region.end1)} | #{DisplayFormat.position(region.length)} bp", layout.left, 8.0, layout.width, :left, 13.0)
       draw_overview(ctx, layout, region, chromosomes)
-      range = settings.y_range(view.points.min_of(&.[1]), view.points.max_of(&.[1]))
-      label(ctx, "Mean signal", layout.left, layout.top - 22, 160.0)
-      scale = settings.y_min ? "Fixed Y scale" : "Auto Y scale"
-      label(ctx, "#{view.resolution}  |  #{scale}", layout.left + 160, layout.top - 22, Math.max(layout.width - 160, 1.0), :right)
-      draw_grid(ctx, layout, range)
-      ctx.save
-      ctx.clip_path { |path| path.add_rectangle(layout.left, layout.top, layout.width, layout.height) }
-      draw_bins(ctx, view, region, layout, range, settings)
-      draw_unread(ctx, view.region, region, layout) if @preview_region
-      draw_reference_lines(ctx, layout, range, settings)
-      draw_inspection(ctx, view, layout)
-      ctx.restore
-      draw_ticks(ctx, layout, region) if settings.show_axis_ticks?
-      annotation_height = AnnotationRenderer.height_for(annotation_track)
-      @annotation_renderer.draw(ctx, annotation_track, region, layout.left, layout.annotation_top, layout.width, annotation_height)
-      if loading
-        label(ctx, "Loading requested region… previous view shown", layout.left, layout.top + 8, layout.width, :center)
-      elsif @preview_region
-        label(ctx, "Drag preview — release to load; shaded area is unread", layout.left, layout.top + 8, layout.width, :center)
+      shared_range = shared_range_for(layers, completed_region, settings, shared_y)
+      layers.each_with_index do |layer, index|
+        next unless stack.visible?(index, params.clip_y, params.clip_height)
+        draw_layer(ctx, layer, index, stack, region, completed_region, settings, shared_range, shared_y, selected)
       end
+      if layers.empty?
+        label(ctx, "All tracks are hidden. Select a track and enable Show.", layout.left, 110.0, layout.width, :center)
+      end
+      annotation_height = AnnotationRenderer.height_for(annotation_track)
+      @annotation_renderer.draw(ctx, annotation_track, region, layout.left, stack.annotation_top, layout.width, annotation_height)
+    end
+
+    private def shared_range_for(layers, completed_region, settings, shared_y)
+      return unless shared_y
+      views = layers.compact_map(&.view).select { |view| view.region == completed_region }
+      return if views.empty?
+      settings.y_range(views.min_of(&.minimum), views.max_of(&.maximum))
+    end
+
+    private def draw_layer(ctx, layer, index, stack, region, completed_region, settings, shared_range, shared_y, selected)
+      row = stack.plot(index)
+      top = stack.row_top(index)
+      if layer.source.key == selected
+        ctx.fill_path(brush(0.94, 0.96, 0.97)) { |path| path.add_rectangle(0, top, stack.width, 27) }
+        ctx.fill_path(brush(0.16, 0.42, 0.58)) { |path| path.add_rectangle(2, top, 3, 27) }
+      end
+      max_chars = Math.max((row.width / 8).to_i, 12)
+      title = "#{index + 1}. #{layer.source.label}"
+      title = title[0, max_chars - 1] + "…" if title.size > max_chars
+      label(ctx, title, row.left, top + 5, row.width, :left, 12.0)
+      view = layer.view
+      if view && view.region == completed_region
+        draw_signal_row(ctx, layer, view, row, region, settings, shared_range, shared_y)
+      else
+        label(ctx, layer.error || "Waiting for data…", row.left, row.top + 20, row.width, :center)
+      end
+      draw_ticks(ctx, row, region) if settings.show_axis_ticks?
+    end
+
+    private def draw_signal_row(ctx, layer, view, row, region, settings, shared_range, shared_y)
+      range = shared_range || settings.y_range(view.minimum, view.maximum)
+      draw_grid(ctx, row, range)
+      ctx.save
+      ctx.clip_path { |path| path.add_rectangle(row.left, row.top, row.width, row.height) }
+      draw_bins(ctx, view, region, row, range, settings)
+      draw_unread(ctx, view.region, region, row) if @preview_region
+      draw_reference_lines(ctx, row, range, settings)
+      draw_inspection(ctx, view, row, layer.source.key == @hover_layer)
+      ctx.restore
+      scale = settings.y_min ? "Fixed Y" : shared_y ? "Shared Y" : "Auto Y (this track)"
+      mean_label = @preview_region ? "Loaded mean" : "Mean"
+      label(ctx, "#{mean_label}: #{DisplayFormat.value(view.mean)} | #{view.resolution} | #{scale}", row.left, row.top + row.height + 30, row.width, :right)
     end
 
     private def draw_overview(ctx, layout, region, chromosomes)
@@ -127,9 +157,9 @@ module D4Plot
       end
     end
 
-    private def draw_inspection(ctx, view, layout)
+    private def draw_inspection(ctx, view, layout, hovered : Bool)
       if index = @hover_index
-        if 0 <= index < view.points.size
+        if hovered && 0 <= index < view.points.size
           left, right = view.bin_edges(index)
           x = layout.x_for(left, view.region)
           width = Math.max(layout.x_for(right, view.region) - x, 1.0)
@@ -153,7 +183,6 @@ module D4Plot
         x = layout.left + (position - region.start0 - 0.5) / region.length * layout.width
         label(ctx, DisplayFormat.position(position), x - 60, layout.top + layout.height + 8, 120.0, :center)
       end
-      label(ctx, "Position (1-based, inclusive)", layout.left, layout.top + layout.height + 30, layout.width, :center)
     end
 
     private def y_for(value, layout, range)

@@ -17,15 +17,15 @@ describe D4Plot::ViewLoader do
     loader = D4Plot::ViewLoader.new
     begin
       region = D4Plot::Region.new("chr", 1_u32, 10_u32)
-      id = loader.submit("/missing/d4-plot-test.d4", "", region, 4, true, nil, 100)
-      await_view(loader, id).error.should_not be_nil
+      id = loader.submit([D4Plot::TrackSource.new("/missing/d4-plot-test.d4", "", {"chr" => 10_u32}, 1.0)], region, 4, true, nil, 100)
+      await_view(loader, id).layers.first.error.should_not be_nil
       path = File.join(__DIR__, "fixtures/rust-input-10nt.d4")
-      loader.submit(path, "", region, 4, true, nil, 100)
+      loader.submit(D4Plot::TrackSource.load(path), region, 4, true, nil, 100)
       latest = D4Plot::Region.new("chr", 4_u32, 7_u32)
-      id = loader.submit(path, "", latest, 256, true, nil, 100)
+      id = loader.submit(D4Plot::TrackSource.load(path), latest, 256, true, nil, 100)
       result = await_view(loader, id)
       result.error.should be_nil
-      view = result.view.as(D4Plot::SampledView)
+      view = result.layers.first.view.as(D4Plot::SampledView)
       view.region.should eq(latest)
       view.points.should eq([{4_u32, 1.0}, {5_u32, 2.0}, {6_u32, 2.0}, {7_u32, 2.0}])
       loader.cancel

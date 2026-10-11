@@ -21,21 +21,25 @@ shards build --release
 bin/d4-plot
 ```
 
-Open a D4 file directly, optionally at a region:
+Open one or more D4 files, optionally at a region:
 
 ```sh
 bin/d4-plot sample.d4
 bin/d4-plot sample.d4 chr1:1,000,000-2,000,000
+bin/d4-plot --region chr1:1,000,000-2,000,000 sample1.d4 sample2.d4
 ```
 
 ## Use
 
-Choose a track and chromosome, enter a region, then click **Go**. Region input accepts `chr1:100-200`, `chr1:100`, or `chr1`. Coordinates in the viewer are **1-based, inclusive**; chromosome names must match the file.
+Opening a D4 file shows all its non-empty internal tracks. **Add D4…** appends another file; **Open** starts a new workspace. All tracks share one region. Choose a chromosome, enter a region, then click **Go**. Region input accepts `chr1:100-200`, `chr1:100`, or `chr1`. Coordinates are **1-based, inclusive**.
 
 | Action | Control |
 | --- | --- |
 | Zoom | Zoom buttons, double-click to zoom in, right-click to zoom out |
-| Move | Left / Right buttons, drag the signal, or click the chromosome overview |
+| Move all tracks | Left / Right buttons, drag a signal, or click the chromosome overview |
+| Manage tracks | Select a title or list item; use Show, Up / Down, or Remove |
+| Compare tracks | Shared Y uses one automatic scale; Height changes row size |
+| Scroll tracks | Scrollbar or mouse wheel over the plot |
 | Select a range | Shift+drag across the signal |
 | Restore a previous view | Back / Forward |
 | Inspect values | Hover for the exact bin interval and mean |
@@ -49,9 +53,11 @@ The graph shows **bin means**, with the D4 denominator applied. Bin widths are s
 
 Load GFF3/GTF genes, transcripts and exons, or BED intervals using **Annotations**. Features use the same horizontal coordinates as the signal, with strand arrows and notices for missing chromosomes or hidden overlaps. BED records are shown as intervals; transcript models are not reconstructed. Use the same reference assembly and exact chromosome names: the viewer cannot infer or verify the assembly. For large annotations, use bgzip and tabix (`.tbi` / `.csi`); unindexed loading is limited to 32 MiB expanded text and 100,000 features.
 
-**Export bins** saves the displayed means as bedGraph, using **0-based, half-open** coordinates. It exports the current display resolution, not the original per-base signal. These coordinate conventions follow [UCSC's description](https://genome-blog.soe.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/).
+**Export bins** saves the selected visible track's displayed means as bedGraph, using **0-based, half-open** coordinates. It exports the current display resolution, not the original per-base signal. These coordinate conventions follow [UCSC's description](https://genome-blog.soe.ucsc.edu/blog/2016/12/12/the-ucsc-genome-browser-coordinate-counting-systems/).
 
-Reading runs in the background, with bounded buffers and only the latest pending navigation retained. Cancel keeps the last completed plot. Wide views use an embedded sum index when available.
+Use files from the same reference assembly. Tracks without the selected chromosome show an empty row; conflicting lengths for the same chromosome name are rejected. Reading runs in the background for visible tracks, with bounded buffers and only the latest pending navigation retained. Cancel keeps the last completed plot. Wide views use an embedded sum index when available.
+
+For synthetic examples, run `crystal run examples/make_demo.cr`, then open `demo/control.d4` and add the other generated files.
 
 ## Development
 
