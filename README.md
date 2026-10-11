@@ -2,6 +2,8 @@
 
 A desktop viewer for D4 signal files.
 
+<img width="519" height="398" src="https://github.com/user-attachments/assets/4764c1b7-2147-476a-8e57-8da2e6cf81fb" />
+
 ## Requirements
 
 - Crystal 1.21 or later, Shards, and Git
