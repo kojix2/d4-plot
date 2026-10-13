@@ -1,4 +1,4 @@
-require "spec"
+require "./spec_helper"
 require "../src/d4_plot/view_loader"
 
 private def await_view(loader, id)

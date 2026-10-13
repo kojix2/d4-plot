@@ -26,7 +26,16 @@ Run with one or more D4 files:
 bin/d4-plot sample.d4
 bin/d4-plot sample.d4 chr1:1,000,000-2,000,000
 bin/d4-plot --region chr1:1,000,000-2,000,000 sample1.d4 sample2.d4
+bin/d4-plot --locale ja sample.d4
+bin/d4-plot --locale fr sample.d4
+bin/d4-plot --locale pt-BR sample.d4
 ```
+
+## Language
+
+The interface is available in English, Japanese, Simplified Chinese, Spanish, German, French, Korean, Dutch, Portuguese, Polish, Turkish, Russian, Hindi, Indonesian, Urdu, Vietnamese, Hebrew, Arabic, and Bengali. By default, d4-plot uses the system locale when it is supported; use `--locale en|ja|zh|es|de|fr|ko|nl|pt|pl|tr|ru|hi|id|ur|vi|he|ar|bn` to choose explicitly. Regional locale names such as `pt-BR` are accepted and use the matching language catalogue.
+
+Translations are maintained in [config/locales](config/locales), using [crystal-i18n](https://github.com/crystal-i18n/i18n). They are embedded at build time, so release packages do not depend on their launch directory or separately installed locale files.
 
 ## Use
 

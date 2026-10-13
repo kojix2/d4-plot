@@ -1,4 +1,5 @@
 require "uing"
+require "./i18n"
 
 module D4Plot
   # Owns the native toolbar and its borrowed images. Detach before freeing.
@@ -21,23 +22,23 @@ module D4Plot
 
     def initialize
       @native.display_mode = UIng::Toolbar::DisplayMode::IconOnly
-      @open = button("Open", "Open a D4 file", [[{2, 16}, {2, 4}, {8, 4}, {10, 6}, {18, 6}, {18, 16}, {2, 16}], [{2, 9}, {18, 9}]])
-      @create = button("Create D4", "Create a D4 coverage file from BAM or CRAM", [[{3, 2}, {12, 2}, {17, 7}, {17, 18}, {3, 18}, {3, 2}], [{12, 2}, {12, 7}, {17, 7}], [{6, 12}, {14, 12}], [{10, 8}, {10, 16}]])
-      @annotations = button("Annotations", "Load GFF3, GTF or BED from the same reference assembly", [[{2, 6}, {18, 6}], [{5, 3}, {5, 9}], [{8, 3}, {8, 9}], [{2, 14}, {18, 14}], [{12, 11}, {12, 17}], [{15, 11}, {15, 17}]])
-      @export = button("Export bins", "Save the selected visible track’s bin means as bedGraph (0-based, half-open)", [[{10, 2}, {10, 12}], [{6, 8}, {10, 12}, {14, 8}], [{3, 13}, {3, 17}, {17, 17}, {17, 13}]])
+      @open = button(D4Plot.t("toolbar.open"), D4Plot.t("toolbar.open_tip"), [[{2, 16}, {2, 4}, {8, 4}, {10, 6}, {18, 6}, {18, 16}, {2, 16}], [{2, 9}, {18, 9}]])
+      @create = button(D4Plot.t("toolbar.create"), D4Plot.t("toolbar.create_tip"), [[{3, 2}, {12, 2}, {17, 7}, {17, 18}, {3, 18}, {3, 2}], [{12, 2}, {12, 7}, {17, 7}], [{6, 12}, {14, 12}], [{10, 8}, {10, 16}]])
+      @annotations = button(D4Plot.t("toolbar.annotations"), D4Plot.t("toolbar.annotations_tip"), [[{2, 6}, {18, 6}], [{5, 3}, {5, 9}], [{8, 3}, {8, 9}], [{2, 14}, {18, 14}], [{12, 11}, {12, 17}], [{15, 11}, {15, 17}]])
+      @export = button(D4Plot.t("toolbar.export"), D4Plot.t("toolbar.export_tip"), [[{10, 2}, {10, 12}], [{6, 8}, {10, 12}, {14, 8}], [{3, 13}, {3, 17}, {17, 17}, {17, 13}]])
       @native.append_separator
-      @back = button("Back", "Return to the previous viewed region", [[{8, 4}, {2, 10}, {8, 16}], [{2, 10}, {18, 10}]])
-      @forward = button("Forward", "Restore the next viewed region", [[{12, 4}, {18, 10}, {12, 16}], [{2, 10}, {18, 10}]])
+      @back = button(D4Plot.t("toolbar.back"), D4Plot.t("toolbar.back_tip"), [[{8, 4}, {2, 10}, {8, 16}], [{2, 10}, {18, 10}]])
+      @forward = button(D4Plot.t("toolbar.forward"), D4Plot.t("toolbar.forward_tip"), [[{12, 4}, {18, 10}, {12, 16}], [{2, 10}, {18, 10}]])
       @native.append_separator
-      @left = button("Left", "Move left by half the visible range (plot key: Left)", [[{8, 5}, {3, 10}, {8, 15}], [{3, 10}, {14, 10}], [{17, 4}, {17, 16}]])
-      @right = button("Right", "Move right by half the visible range (plot key: Right)", [[{12, 5}, {17, 10}, {12, 15}], [{6, 10}, {17, 10}], [{3, 4}, {3, 16}]])
+      @left = button(D4Plot.t("toolbar.left"), D4Plot.t("toolbar.left_tip"), [[{8, 5}, {3, 10}, {8, 15}], [{3, 10}, {14, 10}], [{17, 4}, {17, 16}]])
+      @right = button(D4Plot.t("toolbar.right"), D4Plot.t("toolbar.right_tip"), [[{12, 5}, {17, 10}, {12, 15}], [{6, 10}, {17, 10}], [{3, 4}, {3, 16}]])
       lens = [[{4, 3}, {10, 3}, {13, 6}, {13, 10}, {10, 13}, {4, 13}, {1, 10}, {1, 6}, {4, 3}], [{12, 12}, {18, 18}], [{4, 8}, {10, 8}]]
-      @zoom_out = button("Zoom out", "Show twice the range (plot key: −)", lens)
-      @zoom_in = button("Zoom in", "Show half the range (plot key: +)", lens + [[{7, 5}, {7, 11}]])
-      @whole = button("Whole chr", "Show the whole chromosome (plot key: Home)", [[{2, 4}, {2, 16}], [{18, 4}, {18, 16}], [{2, 10}, {18, 10}], [{6, 6}, {2, 10}, {6, 14}], [{14, 6}, {18, 10}, {14, 14}]])
-      @cancel = button("Cancel", "Cancel loading and keep the last completed plot (plot key: Esc)", [[{5, 5}, {15, 15}], [{5, 15}, {15, 5}]])
+      @zoom_out = button(D4Plot.t("toolbar.zoom_out"), D4Plot.t("toolbar.zoom_out_tip"), lens)
+      @zoom_in = button(D4Plot.t("toolbar.zoom_in"), D4Plot.t("toolbar.zoom_in_tip"), lens + [[{7, 5}, {7, 11}]])
+      @whole = button(D4Plot.t("toolbar.whole"), D4Plot.t("toolbar.whole_tip"), [[{2, 4}, {2, 16}], [{18, 4}, {18, 16}], [{2, 10}, {18, 10}], [{6, 6}, {2, 10}, {6, 14}], [{14, 6}, {18, 10}, {14, 14}]])
+      @cancel = button(D4Plot.t("toolbar.cancel"), D4Plot.t("toolbar.cancel_tip"), [[{5, 5}, {15, 15}], [{5, 15}, {15, 5}]])
       @native.append_separator
-      @settings = button("Display", "Set bin resolution, Y scale and reference lines", [[{3, 5}, {17, 5}], [{3, 10}, {17, 10}], [{3, 15}, {17, 15}], [{7, 3}, {7, 7}], [{13, 8}, {13, 12}], [{7, 13}, {7, 17}]])
+      @settings = button(D4Plot.t("toolbar.display"), D4Plot.t("toolbar.display_tip"), [[{3, 5}, {17, 5}], [{3, 10}, {17, 10}], [{3, 15}, {17, 15}], [{7, 3}, {7, 7}], [{13, 8}, {13, 12}], [{7, 13}, {7, 17}]])
     end
 
     def free

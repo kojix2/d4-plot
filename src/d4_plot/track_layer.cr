@@ -1,3 +1,4 @@
+require "./i18n"
 require "./view"
 
 module D4Plot
@@ -7,7 +8,7 @@ module D4Plot
     end
 
     def label
-      "#{File.basename(path)} / #{name.empty? ? "Default" : name}"
+      "#{File.basename(path)} / #{name.empty? ? D4Plot.t("app.default_track") : name}"
     end
 
     def self.load(path : String) : Array(TrackSource)
@@ -19,7 +20,7 @@ module D4Plot
           sources << new(path, track.name, chromosomes, track.metadata.denominator) unless chromosomes.empty?
         end
       end
-      raise ArgumentError.new("This D4 file has no non-empty tracks.") if sources.empty?
+      raise ArgumentError.new(D4Plot.t("errors.no_tracks")) if sources.empty?
       sources
     end
 
@@ -30,7 +31,7 @@ module D4Plot
       sources.each do |source|
         source.chromosomes.each do |name, size|
           if previous = result[name]?
-            raise ArgumentError.new("#{name} has conflicting lengths (#{previous} and #{size}). Use files from the same reference assembly.") if previous != size
+            raise ArgumentError.new(D4Plot.t("errors.conflicting_lengths", name: name, previous: previous, size: size)) if previous != size
           end
           result[name] = size
         end

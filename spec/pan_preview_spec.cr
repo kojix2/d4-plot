@@ -1,4 +1,4 @@
-require "spec"
+require "./spec_helper"
 require "../src/d4_plot/region"
 require "../src/d4_plot/plot_geometry"
 

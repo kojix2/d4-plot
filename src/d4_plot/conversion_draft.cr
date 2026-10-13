@@ -39,8 +39,8 @@ module D4Plot
     def request
       ConversionRequest.new(input: File.expand_path(input), output: File.expand_path(output),
         reference: reference.strip.empty? ? "" : File.expand_path(reference), mode: mode,
-        mapq: mapq, threads: threads, exclude_flags: flags(exclude_flags, "Exclude flags"),
-        include_flags: flags(include_flags, "Include flags"),
+        mapq: mapq, threads: threads, exclude_flags: flags(exclude_flags, D4Plot.t("fields.exclude_flags")),
+        include_flags: flags(include_flags, D4Plot.t("fields.include_flags")),
         read_groups: read_groups.split(',').map(&.strip).reject(&.empty?),
         min_fragment: length(min_fragment), max_fragment: length(max_fragment))
     end
@@ -48,13 +48,13 @@ module D4Plot
     private def flags(text, field)
       value = text.strip
       parsed = value.downcase.starts_with?("0x") ? value[2..].to_u16?(16) : value.to_u16?
-      parsed || raise ConversionError.new(field, "Enter flags between 0 and 65535 (decimal or 0x hexadecimal).")
+      parsed || raise ConversionError.new(field, D4Plot.t("errors.flags_range"))
     end
 
     private def length(text)
       return -1 if text.strip.empty?
       value = text.strip.to_i32?
-      raise ConversionError.new("Fragment length", "Leave a limit blank or enter a non-negative integer.") unless value && value >= 0
+      raise ConversionError.new(D4Plot.t("fields.fragment_length"), D4Plot.t("errors.fragment_length")) unless value && value >= 0
       value
     end
   end

@@ -1,4 +1,4 @@
-require "spec"
+require "./spec_helper"
 require "../src/d4_plot/annotation"
 
 describe D4Plot::AnnotationIndex do

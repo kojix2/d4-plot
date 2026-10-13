@@ -19,7 +19,7 @@ module D4Plot
   end
 
   record ConversionSnapshot, state : ConversionState = ConversionState::Idle,
-    progress : ConversionProgress = ConversionProgress.new("Ready"),
+    progress : ConversionProgress = ConversionProgress.new(D4Plot.t("conversion.ready_short")),
     output : String? = nil, error : String? = nil, field : String? = nil,
     elapsed : Time::Span = Time::Span.zero
 
@@ -32,25 +32,23 @@ module D4Plot
     @started : Time::Instant?
 
     def start(request : ConversionRequest)
-      raise "A D4 creation is already running." if snapshot.state.active?
+      raise D4Plot.t("errors.creation_running") if snapshot.state.active?
       wait
       @control = ConversionControl.new
       @started = Time.instant
       @mutex.synchronize { @snapshot = ConversionSnapshot.new(ConversionState::Running) }
       @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-converter") do
-        begin
-          output = D4Converter.new.run(request, @control, ->(event : ConversionProgress) {
-            @mutex.synchronize { @snapshot = @snapshot.copy_with(progress: event) }
-            nil
-          })
-          finish(ConversionState::Succeeded, output: output)
-        rescue ConversionCancelled
-          finish(ConversionState::Cancelled)
-        rescue ex : ConversionError
-          finish(ConversionState::Failed, error: ex.message, field: ex.field)
-        rescue ex
-          finish(ConversionState::Failed, error: ex.message || ex.class.name)
-        end
+        output = D4Converter.new.run(request, @control, ->(event : ConversionProgress) {
+          @mutex.synchronize { @snapshot = @snapshot.copy_with(progress: event) }
+          nil
+        })
+        finish(ConversionState::Succeeded, output: output)
+      rescue ConversionCancelled
+        finish(ConversionState::Cancelled)
+      rescue ex : ConversionError
+        finish(ConversionState::Failed, error: ex.message, field: ex.field)
+      rescue ex
+        finish(ConversionState::Failed, error: ex.message || ex.class.name)
       end
     end
 
@@ -76,7 +74,7 @@ module D4Plot
     end
 
     def reset
-      raise "A D4 creation is still running." if snapshot.state.active?
+      raise D4Plot.t("errors.creation_still_running") if snapshot.state.active?
       wait
       @mutex.synchronize { @snapshot = ConversionSnapshot.new }
     end

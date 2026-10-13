@@ -1,5 +1,6 @@
 require "uing"
 require "d4"
+require "./i18n"
 require "./view_loader"
 require "./plot_renderer"
 require "./settings_window"
@@ -18,7 +19,7 @@ module D4Plot
     @settings_window : SettingsWindow?
     @conversion_worker = ConversionWorker.new
     @conversion_window : ConversionWindow?
-    @conversion_status = UIng::Button.new("Create D4…")
+    @conversion_status = UIng::Button.new(D4Plot.t("app.create_d4"))
     @quit_window : UIng::Window?
     @quitting = false
     @welcome = UIng::Box.new(:vertical, padded: true)
@@ -32,12 +33,12 @@ module D4Plot
     @chromosome_names = [] of String
     @canvas_width = 1056
     @row_height = 220.0
-    @add = UIng::Button.new("Add D4…")
-    @remove = UIng::Button.new("Remove")
-    @up = UIng::Button.new("Up")
-    @down = UIng::Button.new("Down")
-    @show = UIng::Checkbox.new("Show")
-    @shared_y = UIng::Checkbox.new("Shared Y")
+    @add = UIng::Button.new(D4Plot.t("app.add_d4"))
+    @remove = UIng::Button.new(D4Plot.t("app.remove"))
+    @up = UIng::Button.new(D4Plot.t("app.up"))
+    @down = UIng::Button.new(D4Plot.t("app.down"))
+    @show = UIng::Checkbox.new(D4Plot.t("app.show"))
+    @shared_y = UIng::Checkbox.new(D4Plot.t("app.shared_y"))
     @height = UIng::Combobox.new
     @source_entry = UIng::Entry.new(read_only: true)
     @annotation : AnnotationTrack?
@@ -50,30 +51,30 @@ module D4Plot
     @loading = false
     @closed = false
     @drag : Tuple(Float64, Region, Bool)?
-    @file_label = UIng::Label.new("No D4 file open")
+    @file_label = UIng::Label.new(D4Plot.t("app.no_d4_file"))
     @track_combo = UIng::Combobox.new
     @chromosome_combo = UIng::Combobox.new
     @region_entry = UIng::Entry.new
-    @go = UIng::Button.new("Go")
+    @go = UIng::Button.new(D4Plot.t("app.go"))
     @tools = Toolbar.new
     @details = UIng::Box.new(:vertical)
-    @details_toggle = UIng::Button.new("Show details")
+    @details_toggle = UIng::Button.new(D4Plot.t("app.show_details"))
     @details_visible = false
     @progress = UIng::ProgressBar.new
     @annotation_label = UIng::Label.new("")
-    @remove_annotation = UIng::Button.new("Remove")
-    @status = UIng::Label.new("Open a D4 file to begin. Coordinates are 1-based, inclusive.")
-    @inspection = UIng::Label.new("Move the pointer over the signal to inspect a bin.")
+    @remove_annotation = UIng::Button.new(D4Plot.t("app.remove"))
+    @status = UIng::Label.new(D4Plot.t("app.initial_status"))
+    @inspection = UIng::Label.new(D4Plot.t("app.initial_inspection"))
 
     def self.create_menu_bar
-      file = UIng::Menu.new("File")
-      open = file.append_item("Open D4…")
-      create = file.append_item("Create D4 from BAM / CRAM…")
-      export = file.append_item("Export selected track bins…")
+      file = UIng::Menu.new(D4Plot.t("app.file"))
+      open = file.append_item(D4Plot.t("app.open_d4"))
+      create = file.append_item(D4Plot.t("app.create_d4_from_alignment"))
+      export = file.append_item(D4Plot.t("app.export_bins"))
       settings = file.append_preferences_item
       file.append_quit_item
-      help = UIng::Menu.new("Help")
-      guide = help.append_item("Navigation and data interpretation")
+      help = UIng::Menu.new(D4Plot.t("app.help"))
+      guide = help.append_item(D4Plot.t("app.navigation_help"))
       about = help.append_about_item
       {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
     end
@@ -89,7 +90,7 @@ module D4Plot
       menu_items[:export].on_clicked { export_view }
       menu_items[:settings].on_clicked { open_settings }
       menu_items[:guide].on_clicked { show_help }
-      menu_items[:about].on_clicked { @window.msg_box(PROGRAM_NAME, "D4 genomic signal viewer\nhttps://github.com/kojix2/d4.cr") }
+      menu_items[:about].on_clicked { @window.msg_box(PROGRAM_NAME, D4Plot.t("app.about")) }
       @window.on_closing do
         if confirm_quit
           shutdown
@@ -167,14 +168,14 @@ module D4Plot
       root.append(files, false)
 
       location = row
-      location.append(UIng::Label.new("Chromosome"), false)
+      location.append(UIng::Label.new(D4Plot.t("app.chromosome")), false)
       location.append(@chromosome_combo, false)
-      location.append(UIng::Label.new("Region (1-based)"), false)
+      location.append(UIng::Label.new(D4Plot.t("app.region")), false)
       location.append(@region_entry, true)
       location.append(@go, false)
       location.append(@shared_y, false)
-      location.append(UIng::Label.new("Height"), false)
-      ["Compact", "Normal", "Large"].each { |name| @height.append(name) }
+      location.append(UIng::Label.new(D4Plot.t("app.height")), false)
+      ["app.compact", "app.normal", "app.large"].each { |key| @height.append(D4Plot.t(key)) }
       @height.selected = 1
       location.append(@height, false)
       root.append(location, false)
@@ -190,11 +191,11 @@ module D4Plot
       root.append(@details, false)
       @details.hide
       @welcome.append(UIng::Box.new(:vertical), true)
-      @welcome.append(UIng::Label.new("View genomic coverage"), false)
-      @welcome.append(UIng::Label.new("Open an existing D4, or create one from an indexed BAM / CRAM."), false)
+      @welcome.append(UIng::Label.new(D4Plot.t("app.welcome_title")), false)
+      @welcome.append(UIng::Label.new(D4Plot.t("app.welcome_body")), false)
       welcome_buttons = row
-      open = UIng::Button.new("Open D4…")
-      create = UIng::Button.new("Create D4…")
+      open = UIng::Button.new(D4Plot.t("app.open_d4"))
+      create = UIng::Button.new(D4Plot.t("app.create_d4"))
       open.on_clicked { open_file_dialog }
       create.on_clicked { open_conversion }
       welcome_buttons.append(open, false)
@@ -222,7 +223,7 @@ module D4Plot
       @details_toggle.on_clicked do
         @details_visible = !@details_visible
         @details_visible ? @details.show : @details.hide
-        @details_toggle.text = @details_visible ? "Hide details" : "Show details"
+        @details_toggle.text = D4Plot.t(@details_visible ? "app.hide_details" : "app.show_details")
       end
       @tools.open.on_clicked { open_file_dialog }
       @tools.create.on_clicked { open_conversion }
@@ -330,7 +331,7 @@ module D4Plot
       true
     rescue ex
       @updating = false
-      show_error("Could not open D4 file", ex)
+      show_error(D4Plot.t("app.could_not_open"), ex)
       false
     end
 
@@ -347,8 +348,8 @@ module D4Plot
       @chromosome_combo.clear
       @chromosome_names.each { |name| @chromosome_combo.append(name) }
       @updating = false
-      @file_label.text = "Tracks (#{@layers.size})"
-      @window.title = "#{PROGRAM_NAME} — #{@layers.size} tracks"
+      @file_label.text = D4Plot.t("app.tracks", number: @layers.size)
+      @window.title = D4Plot.t("app.window_title", number: @layers.size)
       select_layer(@selected, false)
       if @layers.empty?
         @completed_region = nil
@@ -357,7 +358,7 @@ module D4Plot
         @annotation_row.hide
         @region_entry.text = ""
         @source_entry.text = ""
-        @status.text = "Open or add a D4 file to begin."
+        @status.text = D4Plot.t("app.no_tracks_status")
         update_controls
       elsif region_text
         @region_entry.text = region_text
@@ -377,7 +378,9 @@ module D4Plot
       @updating = true
       @track_combo.selected = index
       @show.checked = layer.visible?
-      @source_entry.text = "#{layer.source.path} | track: #{layer.source.name.empty? ? "Default" : layer.source.name} | D4 denominator: #{layer.source.denominator}"
+      @source_entry.text = D4Plot.t("app.source_details", path: layer.source.path,
+        track: layer.source.name.empty? ? D4Plot.t("app.default_track") : layer.source.name,
+        denominator: layer.source.denominator)
       @updating = false
       if scroll && (visible_index = visible_layers.index(layer))
         @area.scroll_to(0, stack_geometry.row_top(visible_index), 1, @row_height)
@@ -414,7 +417,7 @@ module D4Plot
     private def go_to_entry
       request_view(Region.resolve(@region_entry.text || "", @chromosomes))
     rescue ex
-      show_error("Check region", ex)
+      show_error(D4Plot.t("app.check_region"), ex)
     end
 
     private def request_view(region : Region, history_move : Int32 = 0)
@@ -430,8 +433,8 @@ module D4Plot
       clear_drag
       @renderer.hover_index = nil
       @loading = true
-      @status.text = "Loading #{region}…"
-      @inspection.text = "Loading requested region; the plot retains the previous completed view."
+      @status.text = D4Plot.t("app.loading", region: region)
+      @inspection.text = D4Plot.t("app.loading_inspection")
       @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @pending_annotation_path || @annotation_path, @settings.annotation_feature_limit, @annotation_path)
       update_controls
       @area.queue_redraw_all
@@ -444,7 +447,7 @@ module D4Plot
       @requested_region = nil
       if error = result.error
         rollback_history
-        @status.text = "Read failed: #{error}"
+        @status.text = D4Plot.t("app.read_failed", error: error)
         restore_location
       else
         # Publish the whole generation together. A failed/missing track has an
@@ -458,7 +461,8 @@ module D4Plot
         @completed_region = result.request.region
         @annotation = result.annotation_track
         if error = result.annotation_error
-          @annotation_label.text = "Annotation could not be loaded. #{@annotation_path ? "Previous selection kept." : "No annotation selected."}"
+          @annotation_label.text = D4Plot.t("app.annotation_load_failed",
+            selection: D4Plot.t(@annotation_path ? "app.previous_selection_kept" : "app.no_annotation_selected"))
           @annotation_label.tooltip = error
           @annotation_row.show
         else
@@ -470,8 +474,9 @@ module D4Plot
         @history_move = 0
         @region_entry.text = result.request.region.to_s
         failed = result.layers.count { |sample| !sample.error.nil? }
-        @status.text = "#{DisplayFormat.position(result.request.region.length)} bp | #{result.layers.size} visible tracks | #{failed} unavailable | #{result.elapsed_ms.round(1)} ms"
-        @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
+        @status.text = D4Plot.t("app.view_status", bases: DisplayFormat.position(result.request.region.length),
+          tracks: result.layers.size, failed: failed, elapsed: result.elapsed_ms.round(1))
+        @inspection.text = D4Plot.t("app.inspection_hint")
       end
       update_controls
       resize_canvas
@@ -532,7 +537,7 @@ module D4Plot
       end
       rollback_history
       restore_location
-      @status.text = "Loading cancelled; previous view retained." if was_loading
+      @status.text = D4Plot.t("app.loading_cancelled") if was_loading
       update_controls
       @area.queue_redraw_all
     end
@@ -540,7 +545,7 @@ module D4Plot
     private def restore_location
       if region = @completed_region
         @region_entry.text = region.to_s
-        @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
+        @inspection.text = D4Plot.t("app.inspection_hint")
         @updating = true
         @chromosome_combo.selected = @chromosome_names.index(region.chromosome)
         @updating = false
@@ -551,7 +556,7 @@ module D4Plot
       return if @layers.empty?
       if path = @window.open_file
         @pending_annotation_path = path
-        @annotation_label.text = "Loading annotation: #{short_name(path)}…"
+        @annotation_label.text = D4Plot.t("app.loading_annotation", name: short_name(path))
         @annotation_label.tooltip = path
         @annotation_row.show
         refresh
@@ -587,17 +592,17 @@ module D4Plot
       if path = @window.save_file
         (@layers.map(&.source.path) + [@annotation_path].compact).each do |source|
           if File.expand_path(path) == File.expand_path(source) || (File.exists?(path) && File.same?(path, source))
-            raise "Choose a different path from the input D4 or annotation file."
+            raise D4Plot.t("app.export_conflict")
           end
         end
         File.open(path, "w") do |io|
           io << "# Source: " << layer.source.path.gsub(/[\r\n]/, " ") << "; track: " << layer.source.name.gsub(/[\r\n]/, " ") << '\n'
           view.write_bedgraph(io)
         end
-        @status.text = "Exported #{view.points.size} bin means to #{File.basename(path)} (bedGraph, 0-based half-open)."
+        @status.text = D4Plot.t("app.exported", number: view.points.size, name: File.basename(path))
       end
     rescue ex
-      show_error("Could not export bins", ex)
+      show_error(D4Plot.t("app.could_not_export"), ex)
     end
 
     private def update_controls
@@ -615,7 +620,7 @@ module D4Plot
       update_layer_controls
       update_history_controls
       @annotation_row.visible? ? @remove_annotation.enable : @remove_annotation.disable
-      @remove_annotation.text = @annotation_path || @pending_annotation_path ? "Remove" : "Dismiss"
+      @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end
 
     private def update_region_controls
@@ -698,11 +703,11 @@ module D4Plot
     private def preview_drag(drag : Tuple(Float64, Region, Bool), fraction : Float64)
       if drag[2]
         @renderer.selection = {drag[0], fraction}
-        @inspection.text = "Release to select this range in all tracks. Esc to cancel."
+        @inspection.text = D4Plot.t("app.release_selection")
       else
         preview = drag[1].pan(drag[0] - fraction, @chromosomes[drag[1].chromosome])
         @renderer.preview_region = preview
-        @inspection.text = "Preview: #{preview}. Gray areas are unread. Release to load all tracks; Esc to cancel."
+        @inspection.text = D4Plot.t("app.preview_pan", region: preview)
       end
     end
 
@@ -742,7 +747,7 @@ module D4Plot
       @renderer.preview_region = nil
       @renderer.hover_index = nil
       @renderer.hover_layer = nil
-      @inspection.text = "Hover to inspect a track; drag to pan all tracks. Bins show means."
+      @inspection.text = D4Plot.t("app.inspection_hint")
     end
 
     private def key_event(event) : Bool
@@ -766,7 +771,7 @@ module D4Plot
     end
 
     private def show_help
-      @window.msg_box("Using D4 Plot", "Open a D4 file to show all its tracks. Add D4 appends another file. Select a track using its title or the list; Show, Up, Down and Remove manage it. Shared Y compares visible tracks on one scale. All files must use the same reference assembly.\nEnter chr:start-end, chr:position, or a chromosome name, then click Go. Commas in coordinates are accepted.\n\nCoordinates in the viewer are 1-based and inclusive. The signal shows the mean in each bin, with the D4 denominator applied. Zoom in to resolve narrow peaks; a flat bin can contain variation.\n\nDrag to pan; Shift+drag to select a range; double-click to zoom in; right-click to zoom out. Click the chromosome overview to jump. Back and Forward restore visited regions. Keyboard navigation works when the plot has focus.\n\nDisplay settings control resolution, color and fixed Y scale for all tracks. Height controls the track rows. The native scrollbar moves vertically. Use a fixed Y scale when comparing regions. D4 does not identify the reference assembly here: annotations must use the same assembly and exact chromosome names.\n\nExport bins writes the selected visible track’s means as bedGraph (0-based, half-open), not the original per-base signal.")
+      @window.msg_box(D4Plot.t("app.help_title"), D4Plot.t("app.help_body"))
     end
 
     private def short_name(path)
@@ -776,7 +781,7 @@ module D4Plot
 
     private def update_annotation_label
       if path = @annotation_path
-        @annotation_label.text = "Annotation: #{short_name(path)} · verify the reference assembly"
+        @annotation_label.text = D4Plot.t("app.annotation_label", name: short_name(path))
         @annotation_label.tooltip = path
         @annotation_row.show
       else
@@ -797,11 +802,11 @@ module D4Plot
       else
         @conversion_status.show
         @conversion_status.text = case state
-                                  when .running?    then "Creating D4…"
-                                  when .cancelling? then "Cancelling D4…"
-                                  when .succeeded?  then "D4 ready — review…"
-                                  when .cancelled?  then "D4 cancelled…"
-                                  else                   "D4 creation failed…"
+                                  when .running?    then D4Plot.t("app.creating")
+                                  when .cancelling? then D4Plot.t("app.cancelling")
+                                  when .succeeded?  then D4Plot.t("app.ready_for_review")
+                                  when .cancelled?  then D4Plot.t("app.creation_cancelled")
+                                  else                   D4Plot.t("app.creation_failed")
                                   end
       end
       if @quitting && !state.active?
@@ -817,13 +822,13 @@ module D4Plot
         window.show
         return false
       end
-      window = UIng::Window.new("D4 creation is running", 440, 150, margined: true)
+      window = UIng::Window.new(D4Plot.t("app.quit_creation_title"), 440, 150, margined: true)
       root = UIng::Box.new(:vertical, padded: true)
-      message = UIng::Label.new("Quit will cancel D4 creation. No unfinished file will be kept.")
+      message = UIng::Label.new(D4Plot.t("app.quit_creation_message"))
       root.append(message, true)
       buttons = row
-      keep = UIng::Button.new("Keep working")
-      quit = UIng::Button.new("Cancel creation and quit")
+      keep = UIng::Button.new(D4Plot.t("app.keep_working"))
+      quit = UIng::Button.new(D4Plot.t("app.cancel_creation_and_quit"))
       buttons.append(keep, false)
       buttons.append(quit, false)
       root.append(buttons, false)
@@ -834,7 +839,7 @@ module D4Plot
         @conversion_worker.cancel
         keep.disable
         quit.disable
-        message.text = "Stopping safely before quitting. Finalizing the index may take time."
+        message.text = D4Plot.t("app.quitting_wait")
       end
       window.on_closing do
         if @quitting

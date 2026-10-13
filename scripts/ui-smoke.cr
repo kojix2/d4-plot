@@ -140,7 +140,7 @@ class D4Plot::App
       UiSmoke.check(@annotation.try(&.features.first?.try(&.name)) == "B", "Fallback used stale coordinates")
       UiSmoke.check(!@details_visible, "Failed replacement opened Show details")
       UiSmoke.capture(@window, directory, "06-annotation-failure")
-      @details_toggle.text = "Hide details"
+      @details_toggle.text = D4Plot.t("app.hide_details")
       @details_visible = true
       @details.show
       @window.set_content_size(850, 620)
@@ -196,20 +196,19 @@ HTS::Bam.build_index(File.join(fixtures, "input.bam"), verbose: false)
 FileUtils.cp(File.join(fixtures, "input.bam"), File.join(fixtures, "unindexed.bam"))
 failure : Exception? = nil
 begin
+  D4Plot::Translations.setup("en")
   UIng.init
   app = D4Plot::App.new(D4Plot::App.create_menu_bar)
   step = 0
   started = Time.instant
   UIng.timer(700) do
-    begin
-      raise "UI smoke test timed out" if Time.instant - started > 60.seconds
-      step += 1 if app.smoke_step(step, screenshots, fixtures)
-      step > 10 ? 0 : 1
-    rescue ex
-      failure = ex
-      app.smoke_stop
-      0
-    end
+    raise "UI smoke test timed out" if Time.instant - started > 60.seconds
+    step += 1 if app.smoke_step(step, screenshots, fixtures)
+    step > 10 ? 0 : 1
+  rescue ex
+    failure = ex
+    app.smoke_stop
+    0
   end
   app.run
 ensure

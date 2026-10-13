@@ -28,7 +28,7 @@ module D4Plot
     end
 
     def self.too_many(limit : Int32)
-      notice("Too many annotations (>#{limit}); zoom in")
+      notice(D4Plot.t("annotation.too_many", limit: limit))
     end
 
     def empty?
@@ -65,10 +65,10 @@ module D4Plot
       output = IO::Memory.new
       error = IO::Memory.new
       status = Process.run("tabix", {"-l", path}, output: output, error: error)
-      raise "Could not read annotation index: #{error}" unless status.success?
+      raise D4Plot.t("annotation.index_read_failed", error: error) unless status.success?
       new(path, [] of AnnotationFeature, indexed: true, chromosome_names: output.to_s.lines)
     rescue File::NotFoundError
-      raise "tabix command not found. Install tabix to read indexed annotations."
+      raise D4Plot.t("annotation.tabix_missing_indexed")
     end
 
     def self.load(path : String)
@@ -80,13 +80,13 @@ module D4Plot
       each_line(path) do |line|
         bytes += line.bytesize + 1
         if bytes > MAX_IN_MEMORY_BYTES || features.size >= MAX_IN_MEMORY_FEATURES
-          raise "Annotation data exceeds the in-memory limit. Use bgzip and a tabix index for large annotations."
+          raise D4Plot.t("annotation.memory_limit")
         end
         if feature = parse_line(line)
           features << feature
         end
       end
-      raise "No supported features found. Open GFF3/GTF genes, transcripts or exons, or BED intervals." if features.empty?
+      raise D4Plot.t("annotation.no_features") if features.empty?
       new(path, features)
     end
 
@@ -110,21 +110,21 @@ module D4Plot
 
     def track_for(region : Region, max_region_size : UInt32, limit : Int32)
       unless @chromosome_names.includes?(region.chromosome)
-        return AnnotationTrack.notice("No chromosome #{region.chromosome.inspect} in annotations; names must match exactly (including chr prefix).")
+        return AnnotationTrack.notice(D4Plot.t("annotation.chromosome_missing", chromosome: region.chromosome.inspect))
       end
       if region.length > max_region_size
-        return AnnotationTrack.notice("Zoom in to show gene annotations")
+        return AnnotationTrack.notice(D4Plot.t("annotation.zoom_in"))
       end
 
       features = overlapping(region, limit)
       return AnnotationTrack.too_many(limit) if features.size > limit
-      return AnnotationTrack.notice("No overlapping annotations in this region") if features.empty?
+      return AnnotationTrack.notice(D4Plot.t("annotation.no_overlap")) if features.empty?
 
       AnnotationTrack.features(features)
     end
 
     def description
-      indexed? ? "tabix indexed" : "#{size} features"
+      indexed? ? D4Plot.t("annotation.indexed") : D4Plot.t("annotation.features", number: size)
     end
 
     private def features_for(chromosome)
@@ -155,10 +155,10 @@ module D4Plot
         end
       end
       status = process.wait
-      raise "tabix could not read annotations; check that the compressed file and index match." unless status.success? || features.size >= query_limit
+      raise D4Plot.t("annotation.tabix_read_failed") unless status.success? || features.size >= query_limit
       features
     rescue File::NotFoundError
-      raise "tabix command not found. Install tabix or open a small unindexed annotation file."
+      raise D4Plot.t("annotation.tabix_missing")
     ensure
       if process
         unless status
@@ -177,7 +177,7 @@ module D4Plot
       size = File.size(path)
       return if size <= MAX_IN_MEMORY_BYTES
 
-      raise "Annotation file is too large for in-memory loading. Compress with bgzip and create a .tbi/.csi index."
+      raise D4Plot.t("annotation.file_too_large")
     end
 
     private def self.each_line(path, &)

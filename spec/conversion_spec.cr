@@ -1,4 +1,4 @@
-require "spec"
+require "./spec_helper"
 require "../src/d4_plot/conversion_worker"
 require "../src/d4_plot/conversion_draft"
 

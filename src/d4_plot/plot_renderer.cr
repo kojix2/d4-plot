@@ -1,4 +1,5 @@
 require "uing"
+require "./i18n"
 require "./annotation_renderer"
 require "./plot_settings"
 require "./plot_geometry"
@@ -24,11 +25,13 @@ module D4Plot
       end
       region = @preview_region || completed_region
       unless region
-        label(ctx, loading ? "Loading tracks…" : "Open a D4 file to explore genomic signal", 20.0, 90.0, stack.width - 40, :center, 17.0)
+        label(ctx, loading ? D4Plot.t("plot.loading_tracks") : D4Plot.t("plot.empty"), 20.0, 90.0, stack.width - 40, :center, 17.0)
         return
       end
       layout = stack.plot(0)
-      label(ctx, "#{region.chromosome}:#{DisplayFormat.position(region.start1)}–#{DisplayFormat.position(region.end1)} | #{DisplayFormat.position(region.length)} bp", layout.left, 8.0, layout.width, :left, 13.0)
+      label(ctx, D4Plot.t("plot.region_header", chromosome: region.chromosome,
+        start: DisplayFormat.position(region.start1), end: DisplayFormat.position(region.end1),
+        bases: DisplayFormat.position(region.length)), layout.left, 8.0, layout.width, :left, 13.0)
       draw_overview(ctx, layout, region, chromosomes)
       shared_range = shared_range_for(layers, completed_region, settings, shared_y)
       layers.each_with_index do |layer, index|
@@ -36,7 +39,7 @@ module D4Plot
         draw_layer(ctx, layer, index, stack, region, completed_region, settings, shared_range, shared_y, selected)
       end
       if layers.empty?
-        label(ctx, "All tracks are hidden. Select a track and enable Show.", layout.left, 110.0, layout.width, :center)
+        label(ctx, D4Plot.t("plot.all_hidden"), layout.left, 110.0, layout.width, :center)
       end
       annotation_height = AnnotationRenderer.height_for(annotation_track)
       @annotation_renderer.draw(ctx, annotation_track, region, layout.left, stack.annotation_top, layout.width, annotation_height)
@@ -64,7 +67,7 @@ module D4Plot
       if view && view.region == completed_region
         draw_signal_row(ctx, layer, view, row, region, settings, shared_range, shared_y)
       else
-        label(ctx, layer.error || "Waiting for data…", row.left, row.top + 20, row.width, :center)
+        label(ctx, layer.error || D4Plot.t("plot.waiting"), row.left, row.top + 20, row.width, :center)
       end
       draw_ticks(ctx, row, region) if settings.show_axis_ticks?
     end
@@ -79,9 +82,9 @@ module D4Plot
       draw_reference_lines(ctx, row, range, settings)
       draw_inspection(ctx, view, row, layer.source.key == @hover_layer)
       ctx.restore
-      scale = settings.y_min ? "Fixed Y" : shared_y ? "Shared Y" : "Auto Y (this track)"
-      mean_label = @preview_region ? "Loaded mean" : "Mean"
-      label(ctx, "#{mean_label}: #{DisplayFormat.value(view.mean)} | #{view.resolution} | #{scale}", row.left, row.top + row.height + 30, row.width, :right)
+      scale = settings.y_min ? D4Plot.t("plot.fixed_y") : shared_y ? D4Plot.t("app.shared_y") : D4Plot.t("plot.auto_y")
+      mean_label = @preview_region ? D4Plot.t("plot.loaded_mean") : D4Plot.t("plot.mean")
+      label(ctx, D4Plot.t("plot.summary", mean: mean_label, value: DisplayFormat.value(view.mean), resolution: view.resolution, scale: scale), row.left, row.top + row.height + 30, row.width, :right)
     end
 
     private def draw_overview(ctx, layout, region, chromosomes)
@@ -94,7 +97,7 @@ module D4Plot
       x = Math.min(x, layout.left + layout.width - width)
       ctx.fill_path(brush(0.12, 0.4, 0.68, 0.8)) { |path| path.add_rectangle(x, y - 2, width, 18) }
       label(ctx, "1", layout.left, y + 18, 80.0)
-      label(ctx, "#{DisplayFormat.position(size)} bp", layout.left + layout.width - 130, y + 18, 130.0, :right)
+      label(ctx, D4Plot.t("plot.bases", number: DisplayFormat.position(size)), layout.left + layout.width - 130, y + 18, 130.0, :right)
     end
 
     private def draw_grid(ctx, layout, range)

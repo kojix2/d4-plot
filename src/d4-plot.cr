@@ -1,15 +1,27 @@
 require "option_parser"
+require "./d4_plot/i18n"
 require "./d4_plot/app"
 
 region : String? = nil
+locale : String? = nil
+show_help = false
 OptionParser.parse do |parser|
-  parser.banner = "Usage: d4-plot [--region chromosome:start-end] [file.d4 ...]"
+  parser.banner = "Usage: d4-plot [--locale #{D4Plot::Translations.locale_list}] [--region chromosome:start-end] [file.d4 ...]"
+  parser.on("-l LOCALE", "--locale LOCALE", "Interface language") { |value| locale = value }
   parser.on("-r REGION", "--region REGION", "Initial region (1-based, inclusive)") { |value| region = value }
-  parser.on("-h", "--help", "Show usage") { puts parser; exit }
+  parser.on("-h", "--help", "Show usage") { show_help = true }
 end
 # Retain the original single-file positional region syntax.
 if ARGV.size == 2 && !File.exists?(ARGV[1]) && !ARGV[1].ends_with?(".d4")
   region ||= ARGV.pop
+end
+D4Plot::Translations.setup(locale)
+if show_help
+  puts D4Plot::Translations.usage
+  puts D4Plot.t("cli.locale_option")
+  puts D4Plot.t("cli.region_option")
+  puts D4Plot.t("cli.help_option")
+  exit
 end
 UIng.init
 menu_items = D4Plot::App.create_menu_bar

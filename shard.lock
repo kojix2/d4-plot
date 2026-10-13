@@ -8,6 +8,10 @@ shards:
     git: https://github.com/bio-cr/hts.cr.git
     version: 0.4.0+git.commit.c16aa4c82929212b159d5e755a8d60817d68932d
 
+  i18n:
+    git: https://github.com/crystal-i18n/i18n.git
+    version: 0.2.2
+
   mopdepth:
     git: https://github.com/kojix2/mopdepth.git
     version: 0.0.5+git.commit.b7052011d3d234f07e1ca6444c914be94866c074

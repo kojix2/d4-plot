@@ -10,7 +10,7 @@ module D4Plot
     MIN_INDEX_BIN_SIZE  = 65_536_i64
 
     def self.downsample(d4 : D4::File | D4::Track, region : Region, npoints : Int32 = DEFAULT_POINT_COUNT, use_sum_index : Bool = true, cancelled : Proc(Bool)? = nil) : Array(PlotPoint)
-      raise ArgumentError.new("Invalid region") unless region.valid?
+      raise ArgumentError.new(D4Plot.t("errors.invalid_region")) unless region.valid?
       downsample(d4, region.chromosome, region.start0, region.end0_exclusive, npoints, use_sum_index, cancelled)
     end
 
@@ -21,7 +21,7 @@ module D4Plot
       return [] of PlotPoint if npoints <= 0
 
       track = d4.is_a?(D4::File) ? d4.default_track : d4
-      raise ArgumentError.new("Region exceeds chromosome length") if end0_excl > track.chromosome_size(chromosome)
+      raise ArgumentError.new(D4Plot.t("errors.region_exceeds_chromosome")) if end0_excl > track.chromosome_size(chromosome)
       total_len = end0_excl.to_i64 - start0
       count = Math.min(npoints.to_i64, total_len).to_i
       points = if use_sum_index && total_len // count >= MIN_INDEX_BIN_SIZE && track.has_index?(D4::IndexKind::Sum)

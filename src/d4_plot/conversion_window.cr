@@ -1,18 +1,19 @@
 require "uing"
+require "./i18n"
 require "./conversion_draft"
 require "./conversion_worker"
 
 module D4Plot
   # Hiding this window does not destroy the draft or cancel its independent job.
   class ConversionWindow
-    @window = UIng::Window.new("Create D4", 660, 450, margined: true)
+    @window = UIng::Window.new(D4Plot.t("conversion.title"), 660, 450, margined: true)
     @draft = ConversionDraft.new
     @input = UIng::Entry.new
     @output = UIng::Entry.new
     @reference = UIng::Entry.new
-    @input_browse = UIng::Button.new("Browse…")
-    @output_browse = UIng::Button.new("Choose…")
-    @reference_browse = UIng::Button.new("Browse…")
+    @input_browse = UIng::Button.new(D4Plot.t("conversion.browse"))
+    @output_browse = UIng::Button.new(D4Plot.t("conversion.choose"))
+    @reference_browse = UIng::Button.new(D4Plot.t("conversion.browse"))
     @mode = UIng::Combobox.new
     @mode_hint = UIng::Label.new("")
     @mapq = UIng::Spinbox.new(0, 255, 0)
@@ -23,14 +24,14 @@ module D4Plot
     @minimum = UIng::Entry.new
     @maximum = UIng::Entry.new
     @advanced = UIng::Box.new(:vertical)
-    @advanced_toggle = UIng::Button.new("Show advanced options")
+    @advanced_toggle = UIng::Button.new(D4Plot.t("conversion.show_advanced"))
     @status = UIng::MultilineEntry.new(read_only: true)
     @progress = UIng::ProgressBar.new
     @progress_slot = UIng::Box.new(:vertical)
-    @create = UIng::Button.new("Create D4")
-    @cancel = UIng::Button.new("Cancel creation")
-    @add = UIng::Button.new("Add to view")
-    @close = UIng::Button.new("Close")
+    @create = UIng::Button.new(D4Plot.t("app.create_d4"))
+    @cancel = UIng::Button.new(D4Plot.t("conversion.cancel_creation"))
+    @add = UIng::Button.new(D4Plot.t("conversion.add_to_view"))
+    @close = UIng::Button.new(D4Plot.t("settings.close"))
     @last_display = ""
     @added = false
 
@@ -73,8 +74,8 @@ module D4Plot
       state.active? ? @create.disable : @create.enable
       state.running? ? @cancel.enable : @cancel.disable
       state.succeeded? && !@added ? @add.enable : @add.disable
-      @create.text = state.succeeded? ? "Create another…" : "Create D4"
-      @close.text = state.active? ? "Close (keep running)" : "Close"
+      @create.text = state.succeeded? ? D4Plot.t("conversion.create_another") : D4Plot.t("app.create_d4")
+      @close.text = state.active? ? D4Plot.t("conversion.close_running") : D4Plot.t("settings.close")
     end
 
     private def update_progress(state) : Nil
@@ -91,17 +92,19 @@ module D4Plot
       progress = snapshot.progress
       case state
       when .idle?
-        "Ready. Your current view will not change.\nExisting output files are never overwritten."
+        D4Plot.t("conversion.ready")
       when .running?, .cancelling?
-        phase = state.cancelling? ? "Cancelling — waiting for a safe stopping point" : progress.stage
-        location = progress.total > 0 ? "#{progress.chromosome} (#{progress.current}/#{progress.total}) · " : ""
-        "#{phase}\n#{location}#{progress.records} alignments read · #{seconds}s elapsed\nYou can keep browsing while this runs. Finalizing the index may take time."
+        phase = state.cancelling? ? D4Plot.t("conversion.cancelling_wait") : progress.stage
+        location = progress.total > 0 ? D4Plot.t("conversion.progress_location", chromosome: progress.chromosome,
+          current: progress.current, total: progress.total) : ""
+        D4Plot.t("conversion.progress", phase: phase, location: location, records: progress.records, seconds: seconds)
       when .succeeded?
-        "D4 created · #{seconds}s elapsed\n#{snapshot.output}\n#{@added ? "Added to the current view." : "Review the reference assembly, then choose Add to view when ready."}"
+        D4Plot.t("conversion.succeeded", seconds: seconds, output: snapshot.output,
+          next_step: D4Plot.t(@added ? "conversion.added" : "conversion.review"))
       when .cancelled?
-        "Creation cancelled. No output file was published.\nYour settings and current view have been kept."
+        D4Plot.t("conversion.cancelled")
       else
-        "#{snapshot.field || "Creation"}: #{snapshot.error}\nNo output file was published. Adjust the settings and try again."
+        D4Plot.t("conversion.failed", field: snapshot.field || D4Plot.t("conversion.creation"), error: snapshot.error)
       end
     end
 
@@ -119,41 +122,41 @@ module D4Plot
 
     private def setup_ui
       root = UIng::Box.new(:vertical, padded: true)
-      root.append(UIng::Label.new("Create a coverage D4 from a local, coordinate-sorted BAM or CRAM."), false)
+      root.append(UIng::Label.new(D4Plot.t("conversion.description")), false)
       form = UIng::Form.new(padded: true)
-      form.append("Input", path_row(@input, @input_browse))
-      form.append("", UIng::Label.new("Requires a matching BAI / CSI / CRAI index."))
-      form.append("Output D4", path_row(@output, @output_browse))
-      form.append("CRAM reference", path_row(@reference, @reference_browse))
-      form.append("", UIng::Label.new("For CRAM: the matching reference FASTA and its .fai index."))
-      ["Standard — aligned bases", "Fast — whole read spans", "Fragments — paired templates"].each { |label| @mode.append(label) }
+      form.append(D4Plot.t("conversion.input"), path_row(@input, @input_browse))
+      form.append("", UIng::Label.new(D4Plot.t("conversion.input_hint")))
+      form.append(D4Plot.t("conversion.output"), path_row(@output, @output_browse))
+      form.append(D4Plot.t("conversion.reference"), path_row(@reference, @reference_browse))
+      form.append("", UIng::Label.new(D4Plot.t("conversion.reference_hint")))
+      ["conversion.standard", "conversion.fast", "conversion.fragments"].each { |key| @mode.append(D4Plot.t(key)) }
       @mode.selected = 0
-      form.append("Coverage", @mode)
+      form.append(D4Plot.t("conversion.coverage"), @mode)
       form.append("", @mode_hint)
-      form.append("Minimum MAPQ", @mapq)
+      form.append(D4Plot.t("conversion.minimum_mapq"), @mapq)
       root.append(form, false)
       root.append(@advanced_toggle, false)
 
       advanced_form = UIng::Form.new(padded: true)
-      advanced_form.append("Decompression threads", @threads)
-      advanced_form.append("", UIng::Label.new("0 = no extra threads. Coverage calculation uses one worker."))
+      advanced_form.append(D4Plot.t("conversion.decompression_threads"), @threads)
+      advanced_form.append("", UIng::Label.new(D4Plot.t("conversion.threads_hint")))
       @exclude.text = "1796"
       @include.text = "0"
-      advanced_form.append("Exclude SAM flags", @exclude)
-      advanced_form.append("Include any SAM flag", @include)
-      advanced_form.append("", UIng::Label.new("Decimal or 0x hex. Include 0 = no requirement."))
-      exclusions = UIng::Label.new("Default excludes unmapped, secondary, QC-failed and duplicate reads.")
+      advanced_form.append(D4Plot.t("conversion.exclude_flags"), @exclude)
+      advanced_form.append(D4Plot.t("conversion.include_flags"), @include)
+      advanced_form.append("", UIng::Label.new(D4Plot.t("conversion.flags_hint")))
+      exclusions = UIng::Label.new(D4Plot.t("conversion.default_excludes"))
       exclusions.set_minimum_size(0, -1)
-      exclusions.tooltip = "Default exclude flags: 1796 (0x704). Supplementary alignments are not excluded."
+      exclusions.tooltip = D4Plot.t("conversion.default_excludes_tip")
       advanced_form.append("", exclusions)
-      advanced_form.append("Read groups", @groups)
-      @groups.tooltip = "Comma-separated RG identifiers. Blank includes all read groups."
+      advanced_form.append(D4Plot.t("conversion.read_groups"), @groups)
+      @groups.tooltip = D4Plot.t("conversion.read_groups_tip")
       lengths = row
       lengths.append(@minimum, true)
-      lengths.append(UIng::Label.new("to"), false)
+      lengths.append(UIng::Label.new(D4Plot.t("conversion.to")), false)
       lengths.append(@maximum, true)
-      advanced_form.append("Template length (bp)", lengths)
-      advanced_form.append("", UIng::Label.new("Blank = no limit. Filters |TLEN| in every coverage mode."))
+      advanced_form.append(D4Plot.t("conversion.template_length"), lengths)
+      advanced_form.append("", UIng::Label.new(D4Plot.t("conversion.template_length_hint")))
       @advanced.append(advanced_form, false)
       root.append(@advanced, false)
       @advanced.hide
@@ -210,11 +213,11 @@ module D4Plot
     private def sync_mode
       @mode_hint.text = case @mode.selected || 0
                         when 1
-                          "Includes CIGAR gaps; overlapping mates are counted twice."
+                          D4Plot.t("conversion.fast_hint")
                         when 2
-                          "Counts proper paired-template spans, including the insert."
+                          D4Plot.t("conversion.fragments_hint")
                         else
-                          "Respects CIGAR gaps; overlapping mates are counted once."
+                          D4Plot.t("conversion.standard_hint")
                         end
     end
 
@@ -245,8 +248,8 @@ module D4Plot
 
     private def update_advanced_label
       read_draft
-      action = @draft.advanced_open? ? "Hide" : "Show"
-      @advanced_toggle.text = "#{action} advanced options#{@draft.advanced_modified? ? " (modified)" : ""}"
+      @advanced_toggle.text = D4Plot.t(@draft.advanced_open? ? "conversion.hide_advanced" : "conversion.show_advanced") +
+                              (@draft.advanced_modified? ? D4Plot.t("conversion.modified") : "")
     end
 
     private def create
@@ -262,8 +265,8 @@ module D4Plot
       @worker.start(request)
       poll
     rescue ex
-      field = ex.is_a?(ConversionError) ? ex.field : "Settings"
-      set_status("#{field}: #{ex.message}\nCreation has not started.")
+      field = ex.is_a?(ConversionError) ? ex.field : D4Plot.t("fields.settings")
+      set_status(D4Plot.t("conversion.not_started", field: field, error: ex.message))
     end
 
     private def add_to_view

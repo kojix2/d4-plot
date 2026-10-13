@@ -1,4 +1,4 @@
-require "spec"
+require "./spec_helper"
 require "../src/d4_plot/data_sampler"
 
 describe D4Plot::DataSampler do

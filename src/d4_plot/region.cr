@@ -1,3 +1,5 @@
+require "./i18n"
+
 module D4Plot
   struct Region
     getter chromosome : String
@@ -20,20 +22,20 @@ module D4Plot
       region = if size = chromosomes[text]?
                  new(text, 1_u32, size)
                else
-                 parse(text) || raise ArgumentError.new("Enter chromosome:start-end, chromosome:position, or a chromosome name. Coordinates are 1-based and inclusive; commas are allowed.")
+                 parse(text) || raise ArgumentError.new(D4Plot.t("errors.region_format"))
                end
       region.validate!(chromosomes)
       region
     end
 
     def validate!(chromosomes : Hash(String, UInt32)) : Nil
-      raise ArgumentError.new("Start must be at least 1, and end must be at least start.") unless valid?
-      size = chromosomes[@chromosome]? || raise ArgumentError.new("Chromosome #{@chromosome.inspect} is not in the selected track. Choose its name from the chromosome list.")
-      raise ArgumentError.new("#{@chromosome} ends at #{size}; the requested region ends at #{@end1}.") if @end1 > size
+      raise ArgumentError.new(D4Plot.t("errors.region_bounds")) unless valid?
+      size = chromosomes[@chromosome]? || raise ArgumentError.new(D4Plot.t("errors.chromosome_not_found", chromosome: @chromosome.inspect))
+      raise ArgumentError.new(D4Plot.t("errors.region_end", chromosome: @chromosome, size: size, end: @end1)) if @end1 > size
     end
 
     def self.bounded(chromosome : String, start0 : Int64, length : Int64, chromosome_size : UInt32) : Region
-      raise ArgumentError.new("Empty chromosome") if chromosome_size == 0
+      raise ArgumentError.new(D4Plot.t("errors.empty_chromosome")) if chromosome_size == 0
       length = length.clamp(1_i64, chromosome_size.to_i64)
       left = start0.clamp(0_i64, chromosome_size.to_i64 - length)
       new(chromosome, (left + 1).to_u32, (left + length).to_u32)

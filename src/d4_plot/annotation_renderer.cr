@@ -1,4 +1,5 @@
 require "uing"
+require "./i18n"
 require "./annotation"
 require "./region"
 
@@ -66,7 +67,7 @@ module D4Plot
         draw_feature(ctx, feature, lane, region, plot_left, top, plot_width)
       end
       if hidden > 0
-        draw_notice(ctx, "#{hidden} additional features overlap these lanes; zoom in to inspect them", plot_left, top + height - 17, plot_width)
+        draw_notice(ctx, D4Plot.t("plot.additional_features", number: hidden), plot_left, top + height - 17, plot_width)
       end
     end
 

@@ -1,6 +1,7 @@
 require "d4"
 require "file_utils"
 require "mopdepth"
+require "./i18n"
 
 module D4Plot
   alias CoverageMode = Mopdepth::Mode
@@ -29,21 +30,38 @@ module D4Plot
     end
 
     def validate!
-      raise ConversionError.new("Input", "Choose a local BAM or CRAM file.") unless File.file?(input)
-      raise ConversionError.new("Output", "Choose a filename ending in .d4.") unless output.downcase.ends_with?(".d4")
-      raise ConversionError.new("Output", "Choose an existing output folder.") unless Dir.exists?(File.dirname(output))
-      if File.exists?(output) || File.symlink?(output)
-        raise ConversionError.new("Output", "This output already exists. Choose a new filename.")
-      end
-      raise ConversionError.new("Minimum MAPQ", "Enter a value between 0 and 255.") unless (0..255).includes?(mapq)
-      raise ConversionError.new("Threads", "Enter a value between 0 and 64.") unless (0..64).includes?(threads)
+      validate_input
+      validate_output
+      validate_options
+      validate_reference
+    end
+
+    private def validate_input : Nil
+      raise_error("fields.input", "errors.input_missing") unless File.file?(input)
+    end
+
+    private def validate_output : Nil
+      raise_error("fields.output", "errors.output_extension") unless output.downcase.ends_with?(".d4")
+      raise_error("fields.output", "errors.output_directory") unless Dir.exists?(File.dirname(output))
+      raise_error("fields.output", "errors.output_exists") if File.exists?(output) || File.symlink?(output)
+    end
+
+    private def validate_options : Nil
+      raise_error("fields.minimum_mapq", "errors.mapq_range") unless (0..255).includes?(mapq)
+      raise_error("fields.threads", "errors.threads_range") unless (0..64).includes?(threads)
       if min_fragment < -1 || max_fragment < -1 || (min_fragment >= 0 && max_fragment >= 0 && min_fragment > max_fragment)
-        raise ConversionError.new("Fragment length", "Enter non-negative limits, with minimum no larger than maximum.")
+        raise_error("fields.fragment_length", "errors.fragment_range")
       end
-      unless reference.empty?
-        raise ConversionError.new("Reference", "Choose a local reference FASTA file.") unless File.file?(reference)
-        raise ConversionError.new("Reference", "The reference FASTA needs a matching .fai index.") unless File.file?("#{reference}.fai")
-      end
+    end
+
+    private def validate_reference : Nil
+      return if reference.empty?
+      raise_error("fields.reference", "errors.reference_missing") unless File.file?(reference)
+      raise_error("fields.reference", "errors.reference_index") unless File.file?("#{reference}.fai")
+    end
+
+    private def raise_error(field_key : String, error_key : String) : NoReturn
+      raise ConversionError.new(D4Plot.t(field_key), D4Plot.t(error_key))
     end
   end
 
@@ -106,10 +124,7 @@ module D4Plot
 
     def run(request : ConversionRequest, control : ConversionControl = ConversionControl.new,
             progress : Proc(ConversionProgress, Nil) = ->(_event : ConversionProgress) { }) : String
-      reader = nil.as(Mopdepth::Reader?)
-      writer = nil.as(D4::Writer?)
-      staging = nil.as(String?)
-      current = ConversionProgress.new("Checking input")
+      current = ConversionProgress.new(D4Plot.t("conversion.checking_input"))
       emit = ->(event : ConversionProgress) do
         current = event
         progress.call(event)
@@ -130,47 +145,59 @@ module D4Plot
           total: event.chromosome ? event.total.to_i32 : 0))
       end
       control.attach(mopdepth_control, d4_control)
-      reader = open_reader(request)
-      names = reader.targets.map(&.name)
-      control.check!
-      candidate = File.tempname(".d4-plot-", dir: File.dirname(File.expand_path(request.output)))
-      Dir.mkdir(candidate)
-      # Only record ownership after exclusive directory creation succeeds.
-      staging = candidate
-      staged = File.join(staging, "result.d4")
-      writer = D4::Writer.new(staged,
-        D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames]), d4_control)
-      writer.set_chromosomes(reader.targets.map { |target| {target.name, target.length.to_u32} })
-      convert_targets(reader, writer, request.options, mopdepth_control, control, emit)
-      reader.close
-      reader = nil
-      control.check!
-      writer.close
-      control.check!
-      emit.call(current.copy_with(stage: "Verifying D4"))
-      verify(staged, names)
-      control.publish(staged, File.expand_path(request.output))
-      File.expand_path(request.output)
-    rescue ex : Mopdepth::CancelledError | D4::CancelledError
+      begin
+        reader = open_reader(request)
+        begin
+          names = reader.targets.map(&.name)
+          control.check!
+          staging = File.tempname(".d4-plot-", dir: File.dirname(File.expand_path(request.output)))
+          Dir.mkdir(staging)
+          begin
+            staged = File.join(staging, "result.d4")
+            writer = D4::Writer.new(staged,
+              D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames]), d4_control)
+            begin
+              writer.set_chromosomes(reader.targets.map { |target| {target.name, target.length.to_u32} })
+              convert_targets(reader, writer, request.options, mopdepth_control, control, emit)
+              control.check!
+              writer.close
+              control.check!
+              emit.call(current.copy_with(stage: D4Plot.t("conversion.verifying_d4")))
+              verify(staged, names)
+              control.publish(staged, File.expand_path(request.output))
+              File.expand_path(request.output)
+            ensure
+              writer.abort unless writer.closed?
+            end
+          ensure
+            FileUtils.rm_rf(staging) if Dir.exists?(staging)
+          end
+        ensure
+          reader.close
+        end
+      rescue Mopdepth::CancelledError | D4::CancelledError
+        raise ConversionCancelled.new
+      ensure
+        control.detach
+      end
+    rescue Mopdepth::CancelledError | D4::CancelledError
       raise ConversionCancelled.new
-    ensure
-      cleanup(writer, reader, staging, control)
     end
 
     private def coverage_stage(stage : Mopdepth::Stage) : String
       case stage
-      in .preparing?  then "Preparing coverage"
-      in .reading?    then "Reading alignments"
-      in .finalizing? then "Preparing D4 output"
+      in .preparing?  then D4Plot.t("conversion.preparing_coverage")
+      in .reading?    then D4Plot.t("conversion.reading_alignments")
+      in .finalizing? then D4Plot.t("conversion.preparing_output")
       end
     end
 
     private def write_stage(stage : D4::WriteStage) : String
       case stage
-      in .finalizing?                           then "Finalizing D4"
-      in .writing_primary?, .writing_secondary? then "Writing D4"
-      in .building_indexes?                     then "Building D4 index"
-      in .publishing?                           then "Finishing D4"
+      in .finalizing?                           then D4Plot.t("conversion.finalizing")
+      in .writing_primary?, .writing_secondary? then D4Plot.t("conversion.writing")
+      in .building_indexes?                     then D4Plot.t("conversion.building_index")
+      in .publishing?                           then D4Plot.t("conversion.finishing")
       end
     end
 
@@ -178,13 +205,13 @@ module D4Plot
       reader = Mopdepth::Reader.open(request.input, reference: request.reference, threads: request.threads)
       if reader.file_format == "cram" && request.reference.empty?
         reader.close
-        raise ConversionError.new("Reference", "Choose the reference FASTA used for this CRAM, with its .fai index.")
+        raise ConversionError.new(D4Plot.t("fields.reference"), D4Plot.t("errors.cram_reference"))
       end
       reader
     rescue ex : Mopdepth::IndexError
-      raise ConversionError.new("Input", "A matching BAI/CSI (BAM) or CRAI (CRAM) index is required. #{ex.message}")
+      raise ConversionError.new(D4Plot.t("fields.input"), D4Plot.t("errors.alignment_index", error: ex.message))
     rescue ex : Mopdepth::InputError
-      raise ConversionError.new("Input", "Could not open alignment: #{ex.message}")
+      raise ConversionError.new(D4Plot.t("fields.input"), D4Plot.t("errors.alignment_open", error: ex.message))
     end
 
     private def convert_targets(reader, writer, options, mopdepth_control, control, progress) : Nil
@@ -192,32 +219,18 @@ module D4Plot
       total = reader.targets.size
       reader.targets.each_with_index do |target, index|
         control.check!
-        event = ConversionProgress.new("Preparing coverage", target.name, index + 1, total, reader.records_examined)
+        event = ConversionProgress.new(D4Plot.t("conversion.preparing_coverage"), target.name, index + 1, total, reader.records_examined)
         progress.call(event)
         result = reader.coverage_into(target.region, coverage, options: options, control: mopdepth_control)
-        progress.call(event.copy_with(stage: "Writing coverage", records: reader.records_examined))
+        progress.call(event.copy_with(stage: D4Plot.t("conversion.writing_coverage"), records: reader.records_examined))
         write_coverage(writer, result.values, target.name, control)
       end
     end
 
     private def verify(path : String, names : Array(String)) : Nil
       D4.open(path) do |file|
-        raise "The generated D4 has no secondary-frame index." unless file.default_track.has_index?(D4::IndexKind::SecondaryFrames)
-        raise "The generated D4 has unexpected reference sequences." unless file.chromosomes.map(&.name) == names
-      end
-    end
-
-    private def cleanup(writer, reader, staging, control) : Nil
-      writer.try(&.abort) unless writer.try(&.closed?)
-    ensure
-      begin
-        reader.try(&.close)
-      ensure
-        begin
-          FileUtils.rm_rf(staging) if staging && Dir.exists?(staging)
-        ensure
-          control.detach
-        end
+        raise D4Plot.t("errors.no_secondary_index") unless file.default_track.has_index?(D4::IndexKind::SecondaryFrames)
+        raise D4Plot.t("errors.unexpected_references") unless file.chromosomes.map(&.name) == names
       end
     end
 

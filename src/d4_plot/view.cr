@@ -19,7 +19,7 @@ module D4Plot
     getter minimum : Float64, maximum : Float64, mean : Float64
 
     def initialize(@region : Region, @points : Array(PlotPoint))
-      raise ArgumentError.new("No samples returned") if points.empty?
+      raise ArgumentError.new(D4Plot.t("errors.no_samples")) if points.empty?
       @minimum = points.min_of(&.[1])
       @maximum = points.max_of(&.[1])
       @mean = weighted_mean
@@ -50,16 +50,17 @@ module D4Plot
     end
 
     def resolution : String
-      return "1 bp / bin" if @points.size == @region.length
+      return D4Plot.t("view.one_bp_per_bin") if @points.size == @region.length
       base = @region.length // @points.size
       width = DisplayFormat.position(base)
       width += "–#{DisplayFormat.position(base + 1)}" if @region.length % @points.size != 0
-      "#{width} bp / bin (mean)"
+      D4Plot.t("view.resolution", width: width)
     end
 
     def inspect_bin(index : Int32) : String
       left, right = bin_edges(index)
-      "#{@region.chromosome}:#{DisplayFormat.position(left + 1)}-#{DisplayFormat.position(right)} | Mean: #{DisplayFormat.value(@points[index][1])} | #{DisplayFormat.position(right - left)} bp"
+      D4Plot.t("view.bin_inspection", chromosome: @region.chromosome, start: DisplayFormat.position(left + 1),
+        end: DisplayFormat.position(right), mean: DisplayFormat.value(@points[index][1]), bases: DisplayFormat.position(right - left))
     end
 
     def write_bedgraph(io : IO) : Nil

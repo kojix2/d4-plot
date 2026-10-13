@@ -1,4 +1,5 @@
 require "uing"
+require "./i18n"
 require "./plot_settings"
 
 module D4Plot
@@ -11,11 +12,11 @@ module D4Plot
     ]
 
     def initialize(@settings : PlotSettings, @parent : UIng::Window, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
-      @window = UIng::Window.new("Display settings", 420, 420, margined: true)
+      @window = UIng::Window.new(D4Plot.t("settings.title"), 420, 420, margined: true)
       @bins = UIng::Spinbox.new(16, 4096, @settings.point_count)
-      @auto = UIng::Checkbox.new("Automatically scale each view")
+      @auto = UIng::Checkbox.new(D4Plot.t("settings.auto_scale"))
       @auto.checked = @settings.y_min.nil? && @settings.y_max.nil?
-      @zero = UIng::Checkbox.new("Include zero in automatic scale")
+      @zero = UIng::Checkbox.new(D4Plot.t("settings.include_zero"))
       @zero.checked = @settings.y_axis_from_zero?
       @min = UIng::Entry.new
       @min.text = (@settings.y_min || 0.0).to_s
@@ -27,27 +28,27 @@ module D4Plot
       @color.set_color(*@settings.plot_color)
       @limit = UIng::Spinbox.new(1, 5000, @settings.annotation_feature_limit)
       @toolbar_mode = UIng::Combobox.new
-      ["Icons and labels below", "Icons and labels beside", "Icons only", "Labels only"].each { |label| @toolbar_mode.append(label) }
+      ["settings.toolbar_vertical", "settings.toolbar_horizontal", "settings.toolbar_icons", "settings.toolbar_labels"].each { |key| @toolbar_mode.append(D4Plot.t(key)) }
       @toolbar_mode.selected = TOOLBAR_MODES.index(@settings.toolbar_display_mode)
       form = UIng::Form.new
       form.padded = true
-      form.append("Display bins", @bins)
-      form.append("Y scale", @auto)
+      form.append(D4Plot.t("settings.bins"), @bins)
+      form.append(D4Plot.t("settings.y_scale"), @auto)
       form.append("", @zero)
-      form.append("Fixed minimum", @min)
-      form.append("Fixed maximum", @max)
-      form.append("Reference lines (comma separated)", @lines)
-      form.append("Signal color", @color)
-      form.append("Annotation feature limit", @limit)
-      form.append("Toolbar", @toolbar_mode)
+      form.append(D4Plot.t("settings.fixed_minimum"), @min)
+      form.append(D4Plot.t("settings.fixed_maximum"), @max)
+      form.append(D4Plot.t("settings.reference_lines"), @lines)
+      form.append(D4Plot.t("settings.signal_color"), @color)
+      form.append(D4Plot.t("settings.annotation_limit"), @limit)
+      form.append(D4Plot.t("settings.toolbar"), @toolbar_mode)
       root = UIng::Box.new(:vertical)
       root.padded = true
       root.append(form, true)
-      root.append(UIng::Label.new("Bins show means: zoom in to inspect local peaks.\nFixed scales help compare different regions."), false)
+      root.append(UIng::Label.new(D4Plot.t("settings.hint")), false)
       buttons = UIng::Box.new(:horizontal)
       buttons.padded = true
-      apply = UIng::Button.new("Apply")
-      close = UIng::Button.new("Close")
+      apply = UIng::Button.new(D4Plot.t("settings.apply"))
+      close = UIng::Button.new(D4Plot.t("settings.close"))
       buttons.append(apply, false)
       buttons.append(close, false)
       root.append(buttons, false)
@@ -81,7 +82,7 @@ module D4Plot
 
     private def number(text : String) : Float64
       value = text.strip.to_f?
-      raise ArgumentError.new("Enter a finite number: #{text.inspect}") unless value && value.finite?
+      raise ArgumentError.new(D4Plot.t("settings.finite_number", text: text.inspect)) unless value && value.finite?
       value
     end
 
@@ -103,14 +104,14 @@ module D4Plot
       @settings.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
       @on_apply.call(reload_data)
     rescue ex : ArgumentError
-      @window.msg_box_error("Check display settings", ex.message || "Invalid settings")
+      @window.msg_box_error(D4Plot.t("settings.check"), ex.message || D4Plot.t("settings.invalid"))
     end
 
     private def scale_limits : Tuple(Float64?, Float64?)
       return {nil, nil} if @auto.checked?
       minimum = number(@min.text || "")
       maximum = number(@max.text || "")
-      raise ArgumentError.new("Fixed maximum must be greater than fixed minimum.") if maximum <= minimum
+      raise ArgumentError.new(D4Plot.t("settings.invalid_scale")) if maximum <= minimum
       {minimum, maximum}
     end
 

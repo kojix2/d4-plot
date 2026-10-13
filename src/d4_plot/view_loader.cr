@@ -32,7 +32,7 @@ module D4Plot
     def submit(sources : Array(TrackSource), region, bins, use_index, annotation_path, annotation_limit, annotation_fallback : String? = nil) : Int32
       id = @generation.add(1) + 1
       @mutex.synchronize do
-        raise "Viewer is closed" if @closed
+        raise D4Plot.t("errors.viewer_closed") if @closed
         @pending = ViewRequest.new(id, sources.dup, region, bins, use_index, annotation_path, annotation_limit, annotation_fallback)
         @wake.signal
       end
@@ -97,7 +97,7 @@ module D4Plot
 
     private def sample(source, request, cancelled) : LayerSample
       unless source.chromosomes.has_key?(request.region.chromosome)
-        return LayerSample.new(source, nil, "No data for #{request.region.chromosome} in this track")
+        return LayerSample.new(source, nil, D4Plot.t("errors.no_track_data", chromosome: request.region.chromosome))
       end
       request.region.validate!(source.chromosomes)
       current_file = file_for(source.path)
@@ -106,7 +106,7 @@ module D4Plot
     rescue ex : SamplingCancelled
       raise ex
     rescue ex
-      LayerSample.new(source, nil, "Read failed: #{ex.message || ex.class.name}")
+      LayerSample.new(source, nil, D4Plot.t("errors.read_failed", error: ex.message || ex.class.name))
     end
 
     private def next_request : ViewRequest?
@@ -145,7 +145,7 @@ module D4Plot
                 begin
                   read_annotation(fallback, request)
                 rescue
-                  AnnotationTrack.notice("Annotations unavailable in this region")
+                  AnnotationTrack.notice(D4Plot.t("annotation.unavailable"))
                 end
               end
       {track, error}
