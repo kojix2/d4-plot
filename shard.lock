@@ -14,7 +14,7 @@ shards:
 
   mopdepth:
     git: https://github.com/kojix2/mopdepth.git
-    version: 0.0.5+git.commit.b7052011d3d234f07e1ca6444c914be94866c074
+    version: 0.0.5+git.commit.25c5f1fd7ead86264716450005ea1ab97c286570
 
   uing:
     git: https://github.com/kojix2/uing.git
