@@ -13,6 +13,31 @@ private def await_view(loader, id)
 end
 
 describe D4Plot::ViewLoader do
+  it "keeps the prior annotation on replacement failure, at the requested coordinates" do
+    path = File.tempname("d4-plot-retained-annotation", ".bed")
+    loader = D4Plot::ViewLoader.new
+    begin
+      File.write(path, "chr\t0\t2\tfirst\nchr\t7\t10\tlast\n")
+      sources = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+      first = D4Plot::Region.new("chr", 1_u32, 2_u32)
+      id = loader.submit(sources, first, 4, true, path, 100)
+      await_view(loader, id).annotation_track.not_nil!.features.first.name.should eq("first")
+      last = D4Plot::Region.new("chr", 8_u32, 10_u32)
+      id = loader.submit(sources, last, 4, true, "#{path}.missing", 100, path)
+      result = await_view(loader, id)
+      result.error.should be_nil
+      result.annotation_error.should_not be_nil
+      result.annotation_track.not_nil!.features.first.name.should eq("last")
+      result.layers.first.view.not_nil!.region.should eq(last)
+      id = loader.submit(sources, last, 4, true, nil, 100)
+      await_view(loader, id).annotation_track.should be_nil
+    ensure
+      loader.close
+      loader.wait
+      File.delete(path) if File.exists?(path)
+    end
+  end
+
   it "recovers from read errors and returns the latest requested region" do
     loader = D4Plot::ViewLoader.new
     begin

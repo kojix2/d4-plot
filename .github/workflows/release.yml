@@ -13,20 +13,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: crystal-lang/install-crystal@v1
-        with:
-          crystal: latest
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-      - run: shards update
-      - name: Build static Windows executable
-        run: shards build --release --no-debug --static --link-flags=/SUBSYSTEM:WINDOWS
+      - uses: ./.github/actions/setup-windows
+      - name: Install locked shards
+        shell: msys2 {0}
+        run: shards install --frozen
+      - name: Test and build static Windows executable
+        shell: msys2 {0}
+        run: |
+          bash scripts/build-windows.sh
+          bash scripts/check-windows.sh bin/d4-plot.exe
       - name: Package Windows ZIP
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           $archive = "dist/d4-plot-$($env:GITHUB_REF_NAME)-windows-x64.zip"
-          Compress-Archive -Path bin/d4-plot.exe,README.md,LICENSE -DestinationPath $archive
+          Compress-Archive -Path bin/d4-plot.exe,README.md,LICENSE,build/licenses -DestinationPath $archive
       - name: Build Windows installer
         run: |
           $iscc = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) |
@@ -56,8 +56,9 @@ jobs:
       - uses: crystal-lang/install-crystal@v1
         with:
           crystal: latest
-      - run: brew install dylibbundler
-      - run: shards update
+      - run: brew install dylibbundler htslib pkg-config
+      - run: shards install --frozen
+      - run: crystal spec spec
       - run: shards build --release --no-debug
       - name: Package app bundle
         run: bash scripts/package-macos.sh "$GITHUB_REF_NAME" "${{ matrix.arch }}"
@@ -76,8 +77,9 @@ jobs:
       - name: Install GUI and packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev dpkg-dev
-      - run: shards update
+          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev libhts-dev dpkg-dev
+      - run: shards install --frozen
+      - run: crystal spec spec
       - run: shards build --release --no-debug
       - name: Package Debian archive
         run: bash scripts/package-deb.sh "$GITHUB_REF_NAME"

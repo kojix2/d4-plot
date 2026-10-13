@@ -10,6 +10,7 @@ install -d -m 755 "$package/DEBIAN" "$package/usr/bin" \
 install -m 755 bin/d4-plot "$package/usr/bin/d4-plot"
 install -m 644 LICENSE "$package/usr/share/doc/d4-plot/copyright"
 install -m 644 README.md "$package/usr/share/doc/d4-plot/README.md"
+bash scripts/collect-licenses.sh "$package/usr/share/doc/d4-plot/licenses"
 
 cat > "$package/usr/share/applications/d4-plot.desktop" <<'EOF'
 [Desktop Entry]

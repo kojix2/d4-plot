@@ -9,10 +9,8 @@ module D4Plot
     MAX_HEIGHT = 120.0
 
     def self.height_for(track : AnnotationTrack?)
-      return 0.0 if track.nil? || track.empty?
-      return LANE * 2 if track.notice
-
-      MAX_HEIGHT
+      # Keep the annotation lane stable when panning through empty or dense areas.
+      track.nil? ? 0.0 : MAX_HEIGHT
     end
 
     def draw(ctx, track : AnnotationTrack?, region : Region?, plot_left, top, plot_width, height)

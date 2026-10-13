@@ -5,6 +5,7 @@ module D4Plot
   class Toolbar
     getter native = UIng::Toolbar.new
     getter open : UIng::ToolbarItem
+    getter create : UIng::ToolbarItem
     getter annotations : UIng::ToolbarItem
     getter export : UIng::ToolbarItem
     getter back : UIng::ToolbarItem
@@ -21,6 +22,7 @@ module D4Plot
     def initialize
       @native.display_mode = UIng::Toolbar::DisplayMode::IconOnly
       @open = button("Open", "Open a D4 file", [[{2, 16}, {2, 4}, {8, 4}, {10, 6}, {18, 6}, {18, 16}, {2, 16}], [{2, 9}, {18, 9}]])
+      @create = button("Create D4", "Create a D4 coverage file from BAM or CRAM", [[{3, 2}, {12, 2}, {17, 7}, {17, 18}, {3, 18}, {3, 2}], [{12, 2}, {12, 7}, {17, 7}], [{6, 12}, {14, 12}], [{10, 8}, {10, 16}]])
       @annotations = button("Annotations", "Load GFF3, GTF or BED from the same reference assembly", [[{2, 6}, {18, 6}], [{5, 3}, {5, 9}], [{8, 3}, {8, 9}], [{2, 14}, {18, 14}], [{12, 11}, {12, 17}], [{15, 11}, {15, 17}]])
       @export = button("Export bins", "Save the selected visible track’s bin means as bedGraph (0-based, half-open)", [[{10, 2}, {10, 12}], [{6, 8}, {10, 12}, {14, 8}], [{3, 13}, {3, 17}, {17, 17}, {17, 13}]])
       @native.append_separator

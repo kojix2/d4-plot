@@ -63,6 +63,47 @@ describe D4Plot::PlotSettings do
 end
 
 describe D4Plot::ViewHistory do
+  it "records a fresh view after pruning the current chromosome" do
+    history = D4Plot::ViewHistory.new
+    removed = D4Plot::Region.new("other", 1_u32, 10_u32)
+    valid = D4Plot::Region.new("chr", 1_u32, 10_u32)
+    history.record(removed)
+    history.record(valid)
+    history.back.should eq(removed)
+    history.retain({"chr" => 100_u32})
+    history.record(valid)
+    history.forward?.should be_false
+    history.back?.should be_false
+  end
+
+  it "retains the correct cursor when a region was visited more than once" do
+    history = D4Plot::ViewHistory.new
+    first = D4Plot::Region.new("chr", 1_u32, 10_u32)
+    second = D4Plot::Region.new("chr", 11_u32, 20_u32)
+    history.record(first)
+    history.record(second)
+    history.record(first)
+    history.retain({"chr" => 100_u32})
+    history.back.should eq(second)
+    history.back.should eq(first)
+  end
+
+  it "retains navigation when tracks are added and prunes removed chromosomes" do
+    history = D4Plot::ViewHistory.new
+    first = D4Plot::Region.new("chr", 1_u32, 10_u32)
+    removed = D4Plot::Region.new("other", 1_u32, 10_u32)
+    last = D4Plot::Region.new("chr", 20_u32, 30_u32)
+    history.record(first)
+    history.record(removed)
+    history.record(last)
+    history.retain({"chr" => 100_u32, "other" => 10_u32, "added" => 50_u32})
+    history.back.should eq(removed)
+    history.forward.should eq(last)
+    history.retain({"chr" => 100_u32})
+    history.back.should eq(first)
+    history.forward.should eq(last)
+  end
+
   it "restores visited regions and discards forward history after a new navigation" do
     history = D4Plot::ViewHistory.new
     first = D4Plot::Region.new("chr", 1_u32, 100_u32)

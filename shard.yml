@@ -13,6 +13,9 @@ dependencies:
   d4:
     github: kojix2/d4.cr
     branch: main
+  mopdepth:
+    github: kojix2/mopdepth
+    branch: main
 
 targets:
   d4-plot:

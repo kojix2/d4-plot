@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu", "macos", "windows"]
+        os: ["ubuntu", "macos"]
     steps:
       - uses: actions/checkout@v7
 
@@ -27,13 +27,11 @@ jobs:
         if: matrix.os == 'ubuntu'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev
+          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev libhts-dev
 
-      - name: Set up MSVC and Windows SDK
-        if: matrix.os == 'windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+      - name: macOS alignment dependencies
+        if: matrix.os == 'macos'
+        run: brew install htslib pkg-config
 
       - name: Install shards
         run: shards install --frozen
@@ -43,3 +41,18 @@ jobs:
 
       - name: Build release executable
         run: shards build --release
+
+  windows:
+    name: Windows (MinGW UCRT64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-windows
+      - run: shards install --frozen
+      - name: Test and build with static HTSlib
+        run: bash scripts/build-windows.sh
+      - name: Verify Windows GUI subsystem and DLL imports
+        run: bash scripts/check-windows.sh bin/d4-plot.exe

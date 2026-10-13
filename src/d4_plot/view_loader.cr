@@ -3,10 +3,11 @@ require "./annotation"
 
 module D4Plot
   record ViewRequest, id : Int32, sources : Array(TrackSource), region : Region,
-    bins : Int32, use_index : Bool, annotation_path : String?, annotation_limit : Int32
+    bins : Int32, use_index : Bool, annotation_path : String?, annotation_limit : Int32,
+    annotation_fallback : String? = nil
 
   record ViewResult, request : ViewRequest, layers : Array(LayerSample), annotation_track : AnnotationTrack?,
-    elapsed_ms : Float64, error : String?
+    elapsed_ms : Float64, error : String?, annotation_error : String? = nil
 
   # One worker owns its file handles. Only the latest pending request/result is
   # retained, so rapid navigation cannot accumulate work or large allocations.
@@ -28,11 +29,11 @@ module D4Plot
       @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-reader") { work }
     end
 
-    def submit(sources : Array(TrackSource), region, bins, use_index, annotation_path, annotation_limit) : Int32
+    def submit(sources : Array(TrackSource), region, bins, use_index, annotation_path, annotation_limit, annotation_fallback : String? = nil) : Int32
       id = @generation.add(1) + 1
       @mutex.synchronize do
         raise "Viewer is closed" if @closed
-        @pending = ViewRequest.new(id, sources.dup, region, bins, use_index, annotation_path, annotation_limit)
+        @pending = ViewRequest.new(id, sources.dup, region, bins, use_index, annotation_path, annotation_limit, annotation_fallback)
         @wake.signal
       end
       id
@@ -78,8 +79,8 @@ module D4Plot
             sample(source, request, cancelled)
           end
           raise SamplingCancelled.new if cancelled.call
-          track = annotation_for(request)
-          result = ViewResult.new(request, layers, track, (Time.instant - started).total_milliseconds, nil)
+          track, annotation_error = annotation_for(request)
+          result = ViewResult.new(request, layers, track, (Time.instant - started).total_milliseconds, nil, annotation_error)
         rescue SamplingCancelled
           next
         rescue ex
@@ -130,15 +131,32 @@ module D4Plot
       opened
     end
 
-    private def annotation_for(request : ViewRequest) : AnnotationTrack?
+    private def annotation_for(request : ViewRequest) : Tuple(AnnotationTrack?, String?)
       unless path = request.annotation_path
         @annotation_index = nil
-        return
+        return {nil, nil}
       end
-      @annotation_index = AnnotationIndex.load(path) if @annotation_index.try(&.path) != path
-      @annotation_index.try(&.track_for(request.region, 5_000_000_u32, request.annotation_limit))
+      {read_annotation(path, request), nil}
     rescue ex
-      AnnotationTrack.notice("Annotation error: #{ex.message}")
+      error = ex.message || ex.class.name
+      # A rejected replacement must not discard the previous selection, and its
+      # fallback must be read at the new coordinates, not reuse an old track.
+      track = if fallback = request.annotation_fallback
+                begin
+                  read_annotation(fallback, request)
+                rescue
+                  AnnotationTrack.notice("Annotations unavailable in this region")
+                end
+              end
+      {track, error}
+    end
+
+    private def read_annotation(path, request)
+      index = @annotation_index
+      index = AnnotationIndex.load(path) unless index && index.path == path
+      track = index.track_for(request.region, 5_000_000_u32, request.annotation_limit)
+      @annotation_index = index
+      track
     end
   end
 end

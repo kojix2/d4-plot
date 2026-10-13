@@ -1,4 +1,23 @@
-# Third-party test fixtures
+# Third-party notices
+
+## Conversion and GUI dependencies
+
+D4 creation uses [mopdepth](https://github.com/kojix2/mopdepth) (MIT),
+[hts.cr](https://github.com/bio-cr/hts.cr) (MIT) and native
+[HTSlib](https://github.com/samtools/htslib) (MIT/Expat and Modified BSD).
+[d4.cr](https://github.com/kojix2/d4.cr) supplies the D4 writer and reader, and
+[UIng](https://github.com/kojix2/uing) supplies native GUI bindings (both MIT).
+Exact Crystal dependency revisions are recorded in `shard.lock`.
+
+Packaging scripts copy the dependency license texts into a `licenses` directory.
+Windows packages also include HTSlib/htscodecs licenses, the installed MSYS2
+license collection, and a package-version inventory for native dependencies.
+Native dependencies retain their own licenses; d4-plot's MIT license does not
+replace them. MSYS2 package sources are available from
+<https://packages.msys2.org/>; HTSlib's Windows build is pinned in
+`scripts/build-windows.sh`.
+
+## Test fixtures
 
 `spec/fixtures/rust-input-10nt.d4` and `spec/fixtures/rust-multitrack.d4` come from [d4-format](https://github.com/38/d4-format). The upstream license is reproduced below.
 

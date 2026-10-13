@@ -12,6 +12,16 @@ archive="dist/d4-plot-${tag}-macos-${arch}.zip"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 install -m 755 bin/d4-plot "$executable"
 install -m 644 LICENSE README.md "$bundle/Contents/Resources/"
+bash scripts/collect-licenses.sh "$bundle/Contents/Resources/licenses"
+# Native libraries copied by dylibbundler retain their Homebrew license texts.
+for formula in htslib libdeflate xz zlib bzip2 openssl@3; do
+  if prefix=$(brew --prefix "$formula" 2>/dev/null); then
+    mkdir -p "$bundle/Contents/Resources/licenses/$formula"
+    while IFS= read -r license; do
+      cp "$license" "$bundle/Contents/Resources/licenses/$formula/"
+    done < <(find -H "$prefix" -maxdepth 1 -type f \( -iname '*license*' -o -iname '*copying*' \))
+  fi
+done
 
 cat > "$bundle/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

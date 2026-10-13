@@ -5,6 +5,7 @@ require "./plot_renderer"
 require "./settings_window"
 require "./log"
 require "./toolbar"
+require "./conversion_window"
 
 module D4Plot
   class App
@@ -15,6 +16,13 @@ module D4Plot
     @renderer = PlotRenderer.new
     @settings = PlotSettings.new
     @settings_window : SettingsWindow?
+    @conversion_worker = ConversionWorker.new
+    @conversion_window : ConversionWindow?
+    @conversion_status = UIng::Button.new("Create D4…")
+    @quit_window : UIng::Window?
+    @quitting = false
+    @welcome = UIng::Box.new(:vertical, padded: true)
+    @annotation_row = UIng::Box.new(:horizontal, padded: true)
     @loader = ViewLoader.new
     @history = ViewHistory.new
     @layers = [] of TrackLayer
@@ -34,6 +42,7 @@ module D4Plot
     @source_entry = UIng::Entry.new(read_only: true)
     @annotation : AnnotationTrack?
     @annotation_path : String?
+    @pending_annotation_path : String?
     @request_id = 0
     @requested_region : Region?
     @history_move = 0
@@ -51,7 +60,7 @@ module D4Plot
     @details_toggle = UIng::Button.new("Show details")
     @details_visible = false
     @progress = UIng::ProgressBar.new
-    @annotation_label = UIng::Label.new("No annotations — use GFF3, GTF or BED from the same assembly.")
+    @annotation_label = UIng::Label.new("")
     @remove_annotation = UIng::Button.new("Remove")
     @status = UIng::Label.new("Open a D4 file to begin. Coordinates are 1-based, inclusive.")
     @inspection = UIng::Label.new("Move the pointer over the signal to inspect a bin.")
@@ -59,13 +68,14 @@ module D4Plot
     def self.create_menu_bar
       file = UIng::Menu.new("File")
       open = file.append_item("Open D4…")
+      create = file.append_item("Create D4 from BAM / CRAM…")
       export = file.append_item("Export selected track bins…")
       settings = file.append_preferences_item
       file.append_quit_item
       help = UIng::Menu.new("Help")
       guide = help.append_item("Navigation and data interpretation")
       about = help.append_about_item
-      {open: open, export: export, settings: settings, guide: guide, about: about}
+      {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
     end
 
     def initialize(menu_items)
@@ -75,17 +85,35 @@ module D4Plot
       setup_handlers
       @window.on_content_size_changed { |_, _| resize_canvas }
       menu_items[:open].on_clicked { open_file_dialog }
+      menu_items[:create].on_clicked { open_conversion }
       menu_items[:export].on_clicked { export_view }
       menu_items[:settings].on_clicked { open_settings }
       menu_items[:guide].on_clicked { show_help }
       menu_items[:about].on_clicked { @window.msg_box(PROGRAM_NAME, "D4 genomic signal viewer\nhttps://github.com/kojix2/d4.cr") }
-      @window.on_closing { shutdown; UIng.quit; true }
-      UIng.on_should_quit { shutdown; @window.destroy; true }
+      @window.on_closing do
+        if confirm_quit
+          shutdown
+          UIng.quit
+          true
+        else
+          false
+        end
+      end
+      UIng.on_should_quit do
+        if confirm_quit
+          shutdown
+          @window.destroy
+          true
+        else
+          false
+        end
+      end
       UIng.timer(30) do
         if @closed
           0
         else
           receive_result
+          poll_conversion
           1
         end
       end
@@ -108,8 +136,10 @@ module D4Plot
       end
     ensure
       shutdown
-      @loader.wait
+      # Complete all native UI teardown before yielding to worker joins.
       UIng.uninit
+      @loader.wait
+      @conversion_worker.wait
     end
 
     private def row : UIng::Box
@@ -121,9 +151,11 @@ module D4Plot
     private def setup_ui
       root = UIng::Box.new(:vertical)
       root.padded = true
-      empty = row
-      root.append(empty, false)
+      # Intentional native-toolbar clearance, including icon-and-label mode.
+      toolbar_gap = row
+      root.append(toolbar_gap, false)
       files = row
+      @track_combo.set_minimum_size(0, -1)
       files.append(@file_label, false)
       files.append(@track_combo, true)
       files.append(@show, false)
@@ -147,21 +179,38 @@ module D4Plot
       location.append(@height, false)
       root.append(location, false)
 
-      annotations = row
-      annotations.append(@annotation_label, true)
-      annotations.append(@remove_annotation, false)
+      @annotation_label.set_minimum_size(0, -1)
+      @annotation_row.append(@annotation_label, true)
+      @annotation_row.append(@remove_annotation, false)
+      root.append(@annotation_row, false)
+      @annotation_row.hide
       @details.padded = true
+      @source_entry.set_minimum_size(0, -1)
       @details.append(@source_entry, false)
-      @details.append(annotations, false)
-      @details.append(UIng::Label.new("Drag: pan   |   Shift+drag: select range   |   Double-click: zoom   |   Plot keys: ← → + − Home   |   Esc: cancel"), false)
-      @details.append(UIng::Label.new("Coordinates: 1-based, inclusive. Bins show means; zoom in to resolve narrow peaks."), false)
       root.append(@details, false)
       @details.hide
+      @welcome.append(UIng::Box.new(:vertical), true)
+      @welcome.append(UIng::Label.new("View genomic coverage"), false)
+      @welcome.append(UIng::Label.new("Open an existing D4, or create one from an indexed BAM / CRAM."), false)
+      welcome_buttons = row
+      open = UIng::Button.new("Open D4…")
+      create = UIng::Button.new("Create D4…")
+      open.on_clicked { open_file_dialog }
+      create.on_clicked { open_conversion }
+      welcome_buttons.append(open, false)
+      welcome_buttons.append(create, false)
+      @welcome.append(welcome_buttons, false)
+      @welcome.append(UIng::Box.new(:vertical), true)
+      root.append(@welcome, true)
       root.append(@area, true)
       root.append(@inspection, false)
       status = row
+      @status.set_minimum_size(0, -1)
+      @inspection.set_minimum_size(0, -1)
       status.append(@status, true)
       status.append(@progress, false)
+      status.append(@conversion_status, false)
+      @conversion_status.hide
       root.append(status, false)
       @progress.value = -1
       @progress.hide
@@ -176,6 +225,8 @@ module D4Plot
         @details_toggle.text = @details_visible ? "Hide details" : "Show details"
       end
       @tools.open.on_clicked { open_file_dialog }
+      @tools.create.on_clicked { open_conversion }
+      @conversion_status.on_clicked { open_conversion }
       @tools.annotations.on_clicked { open_annotation_dialog }
       @tools.settings.on_clicked { open_settings }
       @go.on_clicked { go_to_entry }
@@ -212,8 +263,9 @@ module D4Plot
       @tools.export.on_clicked { export_view }
       @remove_annotation.on_clicked do
         @annotation_path = nil
+        @pending_annotation_path = nil
         @annotation = nil
-        @annotation_label.text = "No annotations — use GFF3, GTF or BED from the same assembly."
+        @annotation_row.hide
         refresh
       end
       @handler.draw do |_, params|
@@ -255,7 +307,7 @@ module D4Plot
       end
     end
 
-    private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false)
+    private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false) : Bool
       sources = TrackSource.load(path)
       candidates = append ? @layers.dup : [] of TrackLayer
       sources.each do |source|
@@ -266,24 +318,27 @@ module D4Plot
       cancel_loading
       @layers = candidates
       unless append
+        @history.clear
         @completed_region = nil
         @annotation = nil
         @annotation_path = nil
-        @annotation_label.text = "Assembly is not verified — use matching annotations and D4 files."
+        @annotation_row.hide
         @selected = 0
         @area.scroll_to(0, 0, 1, 1)
       end
       rebuild_layers(region_text)
+      true
     rescue ex
       @updating = false
       show_error("Could not open D4 file", ex)
+      false
     end
 
     private def rebuild_layers(region_text : String? = nil)
       previous = active_region
       @chromosomes = TrackSource.chromosomes(@layers.map(&.source))
       @chromosome_names = @chromosomes.keys
-      @history.clear
+      @history.retain(@chromosomes)
       @selected = @selected.clamp(0, Math.max(@layers.size - 1, 0))
       @updating = true
       @track_combo.clear
@@ -299,7 +354,7 @@ module D4Plot
         @completed_region = nil
         @annotation = nil
         @annotation_path = nil
-        @annotation_label.text = "No annotations — use GFF3, GTF or BED from the same assembly."
+        @annotation_row.hide
         @region_entry.text = ""
         @source_entry.text = ""
         @status.text = "Open or add a D4 file to begin."
@@ -377,7 +432,7 @@ module D4Plot
       @loading = true
       @status.text = "Loading #{region}…"
       @inspection.text = "Loading requested region; the plot retains the previous completed view."
-      @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @annotation_path, @settings.annotation_feature_limit)
+      @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @pending_annotation_path || @annotation_path, @settings.annotation_feature_limit, @annotation_path)
       update_controls
       @area.queue_redraw_all
     end
@@ -402,6 +457,15 @@ module D4Plot
         end
         @completed_region = result.request.region
         @annotation = result.annotation_track
+        if error = result.annotation_error
+          @annotation_label.text = "Annotation could not be loaded. #{@annotation_path ? "Previous selection kept." : "No annotation selected."}"
+          @annotation_label.tooltip = error
+          @annotation_row.show
+        else
+          @annotation_path = result.request.annotation_path
+          update_annotation_label
+        end
+        @pending_annotation_path = nil
         @history.record(result.request.region) if @history_move == 0
         @history_move = 0
         @region_entry.text = result.request.region.to_s
@@ -457,13 +521,18 @@ module D4Plot
     end
 
     private def cancel_loading
+      was_loading = @loading
       clear_drag
       @loader.cancel
       @loading = false
       @requested_region = nil
+      if @pending_annotation_path
+        @pending_annotation_path = nil
+        update_annotation_label
+      end
       rollback_history
       restore_location
-      @status.text = "Loading cancelled; previous view retained."
+      @status.text = "Loading cancelled; previous view retained." if was_loading
       update_controls
       @area.queue_redraw_all
     end
@@ -481,11 +550,10 @@ module D4Plot
     private def open_annotation_dialog
       return if @layers.empty?
       if path = @window.open_file
-        @annotation_path = path
-        @annotation_label.text = "#{File.basename(path)} | chromosome names must match; verify the reference assembly."
-        @details_visible = true
-        @details.show
-        @details_toggle.text = "Hide details"
+        @pending_annotation_path = path
+        @annotation_label.text = "Loading annotation: #{short_name(path)}…"
+        @annotation_label.tooltip = path
+        @annotation_row.show
         refresh
       end
     end
@@ -533,11 +601,21 @@ module D4Plot
     end
 
     private def update_controls
+      if @layers.empty?
+        @welcome.show
+        @area.hide
+        @inspection.hide
+      else
+        @welcome.hide
+        @area.show
+        @inspection.show
+      end
       @loading ? @progress.show : @progress.hide
       update_region_controls
       update_layer_controls
       update_history_controls
-      @annotation_path ? @remove_annotation.enable : @remove_annotation.disable
+      @annotation_row.visible? ? @remove_annotation.enable : @remove_annotation.disable
+      @remove_annotation.text = @annotation_path || @pending_annotation_path ? "Remove" : "Dismiss"
     end
 
     private def update_region_controls
@@ -691,6 +769,86 @@ module D4Plot
       @window.msg_box("Using D4 Plot", "Open a D4 file to show all its tracks. Add D4 appends another file. Select a track using its title or the list; Show, Up, Down and Remove manage it. Shared Y compares visible tracks on one scale. All files must use the same reference assembly.\nEnter chr:start-end, chr:position, or a chromosome name, then click Go. Commas in coordinates are accepted.\n\nCoordinates in the viewer are 1-based and inclusive. The signal shows the mean in each bin, with the D4 denominator applied. Zoom in to resolve narrow peaks; a flat bin can contain variation.\n\nDrag to pan; Shift+drag to select a range; double-click to zoom in; right-click to zoom out. Click the chromosome overview to jump. Back and Forward restore visited regions. Keyboard navigation works when the plot has focus.\n\nDisplay settings control resolution, color and fixed Y scale for all tracks. Height controls the track rows. The native scrollbar moves vertically. Use a fixed Y scale when comparing regions. D4 does not identify the reference assembly here: annotations must use the same assembly and exact chromosome names.\n\nExport bins writes the selected visible track’s means as bedGraph (0-based, half-open), not the original per-base signal.")
     end
 
+    private def short_name(path)
+      name = File.basename(path)
+      name.size > 64 ? "#{name[0, 40]}…#{name[-20, 20]}" : name
+    end
+
+    private def update_annotation_label
+      if path = @annotation_path
+        @annotation_label.text = "Annotation: #{short_name(path)} · verify the reference assembly"
+        @annotation_label.tooltip = path
+        @annotation_row.show
+      else
+        @annotation_row.hide
+      end
+    end
+
+    private def open_conversion
+      window = @conversion_window ||= ConversionWindow.new(@conversion_worker, ->(path : String) { load_d4_file(path, append: true) })
+      window.show
+    end
+
+    private def poll_conversion
+      @conversion_window.try(&.poll)
+      state = @conversion_worker.snapshot.state
+      unless state.idle?
+        @conversion_status.show
+        @conversion_status.text = case state
+                                  when .running?    then "Creating D4…"
+                                  when .cancelling? then "Cancelling D4…"
+                                  when .succeeded?  then "D4 ready — review…"
+                                  when .cancelled?  then "D4 cancelled…"
+                                  else                   "D4 creation failed…"
+                                  end
+      else
+        @conversion_status.hide
+      end
+      if @quitting && !state.active?
+        shutdown
+        @window.destroy
+        UIng.quit
+      end
+    end
+
+    private def confirm_quit : Bool
+      return true unless @conversion_worker.snapshot.state.active?
+      if window = @quit_window
+        window.show
+        return false
+      end
+      window = UIng::Window.new("D4 creation is running", 440, 150, margined: true)
+      root = UIng::Box.new(:vertical, padded: true)
+      message = UIng::Label.new("Quit will cancel D4 creation. No unfinished file will be kept.")
+      root.append(message, true)
+      buttons = row
+      keep = UIng::Button.new("Keep working")
+      quit = UIng::Button.new("Cancel creation and quit")
+      buttons.append(keep, false)
+      buttons.append(quit, false)
+      root.append(buttons, false)
+      window.child = root
+      keep.on_clicked { window.destroy; @quit_window = nil }
+      quit.on_clicked do
+        @quitting = true
+        @conversion_worker.cancel
+        keep.disable
+        quit.disable
+        message.text = "Stopping safely before quitting. Finalizing the index may take time."
+      end
+      window.on_closing do
+        if @quitting
+          false
+        else
+          @quit_window = nil
+          true
+        end
+      end
+      @quit_window = window
+      window.show
+      false
+    end
+
     private def show_error(title, error)
       message = error.message || error.class.name
       @status.text = message
@@ -702,6 +860,11 @@ module D4Plot
       @closed = true
       @settings_window.try(&.destroy)
       @settings_window = nil
+      @conversion_worker.cancel
+      @conversion_window.try(&.destroy)
+      @conversion_window = nil
+      @quit_window.try(&.destroy)
+      @quit_window = nil
       @loader.close
       @window.toolbar = nil
       @tools.free

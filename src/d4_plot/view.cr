@@ -80,8 +80,14 @@ module D4Plot
       @cursor = -1
     end
 
+    def retain(chromosomes : Hash(String, UInt32)) : Nil
+      valid = ->(region : Region) { chromosomes[region.chromosome]?.try { |size| region.end1 <= size } || false }
+      @cursor = @regions.first(@cursor + 1).count { |region| valid.call(region) } - 1
+      @regions.select! { |region| valid.call(region) }
+    end
+
     def record(region : Region) : Nil
-      return if @regions[@cursor]? == region
+      return if @cursor >= 0 && @regions[@cursor]? == region
       @regions = @regions[0, @cursor + 1]
       @regions << region
       @regions.shift if @regions.size > 100
