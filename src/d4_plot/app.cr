@@ -121,6 +121,8 @@ module D4Plot
     private def setup_ui
       root = UIng::Box.new(:vertical)
       root.padded = true
+      empty = row
+      root.append(empty, false)
       files = row
       files.append(@file_label, false)
       files.append(@track_combo, true)
