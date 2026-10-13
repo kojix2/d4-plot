@@ -31,6 +31,19 @@ bin/d4-plot --locale ja sample.d4
 
 Supported interface languages are listed by `bin/d4-plot --help`. If `--locale` is omitted, the system language is used when available.
 
+The interface language can also be selected under **Display**. Language changes
+take effect the next time D4 Plot starts. **System default** follows the OS
+language: macOS uses the user's preferred languages, Windows uses the user
+locale, and Linux uses `LC_ALL`, `LC_MESSAGES`, `LANGUAGE`, or `LANG`.
+`--locale` overrides both the saved choice and the system language for that run.
+
+The saved language preference is kept in the standard per-user configuration
+location and is shared by portable and installed builds:
+
+- macOS: `~/Library/Application Support/D4 Plot/settings.json`
+- Linux: `$XDG_CONFIG_HOME/d4-plot/settings.json`, or `~/.config/d4-plot/settings.json`
+- Windows: `%APPDATA%\D4 Plot\settings.json` (falling back to `%LOCALAPPDATA%`)
+
 ## Use
 
 - Enter `chr1:100-200`, `chr1:100`, or `chr1`, then click **Go**.

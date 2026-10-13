@@ -1,6 +1,7 @@
 require "uing"
 require "d4"
 require "./i18n"
+require "./preferences"
 require "./view_loader"
 require "./plot_renderer"
 require "./settings_window"
@@ -79,7 +80,7 @@ module D4Plot
       {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
     end
 
-    def initialize(menu_items)
+    def initialize(menu_items, @preferences = Preferences.load)
       @window = UIng::Window.new(PROGRAM_NAME, 1120, 780, menubar: true, margined: true)
       @area = UIng::Area.new(@handler, @canvas_width, 400)
       setup_ui
@@ -576,7 +577,7 @@ module D4Plot
       if window = @settings_window
         window.show
       else
-        window = SettingsWindow.new(@settings, @window, ->(reload_data : Bool) {
+        window = SettingsWindow.new(@settings, @preferences, @window, ->(reload_data : Bool) {
           @tools.native.display_mode = @settings.toolbar_display_mode
           reload_data ? refresh : @area.queue_redraw_all
         }, -> { @settings_window = nil })

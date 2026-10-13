@@ -19,6 +19,13 @@ private def placeholders(value : String) : Array(String)
 end
 
 describe D4Plot::Translations do
+  it "normalizes operating-system locale identifiers" do
+    D4Plot::Translations.resolve_locale("ja_JP.UTF-8").should eq("ja")
+    D4Plot::Translations.resolve_locale("iw-IL").should eq("he")
+    D4Plot::Translations.resolve_locale("vi:en").should eq("vi")
+    D4Plot::Translations.resolve_locale("xx-YY").should eq("en")
+  end
+
   it "loads every supported catalogue with interpolation" do
     D4Plot::Translations.setup("en")
     D4Plot.t("app.tracks", number: 2).should eq("Tracks: 2")

@@ -1,5 +1,6 @@
 require "option_parser"
 require "./d4_plot/i18n"
+require "./d4_plot/preferences"
 require "./d4_plot/app"
 
 region : String? = nil
@@ -15,7 +16,8 @@ end
 if ARGV.size == 2 && !File.exists?(ARGV[1]) && !ARGV[1].ends_with?(".d4")
   region ||= ARGV.pop
 end
-D4Plot::Translations.setup(locale)
+preferences = D4Plot::Preferences.load
+D4Plot::Translations.setup(locale || preferences.locale)
 if show_help
   puts D4Plot::Translations.usage
   puts D4Plot.t("cli.locale_option")
@@ -25,4 +27,4 @@ if show_help
 end
 UIng.init
 menu_items = D4Plot::App.create_menu_bar
-D4Plot::App.new(menu_items).run(ARGV, region)
+D4Plot::App.new(menu_items, preferences).run(ARGV, region)

@@ -32,6 +32,15 @@ cat > "$bundle/Contents/Info.plist" <<EOF
   <key>CFBundleIdentifier</key><string>com.github.kojix2.d4-plot</string>
   <key>CFBundleName</key><string>D4 Plot</string>
   <key>CFBundleDisplayName</key><string>D4 Plot</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string><string>ja</string><string>zh</string><string>es</string>
+    <string>de</string><string>fr</string><string>ko</string><string>nl</string>
+    <string>pt</string><string>pl</string><string>tr</string><string>ru</string>
+    <string>hi</string><string>id</string><string>ur</string><string>vi</string>
+    <string>he</string><string>ar</string><string>bn</string>
+  </array>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$version</string>
   <key>CFBundleVersion</key><string>$version</string>

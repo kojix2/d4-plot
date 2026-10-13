@@ -1,6 +1,7 @@
 require "uing"
 require "./i18n"
 require "./plot_settings"
+require "./preferences"
 
 module D4Plot
   class SettingsWindow
@@ -11,8 +12,8 @@ module D4Plot
       UIng::Toolbar::DisplayMode::TextOnly,
     ]
 
-    def initialize(@settings : PlotSettings, @parent : UIng::Window, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
-      @window = UIng::Window.new(D4Plot.t("settings.title"), 420, 420, margined: true)
+    def initialize(@settings : PlotSettings, @preferences : Preferences, @parent : UIng::Window, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
+      @window = UIng::Window.new(D4Plot.t("settings.title"), 460, 500, margined: true)
       @bins = UIng::Spinbox.new(16, 4096, @settings.point_count)
       @auto = UIng::Checkbox.new(D4Plot.t("settings.auto_scale"))
       @auto.checked = @settings.y_min.nil? && @settings.y_max.nil?
@@ -30,6 +31,10 @@ module D4Plot
       @toolbar_mode = UIng::Combobox.new
       ["settings.toolbar_vertical", "settings.toolbar_horizontal", "settings.toolbar_icons", "settings.toolbar_labels"].each { |key| @toolbar_mode.append(D4Plot.t(key)) }
       @toolbar_mode.selected = TOOLBAR_MODES.index(@settings.toolbar_display_mode)
+      @language = UIng::Combobox.new
+      @language.append(D4Plot.t("settings.system_language"))
+      Translations.locale_choices.each { |(locale, name)| @language.append("#{name} (#{locale})") }
+      @language.selected = @preferences.locale.try { |locale| Translations::SUPPORTED_LOCALES.index(locale).try(&.+(1)) } || 0
       form = UIng::Form.new
       form.padded = true
       form.append(D4Plot.t("settings.bins"), @bins)
@@ -41,6 +46,7 @@ module D4Plot
       form.append(D4Plot.t("settings.signal_color"), @color)
       form.append(D4Plot.t("settings.annotation_limit"), @limit)
       form.append(D4Plot.t("settings.toolbar"), @toolbar_mode)
+      form.append(D4Plot.t("settings.language"), @language)
       root = UIng::Box.new(:vertical)
       root.padded = true
       root.append(form, true)
@@ -94,6 +100,16 @@ module D4Plot
       minimum, maximum = scale_limits
       lines = reference_lines
       reload_data = data_settings_changed?
+      selected_locale = (@language.selected || 0) == 0 ? nil : Translations::SUPPORTED_LOCALES[(@language.selected || 1) - 1]
+      previous_locale = @preferences.locale
+      language_changed = previous_locale != selected_locale
+      begin
+        @preferences.locale = selected_locale
+        @preferences.save
+      rescue ex : File::Error
+        @preferences.locale = previous_locale
+        raise ex
+      end
       @settings.point_count = @bins.value
       @settings.y_min = minimum
       @settings.y_max = maximum
@@ -103,7 +119,8 @@ module D4Plot
       @settings.annotation_feature_limit = @limit.value
       @settings.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
       @on_apply.call(reload_data)
-    rescue ex : ArgumentError
+      @window.msg_box(D4Plot.t("settings.language_saved_title"), D4Plot.t("settings.language_saved")) if language_changed
+    rescue ex : ArgumentError | File::Error
       @window.msg_box_error(D4Plot.t("settings.check"), ex.message || D4Plot.t("settings.invalid"))
     end
 
