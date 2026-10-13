@@ -105,48 +105,32 @@ module D4Plot
     CHECK_INTERVAL = 65_536
 
     def run(request : ConversionRequest, control : ConversionControl = ConversionControl.new,
-            progress : Proc(ConversionProgress, Nil) = ->(event : ConversionProgress) { }) : String
+            progress : Proc(ConversionProgress, Nil) = ->(_event : ConversionProgress) { }) : String
       reader = nil.as(Mopdepth::Reader?)
       writer = nil.as(D4::Writer?)
       staging = nil.as(String?)
       current = ConversionProgress.new("Checking input")
-      progress.call(current)
+      emit = ->(event : ConversionProgress) do
+        current = event
+        progress.call(event)
+      end
+      emit.call(current)
       control.check!
       request.validate!
       mopdepth_control = Mopdepth::Control.new do |event|
-        stage = case event.stage
-                in .preparing?  then "Preparing coverage"
-                in .reading?    then "Reading alignments"
-                in .finalizing? then "Preparing D4 output"
-                end
-        current = current.copy_with(stage: stage, records: event.records_examined)
-        progress.call(current)
+        stage = coverage_stage(event.stage)
+        emit.call(current.copy_with(stage: stage, records: event.records_examined))
       end
       d4_control = D4::WriteControl.new do |event|
-        stage = case event.stage
-                in .finalizing?                           then "Finalizing D4"
-                in .writing_primary?, .writing_secondary? then "Writing D4"
-                in .building_indexes?                     then "Building D4 index"
-                in .publishing?                           then "Finishing D4"
-                end
+        stage = write_stage(event.stage)
         # D4 counts bytes in the primary phase and references in other phases.
         # Only reference progress belongs in the UI's chromosome counter.
-        current = current.copy_with(stage: stage, chromosome: event.chromosome || "",
+        emit.call(current.copy_with(stage: stage, chromosome: event.chromosome || "",
           current: event.chromosome ? event.current.to_i32 + 1 : 0,
-          total: event.chromosome ? event.total.to_i32 : 0)
-        progress.call(current)
+          total: event.chromosome ? event.total.to_i32 : 0))
       end
       control.attach(mopdepth_control, d4_control)
-      begin
-        reader = Mopdepth::Reader.open(request.input, reference: request.reference, threads: request.threads)
-      rescue ex : Mopdepth::IndexError
-        raise ConversionError.new("Input", "A matching BAI/CSI (BAM) or CRAI (CRAM) index is required. #{ex.message}")
-      rescue ex : Mopdepth::InputError
-        raise ConversionError.new("Input", "Could not open alignment: #{ex.message}")
-      end
-      if reader.file_format == "cram" && request.reference.empty?
-        raise ConversionError.new("Reference", "Choose the reference FASTA used for this CRAM, with its .fai index.")
-      end
+      reader = open_reader(request)
       names = reader.targets.map(&.name)
       control.check!
       candidate = File.tempname(".d4-plot-", dir: File.dirname(File.expand_path(request.output)))
@@ -157,43 +141,82 @@ module D4Plot
       writer = D4::Writer.new(staged,
         D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames]), d4_control)
       writer.set_chromosomes(reader.targets.map { |target| {target.name, target.length.to_u32} })
-      coverage = [] of Int32
-      options = request.options
-      reader.targets.each_with_index do |target, index|
-        control.check!
-        current = ConversionProgress.new("Preparing coverage", target.name, index + 1, names.size, reader.records_examined)
-        progress.call(current)
-        result = reader.coverage_into(target.region, coverage, options: options, control: mopdepth_control)
-        current = current.copy_with(stage: "Writing coverage", records: reader.records_examined)
-        progress.call(current)
-        write_coverage(writer, result.values, target.name, control)
-      end
+      convert_targets(reader, writer, request.options, mopdepth_control, control, emit)
       reader.close
       reader = nil
       control.check!
       writer.close
       control.check!
-      progress.call(current.copy_with(stage: "Verifying D4"))
-      D4.open(staged) do |file|
-        raise "The generated D4 has no secondary-frame index." unless file.default_track.has_index?(D4::IndexKind::SecondaryFrames)
-        raise "The generated D4 has unexpected reference sequences." unless file.chromosomes.map(&.name) == names
-      end
+      emit.call(current.copy_with(stage: "Verifying D4"))
+      verify(staged, names)
       control.publish(staged, File.expand_path(request.output))
       File.expand_path(request.output)
     rescue ex : Mopdepth::CancelledError | D4::CancelledError
       raise ConversionCancelled.new
     ensure
+      cleanup(writer, reader, staging, control)
+    end
+
+    private def coverage_stage(stage : Mopdepth::Stage) : String
+      case stage
+      in .preparing?  then "Preparing coverage"
+      in .reading?    then "Reading alignments"
+      in .finalizing? then "Preparing D4 output"
+      end
+    end
+
+    private def write_stage(stage : D4::WriteStage) : String
+      case stage
+      in .finalizing?                           then "Finalizing D4"
+      in .writing_primary?, .writing_secondary? then "Writing D4"
+      in .building_indexes?                     then "Building D4 index"
+      in .publishing?                           then "Finishing D4"
+      end
+    end
+
+    private def open_reader(request : ConversionRequest) : Mopdepth::Reader
+      reader = Mopdepth::Reader.open(request.input, reference: request.reference, threads: request.threads)
+      if reader.file_format == "cram" && request.reference.empty?
+        reader.close
+        raise ConversionError.new("Reference", "Choose the reference FASTA used for this CRAM, with its .fai index.")
+      end
+      reader
+    rescue ex : Mopdepth::IndexError
+      raise ConversionError.new("Input", "A matching BAI/CSI (BAM) or CRAI (CRAM) index is required. #{ex.message}")
+    rescue ex : Mopdepth::InputError
+      raise ConversionError.new("Input", "Could not open alignment: #{ex.message}")
+    end
+
+    private def convert_targets(reader, writer, options, mopdepth_control, control, progress) : Nil
+      coverage = [] of Int32
+      total = reader.targets.size
+      reader.targets.each_with_index do |target, index|
+        control.check!
+        event = ConversionProgress.new("Preparing coverage", target.name, index + 1, total, reader.records_examined)
+        progress.call(event)
+        result = reader.coverage_into(target.region, coverage, options: options, control: mopdepth_control)
+        progress.call(event.copy_with(stage: "Writing coverage", records: reader.records_examined))
+        write_coverage(writer, result.values, target.name, control)
+      end
+    end
+
+    private def verify(path : String, names : Array(String)) : Nil
+      D4.open(path) do |file|
+        raise "The generated D4 has no secondary-frame index." unless file.default_track.has_index?(D4::IndexKind::SecondaryFrames)
+        raise "The generated D4 has unexpected reference sequences." unless file.chromosomes.map(&.name) == names
+      end
+    end
+
+    private def cleanup(writer, reader, staging, control) : Nil
+      writer.try(&.abort) unless writer.try(&.closed?)
+    ensure
       begin
-        writer.try(&.abort) unless writer.try(&.closed?)
+        reader.try(&.close)
       ensure
         begin
-          reader.try(&.close)
+          FileUtils.rm_rf(staging) if staging && Dir.exists?(staging)
         ensure
-          begin
-            FileUtils.rm_rf(staging) if staging && Dir.exists?(staging)
-          ensure
-            control.detach
-          end
+          control.detach
         end
       end
     end

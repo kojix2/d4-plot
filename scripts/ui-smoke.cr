@@ -78,22 +78,30 @@ end
 
 class D4Plot::App
   def smoke_step(step, directory, fixtures)
+    step <= 5 ? smoke_early_step(step, directory, fixtures) : smoke_late_step(step, directory, fixtures)
+  end
+
+  private def smoke_conversion_window
+    @conversion_window || raise "Conversion window is not open"
+  end
+
+  private def smoke_early_step(step, directory, fixtures)
     case step
     when 0
       UiSmoke.check(@welcome.visible?, "Empty state is missing")
       UiSmoke.capture(@window, directory, "01-empty")
       open_conversion
     when 1
-      @conversion_window.not_nil!.smoke_capture(directory, "02-create-basic")
-      @conversion_window.not_nil!.smoke_configure(File.join(fixtures, "input.bam"), File.join(fixtures, "output.d4"))
-      @conversion_window.not_nil!.smoke_advanced
+      smoke_conversion_window.smoke_capture(directory, "02-create-basic")
+      smoke_conversion_window.smoke_configure(File.join(fixtures, "input.bam"), File.join(fixtures, "output.d4"))
+      smoke_conversion_window.smoke_advanced
     when 2
-      @conversion_window.not_nil!.smoke_capture(directory, "03-create-advanced")
-      @conversion_window.not_nil!.smoke_hide
+      smoke_conversion_window.smoke_capture(directory, "03-create-advanced")
+      smoke_conversion_window.smoke_hide
       open_conversion
-      @conversion_window.not_nil!.smoke_preserved(File.join(fixtures, "input.bam"), File.join(fixtures, "output.d4"))
-      @conversion_window.not_nil!.smoke_create
-      @conversion_window.not_nil!.smoke_hide
+      smoke_conversion_window.smoke_preserved(File.join(fixtures, "input.bam"), File.join(fixtures, "output.d4"))
+      smoke_conversion_window.smoke_create
+      smoke_conversion_window.smoke_hide
     when 3
       return false if @conversion_worker.snapshot.state.active?
       UiSmoke.check(@conversion_worker.snapshot.state.succeeded?, "Conversion failed: #{@conversion_worker.snapshot.error}")
@@ -101,14 +109,24 @@ class D4Plot::App
       open_conversion
       return true
     when 4
-      @conversion_window.not_nil!.smoke_capture(directory, "04-create-complete")
-      @conversion_window.not_nil!.smoke_add
-      @conversion_window.not_nil!.smoke_hide
+      smoke_conversion_window.smoke_capture(directory, "04-create-complete")
+      smoke_conversion_window.smoke_add
+      smoke_conversion_window.smoke_hide
     when 5
       return false if @loading
       UiSmoke.check(@layers.size == 1, "Add to view failed")
       @pending_annotation_path = File.join(fixtures, "genes.bed")
       refresh
+    end
+    true
+  end
+
+  private def smoke_late_step(step, directory, fixtures)
+    step <= 8 ? smoke_view_step(step, directory, fixtures) : smoke_retry_step(step, directory, fixtures)
+  end
+
+  private def smoke_view_step(step, directory, fixtures)
+    case step
     when 6
       return false if @loading
       UiSmoke.check(!@details_visible && !@details.visible?, "Annotations opened Show details")
@@ -130,17 +148,23 @@ class D4Plot::App
     when 8
       UiSmoke.capture(@window, directory, "07-compact-details")
       open_conversion
-      @conversion_window.not_nil!.smoke_create # Create another (keep settings).
-      @conversion_window.not_nil!.smoke_configure(File.join(fixtures, "unindexed.bam"), File.join(fixtures, "retry.d4"))
-      @conversion_window.not_nil!.smoke_create
+      smoke_conversion_window.smoke_create # Create another (keep settings).
+      smoke_conversion_window.smoke_configure(File.join(fixtures, "unindexed.bam"), File.join(fixtures, "retry.d4"))
+      smoke_conversion_window.smoke_create
+    end
+    true
+  end
+
+  private def smoke_retry_step(step, directory, fixtures)
+    case step
     when 9
       return false if @conversion_worker.snapshot.state.active?
       UiSmoke.check(@conversion_worker.snapshot.state.failed?, "Missing index did not report failure")
       UiSmoke.check(@layers.size == 1 && @annotation_path == File.join(fixtures, "genes.bed"), "Creation failure changed the current view")
-      @conversion_window.not_nil!.poll
-      @conversion_window.not_nil!.smoke_capture(directory, "08-creation-error")
-      @conversion_window.not_nil!.smoke_configure(File.join(fixtures, "input.bam"), File.join(fixtures, "retry.d4"))
-      @conversion_window.not_nil!.smoke_create
+      smoke_conversion_window.poll
+      smoke_conversion_window.smoke_capture(directory, "08-creation-error")
+      smoke_conversion_window.smoke_configure(File.join(fixtures, "input.bam"), File.join(fixtures, "retry.d4"))
+      smoke_conversion_window.smoke_create
     when 10
       return false if @conversion_worker.snapshot.state.active?
       UiSmoke.check(@conversion_worker.snapshot.state.succeeded?, "Could not retry after failure")
@@ -191,5 +215,5 @@ begin
 ensure
   FileUtils.rm_rf(fixtures)
 end
-raise failure.not_nil! if failure
+failure.try { |error| raise error }
 puts "Native UI smoke test passed."

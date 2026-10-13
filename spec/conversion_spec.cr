@@ -32,7 +32,7 @@ end
 
 private def converted_values(request)
   D4Plot::D4Converter.new.run(request)
-  D4.open(request.output) { |file| file.values("chr1") }
+  D4.open(request.output, &.values("chr1"))
 end
 
 describe D4Plot::D4Converter do
@@ -54,7 +54,7 @@ describe D4Plot::D4Converter do
       indexed.map { |event| {event.chromosome, event.current, event.total} }.should eq([
         {"chr1", 1, 2}, {"empty", 2, 2},
       ])
-      events.select(&.chromosome.empty?).each { |event| event.total.should eq(0) }
+      events.select(&.chromosome.empty?).each(&.total.should(eq(0)))
       Dir.children(dir).sort.should eq(["input.bam", "input.bam.bai", "standard.d4"])
     end
   end
@@ -174,7 +174,9 @@ describe D4Plot::ConversionWorker do
       worker.snapshot.state.succeeded?.should be_true
       worker.cancel
       worker.snapshot.state.succeeded?.should be_true
-      File.file?(worker.snapshot.output.not_nil!).should be_true
+      output = worker.snapshot.output
+      fail "conversion output is missing" unless output
+      File.file?(output).should be_true
     end
   end
 end

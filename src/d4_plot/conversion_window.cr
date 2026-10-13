@@ -58,7 +58,13 @@ module D4Plot
       display = "#{state}:#{progress}:#{seconds}:#{snapshot.error}:#{@added}"
       return if display == @last_display
       @last_display = display
-      editable = state.idle? || state.failed? || state.cancelled?
+      editable = state.editable?
+      update_controls(state, editable)
+      update_progress(state)
+      set_status(status_text(snapshot, seconds))
+    end
+
+    private def update_controls(state, editable) : Nil
       [@input, @output, @input_browse, @output_browse, @mode, @mapq,
        @threads, @exclude, @include, @groups, @minimum, @maximum].each do |control|
         editable ? control.enable : control.disable
@@ -69,13 +75,21 @@ module D4Plot
       state.succeeded? && !@added ? @add.enable : @add.disable
       @create.text = state.succeeded? ? "Create another…" : "Create D4"
       @close.text = state.active? ? "Close (keep running)" : "Close"
+    end
+
+    private def update_progress(state) : Nil
       if state.active?
         @progress.value = -1
         @progress.show
       else
         @progress.hide
       end
-      set_status(case state
+    end
+
+    private def status_text(snapshot, seconds) : String
+      state = snapshot.state
+      progress = snapshot.progress
+      case state
       when .idle?
         "Ready. Your current view will not change.\nExisting output files are never overwritten."
       when .running?, .cancelling?
@@ -88,7 +102,7 @@ module D4Plot
         "Creation cancelled. No output file was published.\nYour settings and current view have been kept."
       else
         "#{snapshot.field || "Creation"}: #{snapshot.error}\nNo output file was published. Adjust the settings and try again."
-      end)
+      end
     end
 
     private def row
@@ -212,17 +226,21 @@ module D4Plot
     end
 
     private def read_draft
-      @draft.input = @input.text || ""
-      @draft.output = @output.text || ""
-      @draft.reference = @reference.enabled? ? (@reference.text || "") : ""
+      @draft.input = entry_text(@input)
+      @draft.output = entry_text(@output)
+      @draft.reference = @reference.enabled? ? entry_text(@reference) : ""
       @draft.mode = CoverageMode.from_value(@mode.selected || 0)
       @draft.mapq = @mapq.value
       @draft.threads = @threads.value
-      @draft.exclude_flags = @exclude.text || ""
-      @draft.include_flags = @include.text || ""
-      @draft.read_groups = @groups.text || ""
-      @draft.min_fragment = @minimum.text || ""
-      @draft.max_fragment = @maximum.text || ""
+      @draft.exclude_flags = entry_text(@exclude)
+      @draft.include_flags = entry_text(@include)
+      @draft.read_groups = entry_text(@groups)
+      @draft.min_fragment = entry_text(@minimum)
+      @draft.max_fragment = entry_text(@maximum)
+    end
+
+    private def entry_text(entry) : String
+      entry.text || ""
     end
 
     private def update_advanced_label

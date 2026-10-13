@@ -792,7 +792,9 @@ module D4Plot
     private def poll_conversion
       @conversion_window.try(&.poll)
       state = @conversion_worker.snapshot.state
-      unless state.idle?
+      if state.idle?
+        @conversion_status.hide
+      else
         @conversion_status.show
         @conversion_status.text = case state
                                   when .running?    then "Creating D4…"
@@ -801,8 +803,6 @@ module D4Plot
                                   when .cancelled?  then "D4 cancelled…"
                                   else                   "D4 creation failed…"
                                   end
-      else
-        @conversion_status.hide
       end
       if @quitting && !state.active?
         shutdown

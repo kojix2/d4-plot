@@ -2,7 +2,7 @@ version: 2.0
 shards:
   d4:
     git: https://github.com/kojix2/d4.cr.git
-    version: 0.1.0+git.commit.9e20614409422c1ce00f3ea9a01fea1ab283d42a
+    version: 0.1.0+git.commit.5641d11ec37220f2a4f129a0e9f78a0c77dc5eec
 
   hts:
     git: https://github.com/bio-cr/hts.cr.git

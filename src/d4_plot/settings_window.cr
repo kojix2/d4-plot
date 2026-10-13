@@ -90,12 +90,8 @@ module D4Plot
     end
 
     private def apply_settings : Nil
-      minimum = @auto.checked? ? nil : number(@min.text || "")
-      maximum = @auto.checked? ? nil : number(@max.text || "")
-      if minimum && maximum && maximum <= minimum
-        raise ArgumentError.new("Fixed maximum must be greater than fixed minimum.")
-      end
-      lines = (@lines.text || "").split(/[\s,;]+/).reject(&.empty?).map { |text| number(text) }.uniq!.sort!
+      minimum, maximum = scale_limits
+      lines = reference_lines
       reload_data = data_settings_changed?
       @settings.point_count = @bins.value
       @settings.y_min = minimum
@@ -108,6 +104,18 @@ module D4Plot
       @on_apply.call(reload_data)
     rescue ex : ArgumentError
       @window.msg_box_error("Check display settings", ex.message || "Invalid settings")
+    end
+
+    private def scale_limits : Tuple(Float64?, Float64?)
+      return {nil, nil} if @auto.checked?
+      minimum = number(@min.text || "")
+      maximum = number(@max.text || "")
+      raise ArgumentError.new("Fixed maximum must be greater than fixed minimum.") if maximum <= minimum
+      {minimum, maximum}
+    end
+
+    private def reference_lines : Array(Float64)
+      (@lines.text || "").split(/[\s,;]+/).reject(&.empty?).map { |text| number(text) }.uniq!.sort!
     end
   end
 end

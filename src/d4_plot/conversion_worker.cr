@@ -12,6 +12,10 @@ module D4Plot
     def active?
       running? || cancelling?
     end
+
+    def editable?
+      idle? || failed? || cancelled?
+    end
   end
 
   record ConversionSnapshot, state : ConversionState = ConversionState::Idle,

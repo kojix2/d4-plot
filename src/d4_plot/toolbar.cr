@@ -64,9 +64,9 @@ module D4Plot
           size.times do |x|
             distance = Float64::INFINITY
             strokes.each do |stroke|
-              stroke.each_cons_pair do |a, b|
-                dx, dy = b[0] - a[0], b[1] - a[1]
-                px, py = (x + 0.5) / scale - a[0], (y + 0.5) / scale - a[1]
+              stroke.each_cons_pair do |from, destination|
+                dx, dy = destination[0] - from[0], destination[1] - from[1]
+                px, py = (x + 0.5) / scale - from[0], (y + 0.5) / scale - from[1]
                 fraction = ((px * dx + py * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0)
                 distance = Math.min(distance, Math.sqrt((px - fraction * dx)**2 + (py - fraction * dy)**2))
               end
