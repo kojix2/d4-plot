@@ -15,7 +15,7 @@ fi
 (
   cd "$htslib_dir"
   autoreconf -i
-  ./configure --disable-libcurl --disable-shared --enable-static
+  ./configure --disable-libcurl
   make -j2 libhts.a
 )
 htslib_native=$(cygpath -m "$htslib_dir")
@@ -38,7 +38,10 @@ for library in bz2 lzma z deflate regex tre intl; do
 done
 static_libs+=(-Wl,--end-group -lws2_32)
 
-crystal spec spec --static --link-flags="${static_libs[*]}"
+# `crystal spec` has no `--static` option. HTSlib and its native
+# dependencies are still selected as static archives by the explicit `-l:`
+# arguments above; the distributable application is built statically below.
+crystal spec spec --link-flags="${static_libs[*]}"
 crystal build src/d4-plot.cr --release --no-debug --static \
   --link-flags="${static_libs[*]} -mwindows" -o bin/d4-plot.exe
 
