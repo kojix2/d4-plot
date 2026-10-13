@@ -20,10 +20,11 @@ module D4Plot
 
     def choose_input(path : String)
       @input = path
+      suggested = File.join(File.dirname(path), "#{File.basename(path, File.extname(path))}.d4")
       if @output.empty? || @output == @suggested_output
-        @output = File.join(File.dirname(path), "#{File.basename(path, File.extname(path))}.d4")
+        @output = suggested
       end
-      @suggested_output = File.join(File.dirname(path), "#{File.basename(path, File.extname(path))}.d4")
+      @suggested_output = suggested
     end
 
     def cram?

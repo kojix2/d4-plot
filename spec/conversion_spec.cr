@@ -184,14 +184,16 @@ end
 describe D4Plot::ConversionDraft do
   it "updates suggested destinations but preserves a user's chosen filename" do
     draft = D4Plot::ConversionDraft.new
-    draft.choose_input("/data/one.bam")
-    draft.output.should eq("/data/one.d4")
-    draft.choose_input("/data/two.cram")
-    draft.output.should eq("/data/two.d4")
+    input_dir = File.join(Dir.tempdir, "data")
+    draft.choose_input(File.join(input_dir, "one.bam"))
+    draft.output.should eq(File.join(input_dir, "one.d4"))
+    draft.choose_input(File.join(input_dir, "two.cram"))
+    draft.output.should eq(File.join(input_dir, "two.d4"))
     draft.cram?.should be_true
-    draft.output = "/results/custom.d4"
-    draft.choose_input("/data/three.bam")
-    draft.output.should eq("/results/custom.d4")
+    custom = File.join(Dir.tempdir, "results", "custom.d4")
+    draft.output = custom
+    draft.choose_input(File.join(input_dir, "three.bam"))
+    draft.output.should eq(custom)
   end
 
   it "parses advanced options and reports hidden changes and invalid input" do
