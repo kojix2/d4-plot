@@ -50,6 +50,11 @@ describe D4Plot::D4Converter do
       end
       events.last.records.should eq(4)
       events.map(&.stage).should contain("Building D4 index")
+      indexed = events.select { |event| event.stage == "Building D4 index" && !event.chromosome.empty? }
+      indexed.map { |event| {event.chromosome, event.current, event.total} }.should eq([
+        {"chr1", 1, 2}, {"empty", 2, 2},
+      ])
+      events.select(&.chromosome.empty?).each { |event| event.total.should eq(0) }
       Dir.children(dir).sort.should eq(["input.bam", "input.bam.bai", "standard.d4"])
     end
   end

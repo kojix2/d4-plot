@@ -3,11 +3,7 @@ require "file_utils"
 require "mopdepth"
 
 module D4Plot
-  enum CoverageMode
-    Standard
-    Fast
-    Fragment
-  end
+  alias CoverageMode = Mopdepth::Mode
 
   class ConversionError < Exception
     getter field : String
@@ -26,12 +22,7 @@ module D4Plot
     include_flags : UInt16 = 0_u16, read_groups : Array(String) = [] of String,
     min_fragment : Int32 = -1, max_fragment : Int32 = -1 do
     def options : Mopdepth::Options
-      mopdepth_mode = case mode
-                      in .standard? then Mopdepth::Mode::Standard
-                      in .fast?     then Mopdepth::Mode::Fast
-                      in .fragment? then Mopdepth::Mode::Fragment
-                      end
-      Mopdepth::Options.new(mode: mopdepth_mode, minimum_mapping_quality: mapq,
+      Mopdepth::Options.new(mode: mode, minimum_mapping_quality: mapq,
         minimum_fragment_length: min_fragment < 0 ? nil : min_fragment,
         maximum_fragment_length: max_fragment < 0 ? nil : max_fragment,
         exclude_flags: exclude_flags, include_flags: include_flags, read_groups: read_groups)
@@ -138,7 +129,11 @@ module D4Plot
                 in .building_indexes?                     then "Building D4 index"
                 in .publishing?                           then "Finishing D4"
                 end
-        current = current.copy_with(stage: stage, chromosome: event.chromosome || "")
+        # D4 counts bytes in the primary phase and references in other phases.
+        # Only reference progress belongs in the UI's chromosome counter.
+        current = current.copy_with(stage: stage, chromosome: event.chromosome || "",
+          current: event.chromosome ? event.current.to_i32 + 1 : 0,
+          total: event.chromosome ? event.total.to_i32 : 0)
         progress.call(current)
       end
       control.attach(mopdepth_control, d4_control)
@@ -163,11 +158,12 @@ module D4Plot
         D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames]), d4_control)
       writer.set_chromosomes(reader.targets.map { |target| {target.name, target.length.to_u32} })
       coverage = [] of Int32
+      options = request.options
       reader.targets.each_with_index do |target, index|
         control.check!
         current = ConversionProgress.new("Preparing coverage", target.name, index + 1, names.size, reader.records_examined)
         progress.call(current)
-        result = reader.coverage_into(target.region, coverage, options: request.options, control: mopdepth_control)
+        result = reader.coverage_into(target.region, coverage, options: options, control: mopdepth_control)
         current = current.copy_with(stage: "Writing coverage", records: reader.records_examined)
         progress.call(current)
         write_coverage(writer, result.values, target.name, control)
@@ -175,8 +171,6 @@ module D4Plot
       reader.close
       reader = nil
       control.check!
-      current = current.copy_with(stage: "Finalizing D4")
-      progress.call(current)
       writer.close
       control.check!
       progress.call(current.copy_with(stage: "Verifying D4"))
