@@ -62,7 +62,6 @@ module D4Plot
     @loading = false
     @closed = false
     @drag : Tuple(Float64, Region, Bool)?
-    @file_label = UIng::Label.new(D4Plot.t("app.no_d4_file"))
     @track_list : TrackList
     @track_panel = UIng::Box.new(:vertical, padded: true)
     @sidebar_toggle = UIng::Button.new(D4Plot.t("app.show_tracks"))
@@ -176,7 +175,6 @@ module D4Plot
       # Intentional native-toolbar clearance, including icon-and-label mode.
       toolbar_gap = row
       root.append(toolbar_gap, false)
-      @track_panel.append(@file_label, false)
       @track_panel.append(@add, false)
       @add.tooltip = D4Plot.t("app.add_d4_tip")
       @track_panel.append(@track_list.native, true)
@@ -473,7 +471,6 @@ module D4Plot
       @chromosome_combo.clear
       @chromosome_names.each { |name| @chromosome_combo.append(name) }
       @updating = false
-      @file_label.text = D4Plot.t("app.tracks", number: @layers.size)
       @window.title = D4Plot.t("app.window_title", number: @layers.size)
       select_layer(@selected, false)
       if @layers.empty?
