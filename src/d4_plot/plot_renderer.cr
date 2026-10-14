@@ -103,7 +103,7 @@ module D4Plot
     private def draw_grid(ctx, layout, range)
       low, high = range
       5.times do |index|
-        value = low + (high - low) * index / 4
+        value = low + (high - low) * (index / 4.0)
         y = y_for(value, layout, range)
         ctx.stroke_path(brush(0.88, 0.9, 0.92), thickness: 1.0) do |path|
           path.new_figure(layout.left, y)

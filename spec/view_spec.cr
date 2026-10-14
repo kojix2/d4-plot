@@ -60,6 +60,19 @@ describe D4Plot::PlotSettings do
     settings.y_max = 20.0
     settings.y_range(-10.0, -2.0).should eq({-20.0, 20.0})
   end
+
+  it "rejects finite fixed limits whose span overflows" do
+    D4Plot::PlotSettings.valid_y_limits?(-1e308, 1e308).should be_false
+    saved = JSON.parse(%({"y_min":-1e308,"y_max":1e308}))
+    restored = D4Plot::PlotSettings.from_preferences(saved)
+    restored.y_min.should be_nil
+    restored.y_max.should be_nil
+
+    restored.y_min = -1e308
+    restored.y_max = 1e308
+    low, high = restored.y_range(0.0, 10.0)
+    (high - low).finite?.should be_true
+  end
 end
 
 describe D4Plot::ViewHistory do

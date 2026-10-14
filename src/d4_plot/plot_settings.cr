@@ -60,7 +60,7 @@ module D4Plot
       settings.y_axis_from_zero = zero unless zero.nil?
       minimum = finite_number(data["y_min"]?)
       maximum = finite_number(data["y_max"]?)
-      if minimum && maximum && minimum < maximum
+      if minimum && maximum && valid_y_limits?(minimum, maximum)
         settings.y_min = minimum
         settings.y_max = maximum
       end
@@ -81,14 +81,23 @@ module D4Plot
       number if number && number.finite?
     end
 
+    def self.valid_y_limits?(minimum : Float64, maximum : Float64) : Bool
+      minimum.finite? && maximum.finite? && minimum < maximum && (maximum - minimum).finite?
+    end
+
     def y_range(min_value : Float64, max_value : Float64) : Tuple(Float64, Float64)
+      if (minimum = @y_min) && (maximum = @y_max)
+        return {minimum, maximum} if self.class.valid_y_limits?(minimum, maximum)
+      end
       low = @y_axis_from_zero ? Math.min(0.0, min_value) : min_value
       high = @y_axis_from_zero ? Math.max(0.0, max_value) : max_value
       padding = high == low ? Math.max(high.abs * 0.1, 1.0) : (high - low) * 0.08
       low -= padding unless @y_axis_from_zero && low == 0
       high += padding
-      low = @y_min || low
-      high = @y_max || high
+      unless @y_min && @y_max
+        low = @y_min || low
+        high = @y_max || high
+      end
       high = low + 1.0 if high <= low
       {low, high}
     end

@@ -124,7 +124,7 @@ module D4Plot
       return {nil, nil} if @auto.checked?
       minimum = number(@min.text || "")
       maximum = number(@max.text || "")
-      raise ArgumentError.new(D4Plot.t("settings.invalid_scale")) if maximum <= minimum
+      raise ArgumentError.new(D4Plot.t("settings.invalid_scale")) unless PlotSettings.valid_y_limits?(minimum, maximum)
       {minimum, maximum}
     end
 
