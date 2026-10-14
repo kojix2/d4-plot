@@ -135,6 +135,13 @@ fr:
     finite_number: "Saisissez un nombre fini : %{text}"
     invalid_scale: "Le maximum fixe doit être supérieur au minimum fixe."
   conversion:
+    basic_settings: "Réglages de base"
+    advanced_settings: "Réglages avancés"
+    files_section: "Fichiers"
+    filters_section: "Filtres des lectures"
+    processing_section: "Traitement"
+    start_creation: "Créer D4"
+    adding: "Ajout à la vue…"
     title: "Créer D4"
     browse: "Parcourir…"
     choose: "Choisir…"
@@ -213,7 +220,6 @@ fr:
   annotation:
     too_many: "Trop d’annotations (>%{limit}) ; zoomez"
     index_read_failed: "Impossible de lire l’index d’annotations : %{error}"
-    tabix_missing_indexed: "Commande tabix introuvable. Installez tabix pour lire les annotations indexées."
     memory_limit: "Les données d’annotation dépassent la limite de mémoire. Utilisez bgzip et un index tabix pour les annotations volumineuses."
     no_features: "Aucun élément pris en charge trouvé. Ouvrez des gènes, transcrits ou exons GFF3/GTF, ou des intervalles BED."
     chromosome_missing: "Le chromosome %{chromosome} n’est pas présent dans les annotations ; les noms doivent correspondre exactement (préfixe chr compris)."

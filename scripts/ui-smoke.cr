@@ -50,11 +50,17 @@ class D4Plot::ConversionWindow
   end
 
   def smoke_advanced
+    UiSmoke.check(!@reference_section.visible? && !@cancel.visible? && !@add.visible?, "Basic settings contain irrelevant controls")
+    @input.text = "reference-check.cram"
+    sync_reference(true)
+    UiSmoke.check(@reference_section.visible? && @reference.enabled?, "CRAM reference controls are missing")
+    @input.text = @draft.input
+    sync_reference(true)
+    @tabs.selected = 1
     @draft.advanced_open = true
-    @advanced.show
-    @window.set_content_size(660, 700)
     @exclude.text = "0x704"
     update_advanced_label
+    UiSmoke.check(@advanced_notice.visible?, "Modified advanced settings are not indicated")
   end
 
   def smoke_create
@@ -67,18 +73,48 @@ class D4Plot::ConversionWindow
 
   def smoke_add
     add_to_view
+  end
+
+  def smoke_added
     UiSmoke.check(@added && !@add.enabled?, "Add to view did not update its completion state")
+    UiSmoke.check(@add.visible? && @create.visible? && !@cancel.visible?, "Completed conversion actions are incorrect")
   end
 
   def smoke_preserved(input, output)
     UiSmoke.check(@input.text == input && @output.text == output, "Conversion draft was lost on reopen")
-    UiSmoke.check(@draft.advanced_open?, "Advanced state was lost on reopen")
+    UiSmoke.check(@draft.advanced_open? && @tabs.selected == 1, "Advanced tab was lost on reopen")
+  end
+end
+
+class D4Plot::SettingsWindow
+  def smoke_apply
+    @toolbar_mode.selected = 2
+    @bins.value = 512
+    @color.set_color(0.8, 0.2, 0.1, 1.0)
+    apply_settings
+  end
+
+  def smoke_capture(directory)
+    UiSmoke.capture(@window, directory, "11-display-settings")
+  end
+
+  def smoke_close
+    @on_close.call
+    destroy
   end
 end
 
 class D4Plot::App
+  @smoke_sidebar_width = 0
+
   def smoke_step(step, directory, fixtures)
-    step <= 5 ? smoke_early_step(step, directory, fixtures) : smoke_late_step(step, directory, fixtures)
+    if step <= 5
+      smoke_early_step(step, directory, fixtures)
+    elsif step <= 10
+      smoke_late_step(step, directory, fixtures)
+    else
+      smoke_tracks_step(step, directory, fixtures)
+    end
   end
 
   private def smoke_conversion_window
@@ -89,6 +125,7 @@ class D4Plot::App
     case step
     when 0
       UiSmoke.check(@welcome.visible?, "Empty state is missing")
+      UiSmoke.check(!@navigation.visible? && @status.visible? && !@inspection.visible?, "Empty state contains inactive navigation or duplicate status messages")
       UiSmoke.capture(@window, directory, "01-empty")
       open_conversion
     when 1
@@ -113,9 +150,10 @@ class D4Plot::App
       smoke_conversion_window.smoke_add
       smoke_conversion_window.smoke_hide
     when 5
-      return false if @loading
+      return false if @loading || @file_load_id
       UiSmoke.check(@layers.size == 1, "Add to view failed")
-      @pending_annotation_path = File.join(fixtures, "genes.bed")
+      smoke_conversion_window.smoke_added
+      @pending_annotation_path = File.join(fixtures, "genes.gtf.gz")
       refresh
     end
     true
@@ -130,14 +168,22 @@ class D4Plot::App
     when 6
       return false if @loading
       UiSmoke.check(!@details_visible && !@details.visible?, "Annotations opened Show details")
-      UiSmoke.check(@annotation_path == File.join(fixtures, "genes.bed"), "Annotation selection was not committed")
+      UiSmoke.check(@annotation_path == File.join(fixtures, "genes.gtf.gz"), "Annotation selection was not committed")
       UiSmoke.capture(@window, directory, "05-view-annotation")
       @pending_annotation_path = File.join(fixtures, "missing.bed")
-      request_view(D4Plot::Region.new("chr1", 6_u32, 15_u32))
+      layout = stack_geometry.plot(0)
+      event = UIng::LibUI::AreaMouseEvent.new(x: layout.left + layout.width * 0.25,
+        y: layout.top + 10, down: 1, count: 1, modifiers: UIng::Area::Modifiers::Shift)
+      mouse_event(event)
+      event.down = 0
+      event.up = 1
+      event.x = layout.left + layout.width * 0.75
+      mouse_event(event)
     when 7
       return false if @loading
-      UiSmoke.check(@annotation_path == File.join(fixtures, "genes.bed"), "Failed replacement lost the annotation")
+      UiSmoke.check(@annotation_path == File.join(fixtures, "genes.gtf.gz"), "Failed replacement lost the annotation")
       UiSmoke.check(@annotation.try(&.features.first?.try(&.name)) == "B", "Fallback used stale coordinates")
+      UiSmoke.check(@completed_region == D4Plot::Region.new("chr1", 6_u32, 15_u32), "Shift-drag did not zoom to the selected region")
       UiSmoke.check(!@details_visible, "Failed replacement opened Show details")
       UiSmoke.capture(@window, directory, "06-annotation-failure")
       @details_toggle.text = D4Plot.t("app.hide_details")
@@ -160,7 +206,7 @@ class D4Plot::App
     when 9
       return false if @conversion_worker.snapshot.state.active?
       UiSmoke.check(@conversion_worker.snapshot.state.failed?, "Missing index did not report failure")
-      UiSmoke.check(@layers.size == 1 && @annotation_path == File.join(fixtures, "genes.bed"), "Creation failure changed the current view")
+      UiSmoke.check(@layers.size == 1 && @annotation_path == File.join(fixtures, "genes.gtf.gz"), "Creation failure changed the current view")
       smoke_conversion_window.poll
       smoke_conversion_window.smoke_capture(directory, "08-creation-error")
       smoke_conversion_window.smoke_configure(File.join(fixtures, "input.bam"), File.join(fixtures, "retry.d4"))
@@ -168,6 +214,80 @@ class D4Plot::App
     when 10
       return false if @conversion_worker.snapshot.state.active?
       UiSmoke.check(@conversion_worker.snapshot.state.succeeded?, "Could not retry after failure")
+      @window.set_content_size(1120, 780)
+      load_d4_files([File.join(fixtures, "output.d4"), File.join(fixtures, "retry.d4")])
+    end
+    true
+  end
+
+  private def smoke_tracks_step(step, directory, fixtures)
+    case step
+    when 11
+      return false if @loading || @file_load_id
+      UiSmoke.check(@layers.size == 2 && @annotation_path.nil?, "Batch opening did not replace the workspace")
+      UiSmoke.check(@track_list.native.selection.rows == [0], "Initial track selection was lost")
+      UiSmoke.check(@navigation.visible? && @inspection.visible? && !@status.visible? && @view_summary.visible?, "Idle status bar did not show inspection and summary")
+      UiSmoke.capture(@window, directory, "09-track-list")
+      select_layer(1)
+      toggle_layer(0, false)
+      select_layer(1)
+      reorder_layer(-1)
+    when 12
+      return false if @loading
+      UiSmoke.check(@layers.first.source.path.ends_with?("retry.d4"), "Track order was not updated")
+      UiSmoke.check(!@layers.last.visible?, "Hidden track state was lost")
+      UiSmoke.check(@track_list.native.selection.rows == [0], "Track selection did not follow reordering")
+      UiSmoke.capture(@window, directory, "10-hidden-track")
+      @height.selected = 0
+      @shared_y.checked = true
+      save_view_preferences
+      open_settings
+      @settings_window.not_nil!.smoke_apply
+    when 13
+      return false if @loading
+      @settings_window.not_nil!.smoke_capture(directory)
+      @settings_window.not_nil!.smoke_close
+      saved = Preferences.load(@preferences.path)
+      UiSmoke.check(saved.height_index == 0 && saved.shared_y?, "Layout preferences did not persist")
+      UiSmoke.check(saved.settings.point_count == 512 && saved.settings.plot_color == @settings.plot_color, "Display settings did not persist")
+      UiSmoke.check(saved.settings.toolbar_display_mode.icon_only?, "Toolbar preference did not persist")
+      FileUtils.cp(File.join(fixtures, "output.d4"), File.join(fixtures, "slow.d4"))
+      load_d4_files([File.join(fixtures, "slow.d4"), File.join(fixtures, "retry.d4")], append: true)
+    when 14
+      UiSmoke.check(!@file_load_id.nil? && @cancel_files.visible?, "File progress did not remain responsive")
+      UiSmoke.check(@status.visible? && !@inspection.visible? && !@view_summary.visible?, "Loading status was mixed with idle hints or stale metrics")
+      UiSmoke.capture(@window, directory, "12-opening-files")
+      cancel_loading
+      UiSmoke.check(@layers.size == 2 && !@layers.last.visible?, "Cancelling changed the previous workspace")
+      UiSmoke.check(!@progress.visible? && !@cancel_files.visible?, "Cancelled progress remained visible")
+      load_d4_files([File.join(fixtures, "retry.d4")], append: true)
+    when 15
+      return false if @loading || @file_load_id
+      UiSmoke.check(@layers.size == 2, "Duplicate or cancelled file was added")
+      UiSmoke.check(@layers.none? { |layer| layer.source.path.ends_with?("slow.d4") }, "A stale file result was applied")
+      remove_layer
+    when 16
+      return false if @loading
+      UiSmoke.check(@layers.size == 1 && !@layers.first.visible?, "Removing a track lost the remaining visibility state")
+      @smoke_sidebar_width = @canvas_width
+      toggle_layer(0, true)
+      toggle_sidebar
+    when 17
+      return false if @loading
+      UiSmoke.check(!@track_panel.visible? && @sidebar_toggle.enabled?, "Hidden sidebar cannot be restored")
+      UiSmoke.check(@canvas_width > @smoke_sidebar_width, "Hiding the sidebar did not expand the plot")
+      UiSmoke.check(!Preferences.load(@preferences.path).sidebar_visible?, "Hidden sidebar preference was not saved")
+      UiSmoke.capture(@window, directory, "13-sidebar-hidden")
+      refresh
+    when 18
+      return false if @loading
+      UiSmoke.check(!@track_panel.visible?, "Refreshing unexpectedly showed the sidebar")
+      toggle_sidebar
+    when 19
+      UiSmoke.check(@track_panel.visible? && @canvas_width == @smoke_sidebar_width, "Restoring the sidebar did not restore the plot width")
+      UiSmoke.check(@layers.size == 1 && @layers.first.visible? && @track_list.native.selection.rows == [0], "Toggling the sidebar changed track state")
+      UiSmoke.check(Preferences.load(@preferences.path).sidebar_visible?, "Visible sidebar preference was not saved")
+      UiSmoke.capture(@window, directory, "14-sidebar-restored")
       shutdown
       @window.destroy
       UIng.quit
@@ -186,7 +306,11 @@ screenshots = ARGV[0]?
 Dir.mkdir(screenshots) if screenshots
 fixtures = File.tempname("d4-plot-ui-smoke")
 Dir.mkdir(fixtures)
-File.write(File.join(fixtures, "genes.bed"), "chr1\t0\t5\tA\nchr1\t10\t15\tB\n")
+HTS::Bgzf.open(File.join(fixtures, "genes.gtf.gz"), "wz") do |file|
+  file.puts("chr1\tref\tgene\t1\t5\t.\t+\t.\tgene_name \"A\";")
+  file.puts("chr1\tref\texon\t11\t15\t.\t+\t.\tgene_name \"B\";")
+end
+HTS::Tabix.build_index(File.join(fixtures, "genes.gtf.gz"), preset: :gff, verbose: false)
 header = HTS::Bam::Header.parse("@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:chr1\tLN:20\n")
 HTS::Bam.open(File.join(fixtures, "input.bam"), "wb") do |bam|
   bam.write_header(header)
@@ -196,15 +320,20 @@ HTS::Bam.build_index(File.join(fixtures, "input.bam"), verbose: false)
 FileUtils.cp(File.join(fixtures, "input.bam"), File.join(fixtures, "unindexed.bam"))
 failure : Exception? = nil
 begin
-  D4Plot::Translations.setup("en")
+  D4Plot::Translations.setup(ENV["D4_PLOT_SMOKE_LOCALE"]? || "en")
   UIng.init
-  app = D4Plot::App.new(D4Plot::App.create_menu_bar)
+  preferences = D4Plot::Preferences.new(File.join(fixtures, "settings.json"), I18n.locale)
+  file_loader = D4Plot::FileLoader.new(->(path : String) {
+    sleep 2.seconds if path.ends_with?("slow.d4")
+    D4Plot::TrackSource.load(path)
+  })
+  app = D4Plot::App.new(D4Plot::App.create_menu_bar, preferences, file_loader)
   step = 0
   started = Time.instant
   UIng.timer(700) do
     raise "UI smoke test timed out" if Time.instant - started > 60.seconds
     step += 1 if app.smoke_step(step, screenshots, fixtures)
-    step > 10 ? 0 : 1
+    step > 19 ? 0 : 1
   rescue ex
     failure = ex
     app.smoke_stop

@@ -69,6 +69,8 @@ Choose **Create D4** and provide:
 - For CRAM, the matching reference FASTA and `.fai`
 - A new output filename ending in `.d4`
 
+The **Basic settings** tab contains the input, output, and coverage mode. Reference controls appear for CRAM input. The **Advanced settings** tab groups read filters (MAPQ, flags, read groups, and template length) and decompression threads. A notice indicates when advanced settings have been changed.
+
 Coverage modes:
 
 - **Standard:** respects CIGAR gaps and avoids double-counting overlapping mates

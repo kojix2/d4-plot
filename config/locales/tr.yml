@@ -135,6 +135,13 @@ tr:
     finite_number: "Sonlu bir sayı girin: %{text}"
     invalid_scale: "Sabit en büyük değer sabit en küçük değerden büyük olmalıdır."
   conversion:
+    basic_settings: "Temel ayarlar"
+    advanced_settings: "Gelişmiş ayarlar"
+    files_section: "Dosyalar"
+    filters_section: "Okuma filtreleri"
+    processing_section: "İşleme"
+    start_creation: "D4 Oluştur"
+    adding: "Görünüme ekleniyor…"
     title: "D4 Oluştur"
     browse: "Gözat…"
     choose: "Seç…"
@@ -213,7 +220,6 @@ tr:
   annotation:
     too_many: "Çok fazla ek açıklama (>%{limit}); yakınlaştırın"
     index_read_failed: "Ek açıklama dizini okunamadı: %{error}"
-    tabix_missing_indexed: "tabix komutu bulunamadı. Dizinli ek açıklamaları okumak için tabix kurun."
     memory_limit: "Ek açıklama verileri bellek sınırını aşıyor. Büyük ek açıklamalar için bgzip ve tabix dizini kullanın."
     no_features: "Desteklenen özellik bulunamadı. GFF3/GTF genleri, transkriptleri veya ekzonları ya da BED aralıklarını açın."
     chromosome_missing: "Ek açıklamalarda %{chromosome} kromozomu yok; adlar tam olarak eşleşmelidir (chr öneki dahil)."

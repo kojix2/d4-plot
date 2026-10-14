@@ -135,6 +135,13 @@ pl:
     finite_number: "Wpisz liczbę skończoną: %{text}"
     invalid_scale: "Stałe maksimum musi być większe niż stałe minimum."
   conversion:
+    basic_settings: "Ustawienia podstawowe"
+    advanced_settings: "Ustawienia zaawansowane"
+    files_section: "Pliki"
+    filters_section: "Filtry odczytów"
+    processing_section: "Przetwarzanie"
+    start_creation: "Utwórz D4"
+    adding: "Dodawanie do widoku…"
     title: "Utwórz D4"
     browse: "Przeglądaj…"
     choose: "Wybierz…"
@@ -213,7 +220,6 @@ pl:
   annotation:
     too_many: "Zbyt wiele adnotacji (>%{limit}); powiększ"
     index_read_failed: "Nie można odczytać indeksu adnotacji: %{error}"
-    tabix_missing_indexed: "Nie znaleziono polecenia tabix. Zainstaluj tabix, aby odczytywać indeksowane adnotacje."
     memory_limit: "Dane adnotacji przekraczają limit pamięci. Dla dużych adnotacji użyj bgzip i indeksu tabix."
     no_features: "Nie znaleziono obsługiwanych cech. Otwórz geny, transkrypty lub eksony GFF3/GTF albo przedziały BED."
     chromosome_missing: "W adnotacjach nie ma chromosomu %{chromosome}; nazwy muszą być identyczne (łącznie z prefiksem chr)."

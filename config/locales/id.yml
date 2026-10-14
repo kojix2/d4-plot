@@ -135,6 +135,13 @@ id:
     finite_number: "Masukkan bilangan berhingga: %{text}"
     invalid_scale: "Maksimum tetap harus lebih besar daripada minimum tetap."
   conversion:
+    basic_settings: "Pengaturan dasar"
+    advanced_settings: "Pengaturan lanjutan"
+    files_section: "Berkas"
+    filters_section: "Filter read"
+    processing_section: "Pemrosesan"
+    start_creation: "Buat D4"
+    adding: "Menambahkan ke tampilan…"
     title: "Buat D4"
     browse: "Telusuri…"
     choose: "Pilih…"
@@ -213,7 +220,6 @@ id:
   annotation:
     too_many: "Terlalu banyak anotasi (>%{limit}); perbesar"
     index_read_failed: "Tidak dapat membaca indeks anotasi: %{error}"
-    tabix_missing_indexed: "Perintah tabix tidak ditemukan. Instal tabix untuk membaca anotasi terindeks."
     memory_limit: "Data anotasi melebihi batas memori. Gunakan bgzip dan indeks tabix untuk anotasi besar."
     no_features: "Tidak ditemukan fitur yang didukung. Buka gen, transkrip, atau ekson GFF3/GTF, atau interval BED."
     chromosome_missing: "Kromosom %{chromosome} tidak ada dalam anotasi; nama harus sama persis (termasuk awalan chr)."

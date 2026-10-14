@@ -135,6 +135,13 @@ ru:
     finite_number: "Введите конечное число: %{text}"
     invalid_scale: "Фиксированный максимум должен быть больше фиксированного минимума."
   conversion:
+    basic_settings: "Основные настройки"
+    advanced_settings: "Дополнительные настройки"
+    files_section: "Файлы"
+    filters_section: "Фильтры чтений"
+    processing_section: "Обработка"
+    start_creation: "Создать D4"
+    adding: "Добавление в вид…"
     title: "Создать D4"
     browse: "Обзор…"
     choose: "Выбрать…"
@@ -213,7 +220,6 @@ ru:
   annotation:
     too_many: "Слишком много аннотаций (>%{limit}); увеличьте масштаб"
     index_read_failed: "Не удалось прочитать индекс аннотаций: %{error}"
-    tabix_missing_indexed: "Команда tabix не найдена. Установите tabix для чтения индексированных аннотаций."
     memory_limit: "Данные аннотаций превышают лимит памяти. Для больших аннотаций используйте bgzip и индекс tabix."
     no_features: "Поддерживаемые объекты не найдены. Откройте гены, транскрипты или экзоны GFF3/GTF либо интервалы BED."
     chromosome_missing: "В аннотациях нет хромосомы %{chromosome}; имена должны совпадать точно (включая префикс chr)."

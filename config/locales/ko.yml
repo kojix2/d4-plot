@@ -135,6 +135,13 @@ ko:
     finite_number: "유한한 숫자를 입력하세요: %{text}"
     invalid_scale: "고정 최댓값은 고정 최솟값보다 커야 합니다."
   conversion:
+    basic_settings: "기본 설정"
+    advanced_settings: "고급 설정"
+    files_section: "파일"
+    filters_section: "리드 필터"
+    processing_section: "처리"
+    start_creation: "D4 만들기"
+    adding: "보기에 추가 중…"
     title: "D4 만들기"
     browse: "찾아보기…"
     choose: "선택…"
@@ -213,7 +220,6 @@ ko:
   annotation:
     too_many: "주석이 너무 많습니다(>%{limit}). 확대하세요"
     index_read_failed: "주석 인덱스를 읽을 수 없습니다: %{error}"
-    tabix_missing_indexed: "tabix 명령을 찾을 수 없습니다. 인덱싱된 주석을 읽으려면 tabix를 설치하세요."
     memory_limit: "주석 데이터가 메모리 제한을 초과합니다. 큰 주석에는 bgzip과 tabix 인덱스를 사용하세요."
     no_features: "지원되는 특성이 없습니다. GFF3/GTF 유전자, 전사체 또는 엑손이나 BED 구간을 여세요."
     chromosome_missing: "주석에 염색체 %{chromosome}이(가) 없습니다. 이름은 chr 접두사를 포함해 정확히 일치해야 합니다."

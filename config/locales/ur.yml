@@ -135,6 +135,13 @@ ur:
     finite_number: "ایک محدود عدد درج کریں: %{text}"
     invalid_scale: "مقرر زیادہ سے زیادہ، مقرر کم از کم سے بڑا ہونا چاہیے۔"
   conversion:
+    basic_settings: "بنیادی ترتیبات"
+    advanced_settings: "اعلیٰ ترتیبات"
+    files_section: "فائلیں"
+    filters_section: "ریڈ فلٹر"
+    processing_section: "پروسیسنگ"
+    start_creation: "D4 بنائیں"
+    adding: "منظر میں شامل کیا جا رہا ہے…"
     title: "D4 بنائیں"
     browse: "براؤز کریں…"
     choose: "منتخب کریں…"
@@ -213,7 +220,6 @@ ur:
   annotation:
     too_many: "بہت زیادہ تشریحات (>%{limit})؛ بڑا کریں"
     index_read_failed: "تشریحی اشاریہ نہیں پڑھا جا سکا: %{error}"
-    tabix_missing_indexed: "tabix کمانڈ نہیں ملی۔ اشاریہ شدہ تشریحات پڑھنے کے لیے tabix نصب کریں۔"
     memory_limit: "تشریحی ڈیٹا میموری کی حد سے زیادہ ہے۔ بڑی تشریحات کے لیے bgzip اور tabix اشاریہ استعمال کریں۔"
     no_features: "کوئی معاون خصوصیت نہیں ملی۔ GFF3/GTF جین، ٹرانسکرپٹ یا ایکسون، یا BED وقفے کھولیں۔"
     chromosome_missing: "تشریحات میں کروموسوم %{chromosome} نہیں ہے؛ نام بالکل ملنے چاہئیں، chr سابقے سمیت۔"

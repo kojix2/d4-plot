@@ -974,7 +974,7 @@ module D4Plot
     end
 
     private def open_conversion
-      window = @conversion_window ||= ConversionWindow.new(@conversion_worker, ->(path : String) { load_d4_file(path, append: true) })
+      window = @conversion_window ||= ConversionWindow.new(@conversion_worker, ->(path : String, done : Proc(Bool, Nil)) { load_d4_file(path, append: true, on_done: done) })
       window.show
     end
 

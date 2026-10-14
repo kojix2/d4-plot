@@ -135,6 +135,13 @@ pt:
     finite_number: "Digite um número finito: %{text}"
     invalid_scale: "O máximo fixo deve ser maior que o mínimo fixo."
   conversion:
+    basic_settings: "Configurações básicas"
+    advanced_settings: "Configurações avançadas"
+    files_section: "Arquivos"
+    filters_section: "Filtros de leituras"
+    processing_section: "Processamento"
+    start_creation: "Criar D4"
+    adding: "Adicionando à visualização…"
     title: "Criar D4"
     browse: "Procurar…"
     choose: "Escolher…"
@@ -213,7 +220,6 @@ pt:
   annotation:
     too_many: "Anotações demais (>%{limit}); amplie"
     index_read_failed: "Não foi possível ler o índice de anotações: %{error}"
-    tabix_missing_indexed: "Comando tabix não encontrado. Instale o tabix para ler anotações indexadas."
     memory_limit: "Os dados de anotação excedem o limite de memória. Use bgzip e um índice tabix para anotações grandes."
     no_features: "Nenhum recurso compatível encontrado. Abra genes, transcritos ou éxons GFF3/GTF, ou intervalos BED."
     chromosome_missing: "O cromossomo %{chromosome} não está nas anotações; os nomes devem corresponder exatamente (incluindo o prefixo chr)."

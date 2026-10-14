@@ -135,6 +135,13 @@ en:
     finite_number: "Enter a finite number: %{text}"
     invalid_scale: "Fixed maximum must be greater than fixed minimum."
   conversion:
+    basic_settings: "Basic settings"
+    advanced_settings: "Advanced settings"
+    files_section: "Files"
+    filters_section: "Read filters"
+    processing_section: "Processing"
+    start_creation: "Create D4"
+    adding: "Adding to view…"
     title: "Create D4"
     browse: "Browse…"
     choose: "Choose…"
@@ -213,7 +220,6 @@ en:
   annotation:
     too_many: "Too many annotations (>%{limit}); zoom in"
     index_read_failed: "Could not read annotation index: %{error}"
-    tabix_missing_indexed: "tabix command not found. Install tabix to read indexed annotations."
     memory_limit: "Annotation data exceeds the in-memory limit. Use bgzip and a tabix index for large annotations."
     no_features: "No supported features found. Open GFF3/GTF genes, transcripts or exons, or BED intervals."
     chromosome_missing: "No chromosome %{chromosome} in annotations; names must match exactly (including chr prefix)."

@@ -135,6 +135,13 @@ he:
     finite_number: "הזינו מספר סופי: %{text}"
     invalid_scale: "המקסימום הקבוע חייב להיות גדול מהמינימום הקבוע."
   conversion:
+    basic_settings: "הגדרות בסיסיות"
+    advanced_settings: "הגדרות מתקדמות"
+    files_section: "קבצים"
+    filters_section: "מסנני קריאות"
+    processing_section: "עיבוד"
+    start_creation: "יצירת D4"
+    adding: "הוספה לתצוגה…"
     title: "יצירת D4"
     browse: "עיון…"
     choose: "בחירה…"
@@ -213,7 +220,6 @@ he:
   annotation:
     too_many: "יותר מדי אנוטציות (>%{limit}); הגדילו"
     index_read_failed: "לא ניתן לקרוא את אינדקס האנוטציות: %{error}"
-    tabix_missing_indexed: "הפקודה tabix לא נמצאה. התקינו tabix כדי לקרוא אנוטציות מאונדקסות."
     memory_limit: "נתוני האנוטציה חורגים ממגבלת הזיכרון. השתמשו ב-bgzip ובאינדקס tabix לאנוטציות גדולות."
     no_features: "לא נמצאו תכונות נתמכות. פתחו גנים, תעתיקים או אקסונים מסוג GFF3/GTF, או טווחי BED."
     chromosome_missing: "הכרומוזום %{chromosome} אינו באנוטציות; השמות חייבים להתאים בדיוק (כולל הקידומת chr)."

@@ -135,6 +135,13 @@ bn:
     finite_number: "একটি সসীম সংখ্যা লিখুন: %{text}"
     invalid_scale: "স্থির সর্বোচ্চ অবশ্যই স্থির সর্বনিম্নের চেয়ে বড় হতে হবে।"
   conversion:
+    basic_settings: "মৌলিক সেটিং"
+    advanced_settings: "উন্নত সেটিং"
+    files_section: "ফাইল"
+    filters_section: "রিড ফিল্টার"
+    processing_section: "প্রক্রিয়াকরণ"
+    start_creation: "D4 তৈরি করুন"
+    adding: "ভিউতে যোগ করা হচ্ছে…"
     title: "D4 তৈরি করুন"
     browse: "ব্রাউজ করুন…"
     choose: "নির্বাচন করুন…"
@@ -213,7 +220,6 @@ bn:
   annotation:
     too_many: "অতিরিক্ত টীকা (>%{limit}); বড় করুন"
     index_read_failed: "টীকার সূচক পড়া যায়নি: %{error}"
-    tabix_missing_indexed: "tabix কমান্ড পাওয়া যায়নি। সূচিবদ্ধ টীকা পড়তে tabix ইনস্টল করুন।"
     memory_limit: "টীকার ডেটা মেমরির সীমা ছাড়িয়েছে। বড় টীকার জন্য bgzip ও tabix সূচক ব্যবহার করুন।"
     no_features: "কোনো সমর্থিত বৈশিষ্ট্য পাওয়া যায়নি। GFF3/GTF জিন, ট্রান্সক্রিপ্ট বা এক্সন, অথবা BED ব্যবধান খুলুন।"
     chromosome_missing: "টীকায় ক্রোমোজোম %{chromosome} নেই; chr উপসর্গসহ নাম হুবহু মিলতে হবে।"

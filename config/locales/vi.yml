@@ -135,6 +135,13 @@ vi:
     finite_number: "Nhập một số hữu hạn: %{text}"
     invalid_scale: "Giá trị tối đa cố định phải lớn hơn giá trị tối thiểu cố định."
   conversion:
+    basic_settings: "Cài đặt cơ bản"
+    advanced_settings: "Cài đặt nâng cao"
+    files_section: "Tệp"
+    filters_section: "Bộ lọc đoạn đọc"
+    processing_section: "Xử lý"
+    start_creation: "Tạo D4"
+    adding: "Đang thêm vào chế độ xem…"
     title: "Tạo D4"
     browse: "Duyệt…"
     choose: "Chọn…"
@@ -213,7 +220,6 @@ vi:
   annotation:
     too_many: "Quá nhiều chú giải (>%{limit}); hãy phóng to"
     index_read_failed: "Không thể đọc chỉ mục chú giải: %{error}"
-    tabix_missing_indexed: "Không tìm thấy lệnh tabix. Cài đặt tabix để đọc chú giải đã lập chỉ mục."
     memory_limit: "Dữ liệu chú giải vượt quá giới hạn bộ nhớ. Dùng bgzip và chỉ mục tabix cho chú giải lớn."
     no_features: "Không tìm thấy đặc trưng được hỗ trợ. Mở gen, bản phiên mã hoặc exon GFF3/GTF, hoặc khoảng BED."
     chromosome_missing: "Không có nhiễm sắc thể %{chromosome} trong chú giải; tên phải khớp chính xác (bao gồm tiền tố chr)."

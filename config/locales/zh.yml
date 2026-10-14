@@ -135,6 +135,13 @@ zh:
     finite_number: "请输入有限数值：%{text}"
     invalid_scale: "固定最大值必须大于固定最小值。"
   conversion:
+    basic_settings: "基本设置"
+    advanced_settings: "高级设置"
+    files_section: "文件"
+    filters_section: "读段过滤"
+    processing_section: "处理"
+    start_creation: "创建 D4"
+    adding: "正在添加到视图…"
     title: "创建 D4"
     browse: "浏览…"
     choose: "选择…"
@@ -213,7 +220,6 @@ zh:
   annotation:
     too_many: "注释过多（>%{limit}）；请放大"
     index_read_failed: "无法读取注释索引：%{error}"
-    tabix_missing_indexed: "未找到 tabix 命令。请安装 tabix 以读取已索引的注释。"
     memory_limit: "注释数据超出内存限制。大型注释请使用 bgzip 压缩并建立 tabix 索引。"
     no_features: "未找到支持的特征。请打开包含基因、转录本或外显子的 GFF3/GTF，或 BED 区间。"
     chromosome_missing: "注释中没有染色体 %{chromosome}；名称必须完全匹配（包括 chr 前缀）。"

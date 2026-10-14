@@ -135,6 +135,13 @@ nl:
     finite_number: "Voer een eindig getal in: %{text}"
     invalid_scale: "Het vaste maximum moet groter zijn dan het vaste minimum."
   conversion:
+    basic_settings: "Basisinstellingen"
+    advanced_settings: "Geavanceerde instellingen"
+    files_section: "Bestanden"
+    filters_section: "Readfilters"
+    processing_section: "Verwerking"
+    start_creation: "D4 maken"
+    adding: "Toevoegen aan weergave…"
     title: "D4 maken"
     browse: "Bladeren…"
     choose: "Kiezen…"
@@ -213,7 +220,6 @@ nl:
   annotation:
     too_many: "Te veel annotaties (>%{limit}); zoom in"
     index_read_failed: "Annotatie-index kon niet worden gelezen: %{error}"
-    tabix_missing_indexed: "Opdracht tabix niet gevonden. Installeer tabix om geïndexeerde annotaties te lezen."
     memory_limit: "Annotatiegegevens overschrijden de geheugenlimiet. Gebruik bgzip en een tabix-index voor grote annotaties."
     no_features: "Geen ondersteunde kenmerken gevonden. Open GFF3/GTF-genen, -transcripten of -exonen, of BED-intervallen."
     chromosome_missing: "Chromosoom %{chromosome} ontbreekt in de annotaties; namen moeten exact overeenkomen (inclusief chr-voorvoegsel)."

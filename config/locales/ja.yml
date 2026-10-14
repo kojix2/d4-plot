@@ -135,6 +135,13 @@ ja:
     finite_number: "有限の数値を入力してください: %{text}"
     invalid_scale: "固定最大値は固定最小値より大きくする必要があります。"
   conversion:
+    basic_settings: "基本設定"
+    advanced_settings: "詳細設定"
+    files_section: "ファイル"
+    filters_section: "リードのフィルタ"
+    processing_section: "処理"
+    start_creation: "D4 を作成"
+    adding: "ビューに追加中…"
     title: "D4 を作成"
     browse: "参照…"
     choose: "選択…"
@@ -213,7 +220,6 @@ ja:
   annotation:
     too_many: "アノテーションが多すぎます（>%{limit}）。拡大してください"
     index_read_failed: "アノテーションインデックスを読み込めませんでした: %{error}"
-    tabix_missing_indexed: "tabix コマンドがありません。インデックス済みアノテーションを読むには tabix をインストールしてください。"
     memory_limit: "アノテーションデータがメモリ内の上限を超えています。大きなアノテーションには bgzip と tabix インデックスを使用してください。"
     no_features: "対応する要素が見つかりませんでした。GFF3/GTF の gene、transcript、exon、または BED 区間を開いてください。"
     chromosome_missing: "アノテーションに染色体 %{chromosome} がありません。名前は chr 接頭辞も含めて完全に一致する必要があります。"

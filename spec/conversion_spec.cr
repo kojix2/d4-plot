@@ -199,6 +199,10 @@ describe D4Plot::ConversionDraft do
   it "parses advanced options and reports hidden changes and invalid input" do
     draft = D4Plot::ConversionDraft.new
     draft.advanced_modified?.should be_false
+    draft.mapq = 20
+    draft.advanced_modified?.should be_true
+    draft.mapq = 0
+    draft.advanced_modified?.should be_false
     draft.exclude_flags = "0x704"
     draft.include_flags = "0x2"
     draft.read_groups = "tumor, normal, "

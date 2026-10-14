@@ -32,7 +32,7 @@ module D4Plot
     end
 
     def advanced_modified?
-      threads != 0 || exclude_flags != "1796" || include_flags != "0" || !read_groups.strip.empty? ||
+      mapq != 0 || threads != 0 || exclude_flags != "1796" || include_flags != "0" || !read_groups.strip.empty? ||
         !min_fragment.strip.empty? || !max_fragment.strip.empty?
     end
 

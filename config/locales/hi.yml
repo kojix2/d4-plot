@@ -135,6 +135,13 @@ hi:
     finite_number: "एक परिमित संख्या दर्ज करें: %{text}"
     invalid_scale: "स्थिर अधिकतम, स्थिर न्यूनतम से बड़ा होना चाहिए।"
   conversion:
+    basic_settings: "मूल सेटिंग"
+    advanced_settings: "उन्नत सेटिंग"
+    files_section: "फ़ाइलें"
+    filters_section: "रीड फ़िल्टर"
+    processing_section: "प्रसंस्करण"
+    start_creation: "D4 बनाएँ"
+    adding: "दृश्य में जोड़ा जा रहा है…"
     title: "D4 बनाएँ"
     browse: "ब्राउज़ करें…"
     choose: "चुनें…"
@@ -213,7 +220,6 @@ hi:
   annotation:
     too_many: "बहुत अधिक एनोटेशन (>%{limit}); ज़ूम बढ़ाएँ"
     index_read_failed: "एनोटेशन अनुक्रमणिका नहीं पढ़ी जा सकी: %{error}"
-    tabix_missing_indexed: "tabix कमांड नहीं मिली। अनुक्रमित एनोटेशन पढ़ने के लिए tabix स्थापित करें।"
     memory_limit: "एनोटेशन डेटा स्मृति सीमा से अधिक है। बड़े एनोटेशन के लिए bgzip और tabix अनुक्रमणिका उपयोग करें।"
     no_features: "कोई समर्थित विशेषता नहीं मिली। GFF3/GTF जीन, ट्रांसक्रिप्ट या एक्सॉन, अथवा BED अंतराल खोलें।"
     chromosome_missing: "एनोटेशन में गुणसूत्र %{chromosome} नहीं है; नाम बिल्कुल मेल खाने चाहिए, chr उपसर्ग सहित।"

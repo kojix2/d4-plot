@@ -135,6 +135,13 @@ ar:
     finite_number: "أدخل عددًا محدودًا: %{text}"
     invalid_scale: "يجب أن يكون الحد الأقصى الثابت أكبر من الحد الأدنى الثابت."
   conversion:
+    basic_settings: "الإعدادات الأساسية"
+    advanced_settings: "الإعدادات المتقدمة"
+    files_section: "الملفات"
+    filters_section: "مرشحات القراءات"
+    processing_section: "المعالجة"
+    start_creation: "إنشاء D4"
+    adding: "جارٍ الإضافة إلى العرض…"
     title: "إنشاء D4"
     browse: "استعراض…"
     choose: "اختيار…"
@@ -213,7 +220,6 @@ ar:
   annotation:
     too_many: "عدد كبير جدًا من التعليقات التوضيحية (>%{limit})؛ كبّر العرض"
     index_read_failed: "تعذر قراءة فهرس التعليقات التوضيحية: %{error}"
-    tabix_missing_indexed: "تعذر العثور على أمر tabix. ثبّت tabix لقراءة التعليقات التوضيحية المفهرسة."
     memory_limit: "تتجاوز بيانات التعليقات التوضيحية حد الذاكرة. استخدم bgzip وفهرس tabix للملفات الكبيرة."
     no_features: "لم توجد ميزات مدعومة. افتح جينات أو نسخًا أو إكسونات بصيغة GFF3/GTF، أو فواصل BED."
     chromosome_missing: "لا يوجد الكروموسوم %{chromosome} في التعليقات التوضيحية؛ يجب أن تتطابق الأسماء تمامًا، بما في ذلك بادئة chr."
