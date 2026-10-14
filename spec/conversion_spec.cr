@@ -47,11 +47,13 @@ describe D4Plot::D4Converter do
         file.values("chr1").should eq([0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0])
         file.values("empty").should eq([0, 0, 0, 0, 0])
         file.default_track.has_index?(D4::IndexKind::SecondaryFrames).should be_true
+        file.default_track.has_index?(D4::IndexKind::Sum).should be_true
       end
       events.last.records.should eq(4)
       events.map(&.stage).should contain("Building D4 index")
       indexed = events.select { |event| event.stage == "Building D4 index" && !event.chromosome.empty? }
       indexed.map { |event| {event.chromosome, event.current, event.total} }.should eq([
+        {"chr1", 1, 2}, {"empty", 2, 2},
         {"chr1", 1, 2}, {"empty", 2, 2},
       ])
       events.select(&.chromosome.empty?).each(&.total.should(eq(0)))
