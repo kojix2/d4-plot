@@ -22,6 +22,11 @@ dependencies:
     github: kojix2/mopdepth
     branch: main
 
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+    branch: master
+
 targets:
   d4-plot:
     main: src/d4-plot.cr
