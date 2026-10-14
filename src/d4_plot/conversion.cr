@@ -215,7 +215,9 @@ module D4Plot
     end
 
     private def convert_targets(reader, writer, options, mopdepth_control, control, progress) : Nil
-      coverage = [] of Int32
+      # Mopdepth fills the same buffer for every chromosome. Reserve enough
+      # room once so growing it cannot temporarily duplicate a large array.
+      coverage = Array(Int32).new(reader.targets.max_of(&.length) + 1)
       total = reader.targets.size
       reader.targets.each_with_index do |target, index|
         control.check!
