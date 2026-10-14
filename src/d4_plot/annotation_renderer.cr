@@ -4,6 +4,30 @@ require "./annotation"
 require "./region"
 
 module D4Plot
+  class AnnotationLaneAllocator
+    def initialize(@max_lanes : Int32)
+      @lane_ends = [] of UInt32
+    end
+
+    def lane_count : Int32
+      @lane_ends.size
+    end
+
+    def assign(feature : AnnotationFeature) : Int32?
+      @lane_ends.each_with_index do |end1, index|
+        if feature.start1 > end1
+          @lane_ends[index] = feature.end1
+          return index
+        end
+      end
+
+      return nil if @lane_ends.size >= @max_lanes
+
+      @lane_ends << feature.end1
+      @lane_ends.size - 1
+    end
+  end
+
   class AnnotationRenderer
     GAP        =  14.0
     LANE       =  24.0
@@ -53,13 +77,12 @@ module D4Plot
     end
 
     private def draw_features(ctx, features, region, plot_left, top, plot_width, height)
-      lane_ends = [] of UInt32
       max_lanes = (height / LANE).floor.to_i - 1
+      lanes = AnnotationLaneAllocator.new(max_lanes)
       hidden = 0
 
       features.sort_by { |feature| {feature.start1, feature.end1, feature.kind} }.each do |feature|
-        lane = lane_for(feature, lane_ends)
-        if lane >= max_lanes
+        unless lane = lanes.assign(feature)
           hidden += 1
           next
         end
@@ -69,18 +92,6 @@ module D4Plot
       if hidden > 0
         draw_notice(ctx, D4Plot.t("plot.additional_features", number: hidden), plot_left, top + height - 17, plot_width)
       end
-    end
-
-    private def lane_for(feature, lane_ends)
-      lane_ends.each_with_index do |end1, index|
-        if feature.start1 > end1
-          lane_ends[index] = feature.end1
-          return index
-        end
-      end
-
-      lane_ends << feature.end1
-      lane_ends.size - 1
     end
 
     private def draw_feature(ctx, feature, lane, region, plot_left, top, plot_width)
