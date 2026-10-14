@@ -12,6 +12,7 @@ archive="dist/d4-plot-${tag}-macos-${arch}.zip"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 install -m 755 bin/d4-plot "$executable"
 install -m 644 LICENSE README.md "$bundle/Contents/Resources/"
+python3 scripts/make-icns.py assets/d4-plot.png "$bundle/Contents/Resources/d4-plot.icns"
 bash scripts/collect-licenses.sh "$bundle/Contents/Resources/licenses"
 # Native libraries copied by dylibbundler retain their Homebrew license texts.
 for formula in htslib libdeflate xz zlib bzip2 openssl@3; do
@@ -32,6 +33,7 @@ cat > "$bundle/Contents/Info.plist" <<EOF
   <key>CFBundleIdentifier</key><string>com.github.kojix2.d4-plot</string>
   <key>CFBundleName</key><string>D4 Plot</string>
   <key>CFBundleDisplayName</key><string>D4 Plot</string>
+  <key>CFBundleIconFile</key><string>d4-plot.icns</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleLocalizations</key>
   <array>

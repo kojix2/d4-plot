@@ -87,6 +87,11 @@ ameba
 crystal tool format --check src spec examples
 ```
 
+To change the application icon, replace `assets/d4-plot.png` with a square PNG
+that has a transparent background, then run `bash scripts/refresh-icons.sh`
+(requires ImageMagick). The macOS `.icns` is generated from that PNG when the
+app bundle is packaged.
+
 Run the native UI smoke test in a graphical session:
 
 ```sh

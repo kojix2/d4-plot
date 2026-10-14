@@ -16,6 +16,7 @@ OutputBaseFilename=d4-plot-v{#AppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\d4-plot.ico
 
 [Files]
 Source: "..\bin\d4-plot.exe"; DestDir: "{app}"; Flags: ignoreversion

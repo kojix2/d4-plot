@@ -38,12 +38,16 @@ for library in bz2 lzma z deflate regex tre intl; do
 done
 static_libs+=(-Wl,--end-group -lws2_32)
 
+# Embed the application icon so portable builds and installer shortcuts share it.
+windres -I assets -i assets/d4-plot.rc -o build/d4-plot-icon.o
+icon_resource=$(cygpath -m "$PWD/build/d4-plot-icon.o")
+
 # `crystal spec` has no `--static` option, so define the same compiler flag
 # explicitly. Besides selecting the archives below, this prevents Windows
 # foreign data symbols from being emitted as DLL imports.
 crystal spec spec -D static --link-flags="${static_libs[*]}"
 crystal build src/d4-plot.cr --release --no-debug --static \
-  --link-flags="${static_libs[*]} -mwindows" -o bin/d4-plot.exe
+  --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/d4-plot.exe
 
 # Include upstream license texts in both portable ZIP and installer.
 bash scripts/collect-licenses.sh build/licenses
