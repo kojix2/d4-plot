@@ -210,8 +210,7 @@ pl:
     no_overlap: "Brak nakładających się adnotacji w tym regionie"
     indexed: "zindeksowano przez tabix"
     features: "Cechy: %{number}"
-    tabix_read_failed: "tabix nie mógł odczytać adnotacji; sprawdź zgodność skompresowanego pliku i indeksu."
-    tabix_missing: "Nie znaleziono polecenia tabix. Zainstaluj tabix lub otwórz mały, nieindeksowany plik adnotacji."
+    indexed_read_failed: "HTSlib nie mógł odczytać adnotacji; sprawdź zgodność skompresowanego pliku i indeksu."
     file_too_large: "Plik adnotacji jest zbyt duży, aby wczytać go do pamięci. Skompresuj go za pomocą bgzip i utwórz indeks .tbi/.csi."
     unavailable: "Adnotacje niedostępne w tym regionie"
   errors:

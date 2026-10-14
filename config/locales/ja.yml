@@ -210,8 +210,7 @@ ja:
     no_overlap: "この領域に重なるアノテーションはありません"
     indexed: "tabix インデックス済み"
     features: "%{number} 要素"
-    tabix_read_failed: "tabix でアノテーションを読めませんでした。圧縮ファイルとインデックスが対応しているか確認してください。"
-    tabix_missing: "tabix コマンドがありません。tabix をインストールするか、小さな非インデックスアノテーションファイルを開いてください。"
+    indexed_read_failed: "HTSlib でアノテーションを読めませんでした。圧縮ファイルとインデックスが対応しているか確認してください。"
     file_too_large: "アノテーションファイルがメモリ内読み込みには大きすぎます。bgzip で圧縮し、.tbi/.csi インデックスを作成してください。"
     unavailable: "この領域ではアノテーションを利用できません"
   errors:

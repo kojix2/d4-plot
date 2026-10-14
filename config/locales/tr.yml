@@ -210,8 +210,7 @@ tr:
     no_overlap: "Bu bölgede örtüşen ek açıklama yok"
     indexed: "tabix ile dizinli"
     features: "Özellikler: %{number}"
-    tabix_read_failed: "tabix ek açıklamaları okuyamadı; sıkıştırılmış dosya ile dizinin eşleştiğini denetleyin."
-    tabix_missing: "tabix komutu bulunamadı. tabix kurun veya küçük, dizinsiz bir ek açıklama dosyası açın."
+    indexed_read_failed: "HTSlib ek açıklamaları okuyamadı; sıkıştırılmış dosya ile dizinin eşleştiğini denetleyin."
     file_too_large: "Ek açıklama dosyası belleğe yüklenemeyecek kadar büyük. bgzip ile sıkıştırın ve .tbi/.csi dizini oluşturun."
     unavailable: "Ek açıklamalar bu bölgede kullanılamıyor"
   errors:

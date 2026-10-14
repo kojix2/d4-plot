@@ -210,8 +210,7 @@ en:
     no_overlap: "No overlapping annotations in this region"
     indexed: "tabix indexed"
     features: "Features: %{number}"
-    tabix_read_failed: "tabix could not read annotations; check that the compressed file and index match."
-    tabix_missing: "tabix command not found. Install tabix or open a small unindexed annotation file."
+    indexed_read_failed: "HTSlib could not read annotations; check that the compressed file and index match."
     file_too_large: "Annotation file is too large for in-memory loading. Compress with bgzip and create a .tbi/.csi index."
     unavailable: "Annotations unavailable in this region"
   errors:

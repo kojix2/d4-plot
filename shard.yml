@@ -7,6 +7,9 @@ authors:
   - kojix2 <2xijok@gmail.com>
 
 dependencies:
+  hts:
+    github: bio-cr/hts.cr
+    branch: develop
   i18n:
     github: crystal-i18n/i18n
   uing:

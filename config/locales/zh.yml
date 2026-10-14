@@ -210,8 +210,7 @@ zh:
     no_overlap: "此区域没有重叠注释"
     indexed: "已建立 tabix 索引"
     features: "特征数：%{number}"
-    tabix_read_failed: "tabix 无法读取注释；请检查压缩文件与索引是否匹配。"
-    tabix_missing: "未找到 tabix 命令。请安装 tabix，或打开较小的未索引注释文件。"
+    indexed_read_failed: "HTSlib 无法读取注释；请检查压缩文件与索引是否匹配。"
     file_too_large: "注释文件太大，无法载入内存。请使用 bgzip 压缩并创建 .tbi/.csi 索引。"
     unavailable: "此区域无法使用注释"
   errors:

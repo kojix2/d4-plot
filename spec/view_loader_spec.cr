@@ -1,5 +1,6 @@
 require "./spec_helper"
 require "../src/d4_plot/view_loader"
+require "./support/indexed_annotation"
 
 private def await_view(loader, id)
   deadline = Time.instant + 5.seconds
@@ -13,6 +14,28 @@ private def await_view(loader, id)
 end
 
 describe D4Plot::ViewLoader do
+  it "repeatedly reads indexed GTF in the isolated worker without subprocesses" do
+    contents = "chr\tref\tgene\t1\t2\t.\t+\t.\tgene_name \"first\";\n" +
+               "chr\tref\texon\t8\t10\t.\t+\t.\tgene_name \"last\";\n"
+    AnnotationFixtures.with_indexed(contents, ".gtf", :gff) do |path|
+      loader = D4Plot::ViewLoader.new
+      begin
+        sources = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+        20.times do |i|
+          region = i.even? ? D4Plot::Region.new("chr", 1_u32, 2_u32) : D4Plot::Region.new("chr", 8_u32, 10_u32)
+          id = loader.submit(sources, region, 4, true, path, 100)
+          result = await_view(loader, id)
+          result.error.should be_nil
+          result.annotation_error.should be_nil
+          result.annotation_track.not_nil!.features.map(&.name).should eq([i.even? ? "first" : "last"])
+        end
+      ensure
+        loader.close
+        loader.wait
+      end
+    end
+  end
+
   it "keeps the prior annotation on replacement failure, at the requested coordinates" do
     path = File.tempname("d4-plot-retained-annotation", ".bed")
     loader = D4Plot::ViewLoader.new

@@ -210,8 +210,7 @@ nl:
     no_overlap: "Geen overlappende annotaties in deze regio"
     indexed: "geïndexeerd met tabix"
     features: "Kenmerken: %{number}"
-    tabix_read_failed: "tabix kon de annotaties niet lezen; controleer of het gecomprimeerde bestand en de index overeenkomen."
-    tabix_missing: "Opdracht tabix niet gevonden. Installeer tabix of open een klein niet-geïndexeerd annotatiebestand."
+    indexed_read_failed: "HTSlib kon de annotaties niet lezen; controleer of het gecomprimeerde bestand en de index overeenkomen."
     file_too_large: "Het annotatiebestand is te groot om in het geheugen te laden. Comprimeer het met bgzip en maak een .tbi/.csi-index."
     unavailable: "Annotaties zijn niet beschikbaar in deze regio"
   errors:

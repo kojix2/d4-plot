@@ -210,8 +210,7 @@ es:
     no_overlap: "No hay anotaciones solapadas en esta región"
     indexed: "indexado con tabix"
     features: "Características: %{number}"
-    tabix_read_failed: "tabix no pudo leer las anotaciones; compruebe que el archivo comprimido y el índice coinciden."
-    tabix_missing: "No se encontró el comando tabix. Instale tabix o abra un archivo de anotación pequeño sin indexar."
+    indexed_read_failed: "HTSlib no pudo leer las anotaciones; compruebe que el archivo comprimido y el índice coinciden."
     file_too_large: "El archivo de anotación es demasiado grande para cargarlo en memoria. Comprímalo con bgzip y cree un índice .tbi/.csi."
     unavailable: "Las anotaciones no están disponibles en esta región"
   errors:

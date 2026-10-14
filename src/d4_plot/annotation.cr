@@ -1,4 +1,5 @@
 require "compress/gzip"
+require "hts/tabix"
 require "./region"
 
 module D4Plot
@@ -62,13 +63,10 @@ module D4Plot
     end
 
     def self.indexed(path : String)
-      output = IO::Memory.new
-      error = IO::Memory.new
-      status = Process.run("tabix", {"-l", path}, output: output, error: error)
-      raise D4Plot.t("annotation.index_read_failed", error: error) unless status.success?
-      new(path, [] of AnnotationFeature, indexed: true, chromosome_names: output.to_s.lines)
-    rescue File::NotFoundError
-      raise D4Plot.t("annotation.tabix_missing_indexed")
+      names = HTS::Tabix.open(path) { |reader| reader.seqnames }
+      new(path, [] of AnnotationFeature, indexed: true, chromosome_names: names)
+    rescue ex : HTS::Error
+      raise D4Plot.t("annotation.index_read_failed", error: ex.message || ex.class.name)
     end
 
     def self.load(path : String)
@@ -144,29 +142,19 @@ module D4Plot
     private def query_tabix_region(chromosome, start1, end1, limit)
       features = [] of AnnotationFeature
       query_limit = limit + 1
-      process = Process.new("tabix", {@path, "#{chromosome}:#{start1}-#{end1}"}, output: Process::Redirect::Pipe, error: Process::Redirect::Close)
-      process.output.each_line do |line|
-        if feature = self.class.parse_line(line)
-          features << feature
-          if features.size >= query_limit
-            process.terminate unless process.terminated?
-            break
+      # HTSlib expects 0-based, half-open coordinates. Block-scoped readers
+      # release the file, index and iterator even on early exit or a read error.
+      HTS::Tabix.open(@path) do |reader|
+        reader.query(chromosome, start1.to_i64 - 1, end1.to_i64) do |fields|
+          if feature = self.class.parse_fields(fields)
+            features << feature
+            break if features.size >= query_limit
           end
         end
       end
-      status = process.wait
-      raise D4Plot.t("annotation.tabix_read_failed") unless status.success? || features.size >= query_limit
       features
-    rescue File::NotFoundError
-      raise D4Plot.t("annotation.tabix_missing")
-    ensure
-      if process
-        unless status
-          process.terminate unless process.terminated?
-          process.wait
-        end
-        process.close
-      end
+    rescue ex : HTS::Error
+      raise D4Plot.t("annotation.indexed_read_failed") + "\n#{ex.message || ex.class.name}"
     end
 
     private def self.tabix_indexed?(path)
@@ -195,7 +183,10 @@ module D4Plot
     def self.parse_line(line)
       return if line.empty? || line.starts_with?(/^(#|track |browser )/)
 
-      fields = line.split('\t')
+      parse_fields(line.split('\t'))
+    end
+
+    def self.parse_fields(fields : Array(String))
       if fields.size >= 3 && fields[1].to_u32? && fields[2].to_u32?
         return parse_bed(fields)
       end

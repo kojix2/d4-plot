@@ -1,5 +1,6 @@
 require "./spec_helper"
 require "../src/d4_plot/annotation"
+require "./support/indexed_annotation"
 
 describe D4Plot::AnnotationIndex do
   it "converts BED half-open intervals and keeps GFF/GTF coordinates inclusive" do
@@ -21,24 +22,33 @@ describe D4Plot::AnnotationIndex do
   end
 end
 
-# Optional integration coverage for the external tabix reader.
-if Process.find_executable("tabix") && Process.find_executable("bgzip")
-  describe "Indexed annotations" do
-    it "streams indexed BED records and stops at the feature limit" do
-      path = File.tempname("d4-plot-annotation", ".bed")
-      begin
-        File.write(path, "chr1\t0\t10\tA\t0\t+\nchr1\t0\t20\tB\t0\t-\nchr1\t1\t30\tC\t0\t+\n")
-        File.open("#{path}.gz", "w") do |file|
-          Process.run("bgzip", {"-c", path}, output: file).success?.should be_true
-        end
-        Process.run("tabix", {"-p", "bed", "#{path}.gz"}).success?.should be_true
-        region = D4Plot::Region.new("chr1", 1_u32, 30_u32)
-        plain = D4Plot::AnnotationIndex.load(path)
-        indexed = D4Plot::AnnotationIndex.load("#{path}.gz")
-        indexed.overlapping(region, 10).should eq(plain.overlapping(region, 10))
-        indexed.track_for(region, 100_u32, 1).notice.should eq("Too many annotations (>1); zoom in")
-      ensure
-        [path, "#{path}.gz", "#{path}.gz.tbi"].each { |file| File.delete(file) if File.exists?(file) }
+describe "Indexed annotations" do
+  it "reads indexed BED records, preserves boundaries, and recovers after the feature limit" do
+    contents = "chr1\t0\t10\tA\t0\t+\nchr1\t0\t20\tB\t0\t-\nchr1\t1\t30\tC\t0\t+\n"
+    AnnotationFixtures.with_indexed(contents) do |path|
+      region = D4Plot::Region.new("chr1", 1_u32, 30_u32)
+      plain = D4Plot::AnnotationIndex.new("plain", contents.lines.compact_map { |line| D4Plot::AnnotationIndex.parse_line(line) })
+      indexed = D4Plot::AnnotationIndex.load(path)
+      indexed.chromosome_names.should eq(["chr1"])
+      indexed.overlapping(region, 10).should eq(plain.overlapping(region, 10))
+      indexed.track_for(region, 100_u32, 1).notice.should eq("Too many annotations (>1); zoom in")
+      indexed.overlapping(D4Plot::Region.new("chr1", 10_u32, 10_u32), 10).map(&.name).should eq(["A", "B", "C"])
+      indexed.overlapping(D4Plot::Region.new("chr1", 11_u32, 11_u32), 10).map(&.name).should eq(["B", "C"])
+    end
+  end
+
+  {0, 14}.each do |min_shift|
+    it "reads GTF through #{min_shift == 0 ? "TBI" : "CSI"} with inclusive coordinates" do
+      contents = "chr1\tref\tgene\t1\t10\t.\t+\t.\tgene_name \"A\";\n" +
+                 "chr1\tref\texon\t10\t20\t.\t-\t.\tgene_name \"B\";\n" +
+                 "chr1\tref\tCDS\t21\t24\t.\t+\t.\tgene_name \"ignored\";\n"
+      AnnotationFixtures.with_indexed(contents, ".gtf", :gff, min_shift) do |path|
+        File.exists?("#{path}.#{min_shift == 0 ? "tbi" : "csi"}").should be_true
+        index = D4Plot::AnnotationIndex.load(path)
+        index.overlapping(D4Plot::Region.new("chr1", 10_u32, 10_u32), 10).map(&.name).should eq(["A", "B"])
+        index.overlapping(D4Plot::Region.new("chr1", 11_u32, 20_u32), 10).map(&.name).should eq(["B"])
+        index.overlapping(D4Plot::Region.new("chr1", 21_u32, 24_u32), 10).should be_empty
+        index.track_for(D4Plot::Region.new("missing", 1_u32, 10_u32), 100_u32, 10).notice.as(String).should contain("names must match")
       end
     end
   end

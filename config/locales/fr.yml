@@ -210,8 +210,7 @@ fr:
     no_overlap: "Aucune annotation superposée dans cette région"
     indexed: "indexé par tabix"
     features: "Éléments : %{number}"
-    tabix_read_failed: "tabix n’a pas pu lire les annotations ; vérifiez que le fichier compressé et l’index correspondent."
-    tabix_missing: "Commande tabix introuvable. Installez tabix ou ouvrez un petit fichier d’annotation non indexé."
+    indexed_read_failed: "HTSlib n’a pas pu lire les annotations ; vérifiez que le fichier compressé et l’index correspondent."
     file_too_large: "Le fichier d’annotation est trop volumineux pour être chargé en mémoire. Compressez-le avec bgzip et créez un index .tbi/.csi."
     unavailable: "Annotations indisponibles dans cette région"
   errors:

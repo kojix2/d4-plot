@@ -210,8 +210,7 @@ pt:
     no_overlap: "Não há anotações sobrepostas nesta região"
     indexed: "indexado com tabix"
     features: "Recursos: %{number}"
-    tabix_read_failed: "O tabix não conseguiu ler as anotações; verifique se o arquivo compactado e o índice correspondem."
-    tabix_missing: "Comando tabix não encontrado. Instale o tabix ou abra um arquivo de anotação pequeno não indexado."
+    indexed_read_failed: "O HTSlib não conseguiu ler as anotações; verifique se o arquivo compactado e o índice correspondem."
     file_too_large: "O arquivo de anotação é grande demais para carregar na memória. Compacte-o com bgzip e crie um índice .tbi/.csi."
     unavailable: "Anotações indisponíveis nesta região"
   errors:
