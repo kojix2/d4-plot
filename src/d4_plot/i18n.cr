@@ -53,11 +53,12 @@ module D4Plot
     end
 
     private def self.system_locale : String?
-      if locale = ENV["LC_ALL"]? || ENV["LC_MESSAGES"]? || ENV["LANGUAGE"]? || ENV["LANG"]?
-        return locale
-      end
-
-      native_system_locale
+      environment = ENV["LC_ALL"]? || ENV["LC_MESSAGES"]? || ENV["LANGUAGE"]? || ENV["LANG"]?
+      {% if flag?(:darwin) || flag?(:win32) %}
+        native_system_locale || environment
+      {% else %}
+        environment
+      {% end %}
     end
 
     private def self.supported_locale(value : String?) : String

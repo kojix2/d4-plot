@@ -26,6 +26,24 @@ describe D4Plot::Translations do
     D4Plot::Translations.resolve_locale("xx-YY").should eq("en")
   end
 
+  {% if flag?(:darwin) %}
+    it "uses the macOS preferred language despite a conflicting LC_ALL" do
+      previous = ENV["LC_ALL"]?
+      begin
+        ENV["LC_ALL"] = "ja_JP.UTF-8"
+        japanese_environment = D4Plot::Translations.resolve_locale
+        ENV["LC_ALL"] = "fr_FR.UTF-8"
+        D4Plot::Translations.resolve_locale.should eq(japanese_environment)
+      ensure
+        if previous
+          ENV["LC_ALL"] = previous
+        else
+          ENV.delete("LC_ALL")
+        end
+      end
+    end
+  {% end %}
+
   it "loads every supported catalogue with interpolation" do
     D4Plot::Translations.setup("en")
     D4Plot.t("app.tracks", number: 2).should eq("Tracks: 2")
