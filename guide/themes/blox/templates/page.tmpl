@@ -11,7 +11,7 @@
   - read_more: read-more link label on cards
 -#}
 <!DOCTYPE html>
-<html lang="{{ language }}" data-theme="{{ theme.color_scheme | default('light') }}">
+<html lang="{% if link|replace('/guide_ja/', '') != link %}ja{% else %}{{ lang }}{% endif %}" data-theme="{{ theme.color_scheme | default('light') }}">
 
 <head>
   <meta charset="utf-8" />
@@ -20,11 +20,11 @@
   <meta name="robots" content="noindex" />{% endif %}
   <title>{% if title and title|length > 0 %}{{ title }} :: {{ site_title }}{% else %}{{ site_title }}{% endif %}</title>
   <meta name="description" content="{% if description %}{{ description }}{% else %}{{ site_description }}{% endif %}" />
-  <link rel="canonical" href="{{ canonical_url }}" />
+  <link rel="canonical" href="{% if link == '/' %}{{ site_url }}/{{ theme.url_prefix }}/{% else %}{{ canonical_url }}{% endif %}" />
   <!-- Open Graph / Twitter -->
   <meta property="og:type" content="{% if og_type %}{{ og_type }}{% else %}website{% endif %}" />
   <meta property="og:site_name" content="{{ site_title }}" />
-  <meta property="og:url" content="{{ canonical_url }}" />
+  <meta property="og:url" content="{% if link == '/' %}{{ site_url }}/{{ theme.url_prefix }}/{% else %}{{ canonical_url }}{% endif %}" />
   <meta property="og:title" content="{% if title and title|length > 0 %}{{ title }}{% else %}{{ site_title }}{% endif %}" />
   <meta property="og:description" content="{% if description %}{{ description }}{% else %}{{ site_description }}{% endif %}" />
   {% if preview_image %}
