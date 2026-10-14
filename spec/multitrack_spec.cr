@@ -18,6 +18,9 @@ describe "Multi-track loading" do
     path = File.join(__DIR__, "fixtures/rust-multitrack.d4")
     sources = D4Plot::TrackSource.load(path)
     sources.size.should be > 1
+    checks = 0
+    interrupted = D4Plot::TrackSource.load(path, -> { checks += 1; checks > 1 })
+    interrupted.size.should eq(1)
     chromosomes = D4Plot::TrackSource.chromosomes(sources)
     chr, size = chromosomes.first
     region = D4Plot::Region.new(chr, 1_u32, size)

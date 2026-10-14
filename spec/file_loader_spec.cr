@@ -43,7 +43,7 @@ describe D4Plot::FileLoader do
 
   it "identifies the incompatible file without returning a partial batch" do
     source = D4Plot::TrackSource.new("old.d4", "", {"chr" => 10_u32}, 1.0)
-    loader = D4Plot::FileLoader.new(->(path : String) {
+    loader = D4Plot::FileLoader.new(->(path : String, _cancelled : Proc(Bool)) {
       [D4Plot::TrackSource.new(path, "", {"chr" => 11_u32}, 1.0)]
     })
     begin
@@ -59,11 +59,13 @@ describe D4Plot::FileLoader do
 
   it "reports progress and discards a cancelled in-flight read before accepting a new request" do
     entered = Channel(Nil).new
-    release = Channel(Nil).new
-    loader = D4Plot::FileLoader.new(->(path : String) {
+    release = Atomic(Bool).new(false)
+    loader = D4Plot::FileLoader.new(->(path : String, cancelled : Proc(Bool)) {
       if path == "slow.d4"
         entered.send(nil)
-        release.receive
+        until cancelled.call || release.get
+          sleep 1.millisecond
+        end
       end
       [D4Plot::TrackSource.new(path, "", {"chr" => 10_u32}, 1.0)]
     })
@@ -80,14 +82,13 @@ describe D4Plot::FileLoader do
       loader.progress.should be_nil
       loader.poll.should be_nil
       id = loader.submit(["new.d4"])
-      release.send(nil)
       result = await_files(loader, id)
       result.error.should be_nil
       result.sources.map(&.path).should eq(["new.d4"])
       loader.poll.should be_nil
     ensure
       entered.close
-      release.close
+      release.set(true)
       loader.close
       loader.wait
     end

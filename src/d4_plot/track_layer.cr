@@ -11,11 +11,12 @@ module D4Plot
       "#{File.basename(path)} / #{name.empty? ? D4Plot.t("app.default_track") : name}"
     end
 
-    def self.load(path : String) : Array(TrackSource)
+    def self.load(path : String, cancelled : Proc(Bool)? = nil) : Array(TrackSource)
       path = File.realpath(path)
       sources = [] of TrackSource
       D4.open(path) do |file|
         file.each_track do |track|
+          break if cancelled.try(&.call)
           chromosomes = track.chromosomes.reject { |chr| chr.size == 0 }.to_h { |chr| {chr.name, chr.size.to_u32} }
           sources << new(path, track.name, chromosomes, track.metadata.denominator) unless chromosomes.empty?
         end

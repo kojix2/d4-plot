@@ -17,7 +17,7 @@ module D4Plot
     @closed = false
     @worker : Fiber::ExecutionContext::Isolated
 
-    def initialize(@read_sources : Proc(String, Array(TrackSource)) = ->(path : String) { TrackSource.load(path) })
+    def initialize(@read_sources : Proc(String, Proc(Bool), Array(TrackSource)) = ->(path : String, cancelled : Proc(Bool)) { TrackSource.load(path, cancelled) })
       @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-file-reader") { work }
     end
 
@@ -90,7 +90,8 @@ module D4Plot
             @mutex.synchronize do
               @progress = FileLoadProgress.new(request.id, index + 1, request.paths.size, path) if request.id == @generation.get
             end
-            loaded = @read_sources.call(path)
+            cancelled = -> { request.id != @generation.get }
+            loaded = @read_sources.call(path, cancelled)
             break unless request.id == @generation.get
             loaded.each do |source|
               sources << source if keys.add?(source.key)
