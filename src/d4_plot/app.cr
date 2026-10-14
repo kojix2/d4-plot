@@ -11,6 +11,7 @@ require "./log"
 require "./toolbar"
 require "./conversion_window"
 require "./ui_runtime"
+require "./bedgraph_export"
 
 module D4Plot
   class App
@@ -748,21 +749,21 @@ module D4Plot
       end
     end
 
-    private def export_view
+    private def export_view(destination : String? = nil)
       return unless layer = selected_layer
       return unless view = layer.view
       return if @loading || @file_load_id || !layer.visible? || view.region != @completed_region
-      if path = @window.save_file
-        (@layers.map(&.source.path) + [@annotation_path].compact).each do |source|
-          if File.expand_path(path) == File.expand_path(source) || (File.exists?(path) && File.same?(path, source))
-            raise D4Plot.t("app.export_conflict")
+      if path = destination || @window.save_file
+        sources = @layers.map(&.source.path) + [@annotation_path].compact
+        export = BedgraphExport.new(path, sources, layer.source.path, layer.source.name, view)
+        count = view.points.size
+        @background_io.submit(-> { export.write }) do |error|
+          if error
+            show_error(D4Plot.t("app.could_not_export"), error)
+          else
+            show_status(D4Plot.t("app.exported", number: count, name: File.basename(path)))
           end
         end
-        File.open(path, "w") do |io|
-          io << "# Source: " << layer.source.path.gsub(/[\r\n]/, " ") << "; track: " << layer.source.name.gsub(/[\r\n]/, " ") << '\n'
-          view.write_bedgraph(io)
-        end
-        show_status(D4Plot.t("app.exported", number: view.points.size, name: File.basename(path)))
       end
     rescue ex
       show_error(D4Plot.t("app.could_not_export"), ex)
