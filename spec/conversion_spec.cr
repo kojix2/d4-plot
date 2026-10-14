@@ -166,7 +166,11 @@ describe D4Plot::ConversionWorker do
     in_conversion_dir do |dir|
       worker = D4Plot::ConversionWorker.new
       worker.start(D4Plot::ConversionRequest.new(File.join(dir, "missing.bam"), File.join(dir, "result.d4")))
-      worker.wait
+      deadline = Time.monotonic + 5.seconds
+      while worker.snapshot.state.active?
+        raise "Conversion did not finish" if Time.monotonic > deadline
+        sleep 1.millisecond
+      end
       worker.snapshot.state.failed?.should be_true
       worker.snapshot.field.should eq("Input")
       worker.reset

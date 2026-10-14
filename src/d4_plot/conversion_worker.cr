@@ -33,7 +33,6 @@ module D4Plot
 
     def start(request : ConversionRequest)
       raise D4Plot.t("errors.creation_running") if snapshot.state.active?
-      wait
       @control = ConversionControl.new
       @started = Time.instant
       @mutex.synchronize { @snapshot = ConversionSnapshot.new(ConversionState::Running) }
@@ -75,11 +74,13 @@ module D4Plot
 
     def reset
       raise D4Plot.t("errors.creation_still_running") if snapshot.state.active?
-      wait
       @mutex.synchronize { @snapshot = ConversionSnapshot.new }
     end
 
     private def finish(state, output : String? = nil, error : String? = nil, field : String? = nil)
+      # Publishing a terminal snapshot is this job's final access to shared
+      # application state. The UI may reset/start immediately; joining the
+      # Isolated context here would yield inside a native callback.
       @mutex.synchronize do
         @snapshot = @snapshot.copy_with(state: state, output: output, error: error, field: field,
           elapsed: @started.try { |start| Time.instant - start } || Time::Span.zero)

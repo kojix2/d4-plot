@@ -340,7 +340,7 @@ module D4Plot
       end
       read_draft
       request = @draft.request
-      request.validate!
+      # Filesystem validation runs in D4Converter on the worker thread.
       @worker.start(request)
       poll
     rescue ex
