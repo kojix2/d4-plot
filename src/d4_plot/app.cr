@@ -10,6 +10,7 @@ require "./settings_window"
 require "./log"
 require "./toolbar"
 require "./conversion_window"
+require "./ui_runtime"
 
 module D4Plot
   class App
@@ -92,7 +93,7 @@ module D4Plot
       {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
     end
 
-    def initialize(menu_items, @preferences = Preferences.load, @file_loader = FileLoader.new)
+    def initialize(menu_items, @preferences : Preferences, @file_loader = FileLoader.new, @background_io = BackgroundIO.new)
       @window = UIng::Window.new(PROGRAM_NAME, 1120, 780, menubar: true, margined: true)
       @area = UIng::Area.new(@handler, @canvas_width, 400)
       @track_list = TrackList.new(->(index : Int32) { select_layer(index); nil }, ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil })
@@ -130,6 +131,8 @@ module D4Plot
         if @closed
           0
         else
+          UIRuntime.check_thread!
+          @background_io.poll
           receive_files
           receive_result
           poll_conversion
@@ -150,6 +153,8 @@ module D4Plot
       shutdown
       # Complete all native UI teardown before yielding to worker joins.
       UIng.uninit
+      @background_io.close
+      @background_io.wait
       @loader.wait
       @file_loader.wait
       @conversion_worker.wait
@@ -387,15 +392,8 @@ module D4Plot
     end
 
     private def toggle_sidebar
-      previous = @preferences.sidebar_visible?
-      begin
-        @preferences.sidebar_visible = !previous
-        @preferences.save
-      rescue ex : File::Error
-        @preferences.sidebar_visible = previous
-        show_error(D4Plot.t("app.preferences_error"), ex)
-        return
-      end
+      @preferences.sidebar_visible = !@preferences.sidebar_visible?
+      persist_preferences
       clear_drag
       update_controls
       resize_canvas
@@ -546,19 +544,14 @@ module D4Plot
     end
 
     private def save_view_preferences
-      previous_height, previous_shared = @preferences.height_index, @preferences.shared_y?
-      begin
-        @preferences.height_index = @height.selected || 1
-        @preferences.shared_y = @shared_y.checked?
-        @preferences.save
-      rescue ex : File::Error
-        @preferences.height_index = previous_height
-        @preferences.shared_y = previous_shared
-        @updating = true
-        @height.selected = previous_height
-        @shared_y.checked = previous_shared
-        @updating = false
-        show_error(D4Plot.t("app.preferences_error"), ex)
+      @preferences.height_index = @height.selected || 1
+      @preferences.shared_y = @shared_y.checked?
+      persist_preferences
+    end
+
+    private def persist_preferences
+      @preferences.save_async(@background_io) do |error|
+        show_error(D4Plot.t("app.preferences_error"), error) if error
       end
     end
 
@@ -745,7 +738,7 @@ module D4Plot
       if window = @settings_window
         window.show
       else
-        window = SettingsWindow.new(@settings, @preferences, @window, ->(reload_data : Bool) {
+        window = SettingsWindow.new(@settings, @preferences, @window, @background_io, ->(reload_data : Bool) {
           @settings = @preferences.settings
           @tools.native.display_mode = @settings.toolbar_display_mode
           reload_data ? refresh : @area.queue_redraw_all
@@ -1055,6 +1048,7 @@ module D4Plot
     private def shutdown
       return if @closed
       @closed = true
+      @background_io.close
       @settings_window.try(&.destroy)
       @settings_window = nil
       @conversion_worker.cancel

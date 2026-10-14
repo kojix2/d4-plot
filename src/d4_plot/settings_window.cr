@@ -12,7 +12,9 @@ module D4Plot
       UIng::Toolbar::DisplayMode::TextOnly,
     ]
 
-    def initialize(@settings : PlotSettings, @preferences : Preferences, @parent : UIng::Window, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
+    @destroyed = false
+
+    def initialize(@settings : PlotSettings, @preferences : Preferences, @parent : UIng::Window, @background_io : BackgroundIO, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
       @window = UIng::Window.new(D4Plot.t("settings.title"), 460, 500, margined: true)
       @bins = UIng::Spinbox.new(16, 4096, @settings.point_count)
       @auto = UIng::Checkbox.new(D4Plot.t("settings.auto_scale"))
@@ -61,7 +63,7 @@ module D4Plot
       @window.child = root
       apply.on_clicked { apply_settings }
       close.on_clicked { @on_close.call; destroy }
-      @window.on_closing { @on_close.call; true }
+      @window.on_closing { @destroyed = true; @on_close.call; true }
       @auto.on_toggled { sync_scale_controls }
       sync_scale_controls
     end
@@ -71,6 +73,7 @@ module D4Plot
     end
 
     def destroy
+      @destroyed = true
       @window.destroy
     end
 
@@ -112,10 +115,15 @@ module D4Plot
       candidate.plot_color = @color.color
       candidate.annotation_feature_limit = @limit.value
       candidate.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
-      @preferences.save(settings: candidate, locale: selected_locale)
+      @preferences.save_async(@background_io, settings: candidate, locale: selected_locale) do |error|
+        if error
+          @parent.msg_box_error(D4Plot.t("app.preferences_error"), error.message || error.class.name)
+        elsif language_changed && !@destroyed
+          @window.msg_box(D4Plot.t("settings.language_saved_title"), D4Plot.t("settings.language_saved"))
+        end
+      end
       @settings = candidate
       @on_apply.call(reload_data)
-      @window.msg_box(D4Plot.t("settings.language_saved_title"), D4Plot.t("settings.language_saved")) if language_changed
     rescue ex : ArgumentError | File::Error
       @window.msg_box_error(D4Plot.t("settings.check"), ex.message || D4Plot.t("settings.invalid"))
     end

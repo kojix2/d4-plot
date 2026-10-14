@@ -2,6 +2,7 @@ require "json"
 require "path"
 require "./i18n"
 require "./plot_settings"
+require "./background_io"
 
 module D4Plot
   # Loading preferences does not create native UI controls.
@@ -42,18 +43,35 @@ module D4Plot
     end
 
     def save(settings : PlotSettings = @settings, locale : String? = @locale) : Nil
-      Dir.mkdir_p(File.dirname(@path))
-      data = {locale: locale, display: settings, track_height: @height_index, shared_y: @shared_y, sidebar_visible: @sidebar_visible}
+      self.class.write(@path, serialized(settings, locale))
+      @settings = settings
+      @locale = locale
+    end
+
+    # Apply immediately in memory, then persist an immutable snapshot in order.
+    # A failed older save must never roll back more recent user changes.
+    def save_async(io : BackgroundIO, settings : PlotSettings = @settings, locale : String? = @locale, &done : Exception? -> Nil) : Nil
+      path = @path
+      data = serialized(settings, locale)
+      io.submit(-> { Preferences.write(path, data) }, &done)
+      @settings = settings
+      @locale = locale
+    end
+
+    private def serialized(settings, locale) : String
+      {locale: locale, display: settings, track_height: @height_index, shared_y: @shared_y, sidebar_visible: @sidebar_visible}.to_json
+    end
+
+    def self.write(path : String, data : String) : Nil
+      Dir.mkdir_p(File.dirname(path))
       # Publish a complete file, leaving the old preferences intact on failure.
-      File.tempfile(".d4-plot-settings", ".json", dir: File.dirname(@path)) do |file|
-        file.puts(data.to_json)
+      File.tempfile(".d4-plot-settings", ".json", dir: File.dirname(path)) do |file|
+        file.puts(data)
         file.close
-        File.rename(file.path, @path)
+        File.rename(file.path, path)
       ensure
         File.delete(file.path) if File.exists?(file.path)
       end
-      @settings = settings
-      @locale = locale
     end
 
     def self.default_path : String
