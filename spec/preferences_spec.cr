@@ -44,6 +44,8 @@ describe D4Plot::Preferences do
       settings.plot_color = {0.1, 0.2, 0.3, 0.8}
       settings.point_count = 512
       settings.annotation_feature_limit = 123
+      settings.use_sum_index = false
+      settings.show_axis_ticks = false
       settings.y_min = -5.0
       settings.y_max = 25.0
       settings.y_axis_from_zero = false
@@ -55,6 +57,8 @@ describe D4Plot::Preferences do
       loaded = D4Plot::Preferences.load(path)
       loaded.locale.should eq("ja")
       loaded.settings.to_json.should eq(settings.to_json)
+      loaded.settings.use_sum_index?.should be_false
+      loaded.settings.show_axis_ticks?.should be_false
       loaded.height_index.should eq(2)
       loaded.shared_y?.should be_true
       loaded.sidebar_visible?.should be_false

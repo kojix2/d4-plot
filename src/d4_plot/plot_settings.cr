@@ -33,6 +33,7 @@ module D4Plot
     def to_json(json : JSON::Builder)
       {point_count: @point_count, annotation_feature_limit: @annotation_feature_limit,
        toolbar_display_mode: @toolbar_display_mode.to_s, plot_color: @plot_color,
+       use_sum_index: @use_sum_index, show_axis_ticks: @show_axis_ticks,
        y_axis_from_zero: @y_axis_from_zero, y_min: @y_min, y_max: @y_max,
        h_lines: @h_lines}.to_json(json)
     end
@@ -51,6 +52,10 @@ module D4Plot
       if mode = data["toolbar_display_mode"]?.try(&.as_s?).try { |name| UIng::Toolbar::DisplayMode.parse?(name) }
         settings.toolbar_display_mode = mode
       end
+      use_sum_index = data["use_sum_index"]?.try(&.as_bool?)
+      settings.use_sum_index = use_sum_index unless use_sum_index.nil?
+      show_axis_ticks = data["show_axis_ticks"]?.try(&.as_bool?)
+      settings.show_axis_ticks = show_axis_ticks unless show_axis_ticks.nil?
       zero = data["y_axis_from_zero"]?.try(&.as_bool?)
       settings.y_axis_from_zero = zero unless zero.nil?
       minimum = finite_number(data["y_min"]?)
