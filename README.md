@@ -50,7 +50,7 @@ annotation limit are restored on the next launch:
 
 - Enter `chr1:100-200`, `chr1:100`, or `chr1`, then click **Go**.
 - Drag to pan, Shift-drag to select, double-click to zoom in, and right-click to zoom out.
-- Select multiple files at once with **Open D4** or **Add D4**. **Open D4** replaces the current tracks and annotations; **Add D4** keeps them and appends new tracks. All files must use the same reference assembly.
+- Select multiple files at once with **Open D4** or **Add D4**. **Open D4** replaces the current tracks and annotations; **Add D4** keeps them and appends new tracks. All files must use the same reference assembly. D4 files do not identify the assembly: the viewer checks chromosome names and rejects conflicting lengths, but matching names and lengths cannot prove that the reference sequences match. Verify the files' provenance before combining them.
 - Select tracks in the left-hand list. Use the checkboxes to show or hide them, **Up** / **Down** to reorder them, and **Remove from view** to remove them without deleting files.
 - Use **Hide tracks** / **Show tracks** above the plot to toggle the sidebar and give the plot more space. The sidebar preference is restored on the next launch.
 - File checks run in the background with progress and cancellation. Cancelling or encountering an invalid file leaves the previous view intact; the selected files are applied together after validation.
