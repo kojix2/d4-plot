@@ -143,11 +143,9 @@ module D4Plot
       @window.show
       resize_canvas
       load_d4_files(paths, region) unless paths.empty?
-      # Keep Crystal's scheduler responsive alongside the native UI loop.
-      UIng.main_steps
-      while UIng.main_step(false)
-        sleep 8.milliseconds
-      end
+      # Cocoa requires every event-loop iteration to stay on the process main
+      # thread. Yielding here can resume this fiber on another system thread.
+      UIng.main
     ensure
       shutdown
       # Complete all native UI teardown before yielding to worker joins.
