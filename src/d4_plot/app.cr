@@ -601,6 +601,8 @@ module D4Plot
       @loading = false
       @requested_region = nil
       if error = result.error
+        @pending_annotation_path = nil
+        update_annotation_label
         rollback_history
         show_status(D4Plot.t("app.read_failed", error: error))
         restore_location
