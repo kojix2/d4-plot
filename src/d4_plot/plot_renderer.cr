@@ -14,6 +14,7 @@ module D4Plot
 
     def initialize
       @annotation_renderer = AnnotationRenderer.new
+      @label_fonts = {} of Float64 => UIng::FontDescriptor
     end
 
     def draw(params, layers : Array(TrackLayer), completed_region : Region?, settings : PlotSettings,
@@ -204,7 +205,8 @@ module D4Plot
                     when :right  then UIng::Area::Draw::TextAlign::Right
                     else              UIng::Area::Draw::TextAlign::Left
                     end
-        UIng::Area::Draw::TextLayout.open(string: string, default_font: UIng::FontDescriptor.new(size: size), width: width, align: alignment) do |layout|
+        font = @label_fonts[size] ||= UIng::FontDescriptor.new(size: size)
+        UIng::Area::Draw::TextLayout.open(string: string, default_font: font, width: width, align: alignment) do |layout|
           ctx.draw_text_layout(layout, x, y)
         end
       end
