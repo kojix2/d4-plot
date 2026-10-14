@@ -304,16 +304,22 @@ module D4Plot
     end
 
     private def open_file_dialog(append : Bool = false)
-      if path = @window.open_file
-        load_d4_file(path, append: append)
+      if paths = @window.open_files
+        load_d4_files(paths, append: append)
       end
     end
 
     private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false) : Bool
-      sources = TrackSource.load(path)
+      load_d4_files([path], region_text, append)
+    end
+
+    private def load_d4_files(paths : Array(String), region_text : String? = nil, append : Bool = false) : Bool
+      return false if paths.empty?
       candidates = append ? @layers.dup : [] of TrackLayer
-      sources.each do |source|
-        candidates << TrackLayer.new(source) unless candidates.any? { |layer| layer.source.key == source.key }
+      paths.each do |path|
+        TrackSource.load(path).each do |source|
+          candidates << TrackLayer.new(source) unless candidates.any? { |layer| layer.source.key == source.key }
+        end
       end
       # Validate the complete candidate set before replacing the workspace.
       TrackSource.chromosomes(candidates.map(&.source))

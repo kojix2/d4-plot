@@ -48,7 +48,7 @@ location and is shared by portable and installed builds:
 
 - Enter `chr1:100-200`, `chr1:100`, or `chr1`, then click **Go**.
 - Drag to pan, Shift-drag to select, double-click to zoom in, and right-click to zoom out.
-- Use **Add D4** to compare files. All files must use the same reference assembly.
+- Select multiple files at once with **Open D4** or **Add D4** to compare them. All files must use the same reference assembly.
 - Use **Annotations** to load GFF3, GTF, or BED. Large files should be compressed with bgzip and indexed with tabix.
 - Use **Export bins** to save the selected visible track as bedGraph.
 - Use **Display** to change resolution, Y scale, colors, track height, and toolbar labels.
