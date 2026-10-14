@@ -172,10 +172,10 @@ module D4Plot
     private def setup_ui
       root = UIng::Box.new(:vertical)
       root.padded = true
-    {% if flag?(:darwin) %}
-      # Keep a small gap below the native macOS toolbar.
-      root.append(row, false)
-    {% end %}
+      {% if flag?(:darwin) %}
+        # Keep a small gap below the native macOS toolbar.
+        root.append(row, false)
+      {% end %}
       @track_panel.append(@add, false)
       @add.tooltip = D4Plot.t("app.add_d4_tip")
       @track_panel.append(@track_list.native, true)
