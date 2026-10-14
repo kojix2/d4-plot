@@ -93,6 +93,20 @@ Run the native UI smoke test in a graphical session:
 crystal run scripts/ui-smoke.cr
 ```
 
+The native smoke test also clicks the sidebar 40 times while preference writes
+are delayed, checks that UI timers and ordinary Crystal fibers keep running,
+and verifies the final settings and asynchronous export. On macOS it checks
+that UI callbacks stay on the process main thread.
+
+The UI uses `UIng.main` and polls worker results every 30 ms. Keep native
+callbacks free of filesystem I/O, `sleep`, channel waits, and worker joins:
+Crystal execution contexts can resume such operations on a different OS
+thread. Use `BackgroundIO` with captured data and apply completions in `poll`.
+Startup reads use `UIRuntime.load` before creating windows; that helper blocks
+the OS thread and must not be called from UI callbacks. Accepted writes drain
+after native teardown. These precautions do not replace runtime support for
+pinning the main fiber to the process main thread.
+
 ## License
 
 MIT. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
