@@ -3,6 +3,8 @@ require "hts/tabix"
 require "./region"
 
 module D4Plot
+  class AnnotationCancelled < Exception; end
+
   struct AnnotationFeature
     getter chromosome : String
     getter start1 : UInt32
@@ -69,13 +71,17 @@ module D4Plot
       raise D4Plot.t("annotation.index_read_failed", error: ex.message || ex.class.name)
     end
 
-    def self.load(path : String)
+    def self.load(path : String, cancelled : Proc(Bool)? = nil)
+      raise AnnotationCancelled.new if cancelled.try(&.call)
       return indexed(path) if tabix_indexed?(path)
       validate_in_memory_size(path)
 
       features = [] of AnnotationFeature
       bytes = 0_i64
+      lines = 0
       each_line(path) do |line|
+        lines += 1
+        raise AnnotationCancelled.new if lines % 1_024 == 0 && cancelled.try(&.call)
         bytes += line.bytesize + 1
         if bytes > MAX_IN_MEMORY_BYTES || features.size >= MAX_IN_MEMORY_FEATURES
           raise D4Plot.t("annotation.memory_limit")
@@ -84,6 +90,7 @@ module D4Plot
           features << feature
         end
       end
+      raise AnnotationCancelled.new if cancelled.try(&.call)
       raise D4Plot.t("annotation.no_features") if features.empty?
       new(path, features)
     end

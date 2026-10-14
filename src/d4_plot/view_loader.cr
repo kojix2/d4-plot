@@ -79,9 +79,9 @@ module D4Plot
             sample(source, request, cancelled)
           end
           raise SamplingCancelled.new if cancelled.call
-          track, annotation_error = annotation_for(request)
+          track, annotation_error = annotation_for(request, cancelled)
           result = ViewResult.new(request, layers, track, (Time.instant - started).total_milliseconds, nil, annotation_error)
-        rescue SamplingCancelled
+        rescue SamplingCancelled | AnnotationCancelled
           next
         rescue ex
           result = ViewResult.new(request, [] of LayerSample, nil, (Time.instant - started).total_milliseconds, ex.message || ex.class.name)
@@ -131,19 +131,23 @@ module D4Plot
       opened
     end
 
-    private def annotation_for(request : ViewRequest) : Tuple(AnnotationTrack?, String?)
+    private def annotation_for(request : ViewRequest, cancelled : Proc(Bool)) : Tuple(AnnotationTrack?, String?)
       unless path = request.annotation_path
         @annotation_index = nil
         return {nil, nil}
       end
-      {read_annotation(path, request), nil}
+      {read_annotation(path, request, cancelled), nil}
+    rescue ex : AnnotationCancelled
+      raise ex
     rescue ex
       error = ex.message || ex.class.name
       # A rejected replacement must not discard the previous selection, and its
       # fallback must be read at the new coordinates, not reuse an old track.
       track = if fallback = request.annotation_fallback
                 begin
-                  read_annotation(fallback, request)
+                  read_annotation(fallback, request, cancelled)
+                rescue ex : AnnotationCancelled
+                  raise ex
                 rescue
                   AnnotationTrack.notice(D4Plot.t("annotation.unavailable"))
                 end
@@ -151,9 +155,9 @@ module D4Plot
       {track, error}
     end
 
-    private def read_annotation(path, request)
+    private def read_annotation(path, request, cancelled)
       index = @annotation_index
-      index = AnnotationIndex.load(path) unless index && index.path == path
+      index = AnnotationIndex.load(path, cancelled) unless index && index.path == path
       track = index.track_for(request.region, 5_000_000_u32, request.annotation_limit)
       @annotation_index = index
       track

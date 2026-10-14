@@ -20,6 +20,20 @@ describe D4Plot::AnnotationIndex do
     index.track_for(D4Plot::Region.new("1", 1_u32, 20_u32), 100_u32, 10).notice.as(String).should contain("names must match")
     index.track_for(D4Plot::Region.new("chr1", 21_u32, 30_u32), 100_u32, 10).notice.should eq("No overlapping annotations in this region")
   end
+
+  it "stops parsing an unindexed file when a newer view supersedes it" do
+    path = File.tempname("d4-annotation-cancel", ".bed")
+    begin
+      File.write(path, "chr1\t0\t1\n" * 2_000)
+      checks = 0
+      expect_raises(D4Plot::AnnotationCancelled) do
+        D4Plot::AnnotationIndex.load(path, -> { checks += 1; checks >= 2 })
+      end
+      D4Plot::AnnotationIndex.load(path).size.should eq(2_000)
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
 end
 
 describe "Indexed annotations" do
