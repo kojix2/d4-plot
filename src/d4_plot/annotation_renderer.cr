@@ -21,7 +21,7 @@ module D4Plot
         end
       end
 
-      return nil if @lane_ends.size >= @max_lanes
+      return if @lane_ends.size >= @max_lanes
 
       @lane_ends << feature.end1
       @lane_ends.size - 1

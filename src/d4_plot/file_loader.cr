@@ -71,7 +71,7 @@ module D4Plot
         while !@closed && @pending.nil?
           @wake.wait(@mutex)
         end
-        return nil if @closed
+        return if @closed
         request = @pending
         @pending = nil
         request

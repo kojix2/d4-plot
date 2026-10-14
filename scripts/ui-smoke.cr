@@ -222,56 +222,101 @@ class D4Plot::App
 
   private def smoke_tracks_step(step, directory, fixtures)
     case step
-    when 11
-      return false if @loading || @file_load_id
-      UiSmoke.check(@layers.size == 2 && @annotation_path.nil?, "Batch opening did not replace the workspace")
-      UiSmoke.check(@track_list.native.selection.rows == [0], "Initial track selection was lost")
-      UiSmoke.check(@navigation.visible? && @inspection.visible? && !@status.visible? && @view_summary.visible?, "Idle status bar did not show inspection and summary")
-      UiSmoke.capture(@window, directory, "09-track-list")
-      select_layer(1)
-      toggle_layer(0, false)
-      select_layer(1)
-      reorder_layer(-1)
-    when 12
-      return false if @loading
-      UiSmoke.check(@layers.first.source.path.ends_with?("retry.d4"), "Track order was not updated")
-      UiSmoke.check(!@layers.last.visible?, "Hidden track state was lost")
-      UiSmoke.check(@track_list.native.selection.rows == [0], "Track selection did not follow reordering")
-      UiSmoke.capture(@window, directory, "10-hidden-track")
-      @height.selected = 0
-      @shared_y.checked = true
-      save_view_preferences
-      open_settings
-      @settings_window.not_nil!.smoke_apply
-    when 13
-      return false if @loading
-      @settings_window.not_nil!.smoke_capture(directory)
-      @settings_window.not_nil!.smoke_close
-      saved = Preferences.load(@preferences.path)
-      UiSmoke.check(saved.height_index == 0 && saved.shared_y?, "Layout preferences did not persist")
-      UiSmoke.check(saved.settings.point_count == 512 && saved.settings.plot_color == @settings.plot_color, "Display settings did not persist")
-      UiSmoke.check(saved.settings.toolbar_display_mode.icon_only?, "Toolbar preference did not persist")
-      FileUtils.cp(File.join(fixtures, "output.d4"), File.join(fixtures, "slow.d4"))
-      load_d4_files([File.join(fixtures, "slow.d4"), File.join(fixtures, "retry.d4")], append: true)
-    when 14
-      UiSmoke.check(!@file_load_id.nil? && @cancel_files.visible?, "File progress did not remain responsive")
-      UiSmoke.check(@status.visible? && !@inspection.visible? && !@view_summary.visible?, "Loading status was mixed with idle hints or stale metrics")
-      UiSmoke.capture(@window, directory, "12-opening-files")
-      cancel_loading
-      UiSmoke.check(@layers.size == 2 && !@layers.last.visible?, "Cancelling changed the previous workspace")
-      UiSmoke.check(!@progress.visible? && !@cancel_files.visible?, "Cancelled progress remained visible")
-      load_d4_files([File.join(fixtures, "retry.d4")], append: true)
-    when 15
-      return false if @loading || @file_load_id
-      UiSmoke.check(@layers.size == 2, "Duplicate or cancelled file was added")
-      UiSmoke.check(@layers.none? { |layer| layer.source.path.ends_with?("slow.d4") }, "A stale file result was applied")
-      remove_layer
-    when 16
-      return false if @loading
-      UiSmoke.check(@layers.size == 1 && !@layers.first.visible?, "Removing a track lost the remaining visibility state")
-      @smoke_sidebar_width = @canvas_width
-      toggle_layer(0, true)
-      toggle_sidebar
+    when 11..13 then smoke_track_settings_step(step, directory, fixtures)
+    when 14..16 then smoke_track_loading_step(step, directory, fixtures)
+    when 17..19 then smoke_sidebar_step(step, directory)
+    else             true
+    end
+  end
+
+  private def smoke_track_settings_step(step, directory, fixtures)
+    case step
+    when 11 then smoke_opened_tracks_step(directory)
+    when 12 then smoke_track_preferences_step(directory)
+    when 13 then smoke_saved_settings_step(directory, fixtures)
+    else         true
+    end
+  end
+
+  private def smoke_track_loading_step(step, directory, fixtures)
+    case step
+    when 14 then smoke_file_progress_step(directory, fixtures)
+    when 15 then smoke_stale_file_step
+    when 16 then smoke_removed_track_step
+    else         true
+    end
+  end
+
+  private def smoke_opened_tracks_step(directory)
+    return false if @loading || @file_load_id
+    UiSmoke.check(@layers.size == 2 && @annotation_path.nil?, "Batch opening did not replace the workspace")
+    UiSmoke.check(@track_list.native.selection.rows == [0], "Initial track selection was lost")
+    UiSmoke.check(@navigation.visible? && @inspection.visible? && !@status.visible? && @view_summary.visible?, "Idle status bar did not show inspection and summary")
+    UiSmoke.capture(@window, directory, "09-track-list")
+    select_layer(1)
+    toggle_layer(0, false)
+    select_layer(1)
+    reorder_layer(-1)
+    true
+  end
+
+  private def smoke_track_preferences_step(directory)
+    return false if @loading
+    UiSmoke.check(@layers.first.source.path.ends_with?("retry.d4"), "Track order was not updated")
+    UiSmoke.check(!@layers.last.visible?, "Hidden track state was lost")
+    UiSmoke.check(@track_list.native.selection.rows == [0], "Track selection did not follow reordering")
+    UiSmoke.capture(@window, directory, "10-hidden-track")
+    @height.selected = 0
+    @shared_y.checked = true
+    save_view_preferences
+    open_settings
+    smoke_settings_window.smoke_apply
+    true
+  end
+
+  private def smoke_saved_settings_step(directory, fixtures)
+    return false if @loading
+    smoke_settings_window.smoke_capture(directory)
+    smoke_settings_window.smoke_close
+    saved = Preferences.load(@preferences.path)
+    UiSmoke.check(saved.height_index == 0 && saved.shared_y?, "Layout preferences did not persist")
+    UiSmoke.check(saved.settings.point_count == 512 && saved.settings.plot_color == @settings.plot_color, "Display settings did not persist")
+    UiSmoke.check(saved.settings.toolbar_display_mode.icon_only?, "Toolbar preference did not persist")
+    FileUtils.cp(File.join(fixtures, "output.d4"), File.join(fixtures, "slow.d4"))
+    load_d4_files([File.join(fixtures, "slow.d4"), File.join(fixtures, "retry.d4")], append: true)
+    true
+  end
+
+  private def smoke_file_progress_step(directory, fixtures)
+    UiSmoke.check(!@file_load_id.nil? && @cancel_files.visible?, "File progress did not remain responsive")
+    UiSmoke.check(@status.visible? && !@inspection.visible? && !@view_summary.visible?, "Loading status was mixed with idle hints or stale metrics")
+    UiSmoke.capture(@window, directory, "12-opening-files")
+    cancel_loading
+    UiSmoke.check(@layers.size == 2 && !@layers.last.visible?, "Cancelling changed the previous workspace")
+    UiSmoke.check(!@progress.visible? && !@cancel_files.visible?, "Cancelled progress remained visible")
+    load_d4_files([File.join(fixtures, "retry.d4")], append: true)
+    true
+  end
+
+  private def smoke_stale_file_step
+    return false if @loading || @file_load_id
+    UiSmoke.check(@layers.size == 2, "Duplicate or cancelled file was added")
+    UiSmoke.check(@layers.none?(&.source.path.ends_with?("slow.d4")), "A stale file result was applied")
+    remove_layer
+    true
+  end
+
+  private def smoke_removed_track_step
+    return false if @loading
+    UiSmoke.check(@layers.size == 1 && !@layers.first.visible?, "Removing a track lost the remaining visibility state")
+    @smoke_sidebar_width = @canvas_width
+    toggle_layer(0, true)
+    toggle_sidebar
+    true
+  end
+
+  private def smoke_sidebar_step(step, directory)
+    case step
     when 17
       return false if @loading
       UiSmoke.check(!@track_panel.visible? && @sidebar_toggle.enabled?, "Hidden sidebar cannot be restored")
@@ -293,6 +338,10 @@ class D4Plot::App
       UIng.quit
     end
     true
+  end
+
+  private def smoke_settings_window : SettingsWindow
+    @settings_window || raise "Settings window was not opened"
   end
 
   def smoke_stop
@@ -323,7 +372,7 @@ begin
   D4Plot::Translations.setup(ENV["D4_PLOT_SMOKE_LOCALE"]? || "en")
   UIng.init
   preferences = D4Plot::Preferences.new(File.join(fixtures, "settings.json"), I18n.locale)
-  file_loader = D4Plot::FileLoader.new(->(path : String) {
+  file_loader = D4Plot::FileLoader.new(->(path : String, _cancelled : Proc(Bool)) {
     sleep 2.seconds if path.ends_with?("slow.d4")
     D4Plot::TrackSource.load(path)
   })

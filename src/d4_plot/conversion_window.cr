@@ -74,18 +74,26 @@ module D4Plot
     private def update_controls(state, editable) : Nil
       [@input, @output, @input_browse, @output_browse, @mode, @mapq,
        @threads, @exclude, @include, @groups, @minimum, @maximum].each do |control|
-        editable ? control.enable : control.disable
+        set_enabled(control, editable)
       end
       sync_reference(editable)
-      state.active? || @adding ? @create.disable : @create.enable
-      state.running? ? @cancel.enable : @cancel.disable
-      state.succeeded? && !@added && !@adding ? @add.enable : @add.disable
+      set_enabled(@create, !state.active? && !@adding)
+      set_enabled(@cancel, state.running?)
+      set_enabled(@add, state.succeeded? && !@added && !@adding)
       @add.text = D4Plot.t(@adding ? "conversion.adding" : "conversion.add_to_view")
       @create.text = state.succeeded? ? D4Plot.t("conversion.create_another") : D4Plot.t("conversion.start_creation")
       @close.text = state.active? ? D4Plot.t("conversion.close_running") : D4Plot.t("settings.close")
-      state.active? ? @create.hide : @create.show
-      state.active? ? @cancel.show : @cancel.hide
-      state.succeeded? ? @add.show : @add.hide
+      set_visible(@create, !state.active?)
+      set_visible(@cancel, state.active?)
+      set_visible(@add, state.succeeded?)
+    end
+
+    private def set_enabled(control, enabled : Bool) : Nil
+      enabled ? control.enable : control.disable
+    end
+
+    private def set_visible(control, visible : Bool) : Nil
+      visible ? control.show : control.hide
     end
 
     private def update_progress(state) : Nil

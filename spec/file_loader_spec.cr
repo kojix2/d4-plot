@@ -76,7 +76,7 @@ describe D4Plot::FileLoader do
       when timeout(5.seconds)
         raise "File worker did not start"
       end
-      progress = loader.progress.not_nil!
+      progress = loader.progress || raise "File loader did not report progress"
       {progress.current, progress.total, progress.path}.should eq({1, 2, "slow.d4"})
       loader.cancel
       loader.progress.should be_nil

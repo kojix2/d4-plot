@@ -27,7 +27,8 @@ describe D4Plot::ViewLoader do
           result = await_view(loader, id)
           result.error.should be_nil
           result.annotation_error.should be_nil
-          result.annotation_track.not_nil!.features.map(&.name).should eq([i.even? ? "first" : "last"])
+          track = result.annotation_track || raise "Indexed annotation track is missing"
+          track.features.map(&.name).should eq([i.even? ? "first" : "last"])
         end
       ensure
         loader.close

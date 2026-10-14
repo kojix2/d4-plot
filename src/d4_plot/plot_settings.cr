@@ -43,12 +43,24 @@ module D4Plot
     def self.from_preferences(value : JSON::Any?) : self
       settings = new
       return settings unless data = value.try(&.as_h?)
+      restore_counts(settings, data)
+      restore_display(settings, data)
+      restore_scale(settings, data)
+      restore_color(settings, data)
+      restore_lines(settings, data)
+      settings
+    end
+
+    private def self.restore_counts(settings, data) : Nil
       if count = data["point_count"]?.try(&.as_i64?)
         settings.point_count = count.to_i if (16..4096).includes?(count)
       end
       if limit = data["annotation_feature_limit"]?.try(&.as_i64?)
         settings.annotation_feature_limit = limit.to_i if (1..5000).includes?(limit)
       end
+    end
+
+    private def self.restore_display(settings, data) : Nil
       if mode = data["toolbar_display_mode"]?.try(&.as_s?).try { |name| UIng::Toolbar::DisplayMode.parse?(name) }
         settings.toolbar_display_mode = mode
       end
@@ -58,22 +70,30 @@ module D4Plot
       settings.show_axis_ticks = show_axis_ticks unless show_axis_ticks.nil?
       zero = data["y_axis_from_zero"]?.try(&.as_bool?)
       settings.y_axis_from_zero = zero unless zero.nil?
+    end
+
+    private def self.restore_scale(settings, data) : Nil
       minimum = finite_number(data["y_min"]?)
       maximum = finite_number(data["y_max"]?)
       if minimum && maximum && valid_y_limits?(minimum, maximum)
         settings.y_min = minimum
         settings.y_max = maximum
       end
+    end
+
+    private def self.restore_color(settings, data) : Nil
       if color = data["plot_color"]?.try(&.as_a?)
         channels = color.compact_map { |channel| finite_number(channel) }
         if color.size == 4 && channels.size == 4 && channels.all? { |channel| (0.0..1.0).includes?(channel) }
           settings.plot_color = {channels[0], channels[1], channels[2], channels[3]}
         end
       end
+    end
+
+    private def self.restore_lines(settings, data) : Nil
       if lines = data["h_lines"]?.try(&.as_a?)
-        settings.h_lines = lines.compact_map { |line| finite_number(line) }.uniq.sort
+        settings.h_lines = lines.compact_map { |line| finite_number(line) }.uniq!.sort!
       end
-      settings
     end
 
     private def self.finite_number(value : JSON::Any?) : Float64?
@@ -86,20 +106,29 @@ module D4Plot
     end
 
     def y_range(min_value : Float64, max_value : Float64) : Tuple(Float64, Float64)
-      if (minimum = @y_min) && (maximum = @y_max)
-        return {minimum, maximum} if self.class.valid_y_limits?(minimum, maximum)
+      if range = fixed_y_range
+        return range
       end
       low = @y_axis_from_zero ? Math.min(0.0, min_value) : min_value
       high = @y_axis_from_zero ? Math.max(0.0, max_value) : max_value
       padding = high == low ? Math.max(high.abs * 0.1, 1.0) : (high - low) * 0.08
       low -= padding unless @y_axis_from_zero && low == 0
       high += padding
-      unless @y_min && @y_max
-        low = @y_min || low
-        high = @y_max || high
-      end
+      low, high = partial_y_range(low, high)
       high = low + 1.0 if high <= low
       {low, high}
+    end
+
+    private def fixed_y_range : Tuple(Float64, Float64)?
+      minimum = @y_min
+      maximum = @y_max
+      return unless minimum && maximum
+      {minimum, maximum} if self.class.valid_y_limits?(minimum, maximum)
+    end
+
+    private def partial_y_range(low : Float64, high : Float64) : Tuple(Float64, Float64)
+      return {low, high} if @y_min && @y_max
+      {@y_min || low, @y_max || high}
     end
   end
 end

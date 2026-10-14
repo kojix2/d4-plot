@@ -65,7 +65,7 @@ module D4Plot
     end
 
     def self.indexed(path : String)
-      names = HTS::Tabix.open(path) { |reader| reader.seqnames }
+      names = HTS::Tabix.open(path, &.seqnames)
       new(path, [] of AnnotationFeature, indexed: true, chromosome_names: names)
     rescue ex : HTS::Error
       raise D4Plot.t("annotation.index_read_failed", error: ex.message || ex.class.name)

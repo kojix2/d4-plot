@@ -329,7 +329,7 @@ module D4Plot
           @area.queue_redraw_all
         end
       end
-      @height.on_selected do |index|
+      @height.on_selected do
         next if @updating
         save_view_preferences
         @row_height = {160.0, 220.0, 300.0}[@height.selected || 1]
@@ -778,63 +778,71 @@ module D4Plot
     end
 
     private def update_controls
-      if @layers.empty?
-        @navigation.hide
-        @track_panel.hide
-        @sidebar_toggle.disable
-        @welcome.show
-        @area.hide
-        @inspection.hide
-      else
-        @navigation.show
-        @preferences.sidebar_visible? ? @track_panel.show : @track_panel.hide
-        @sidebar_toggle.enable
-        @welcome.hide
-        @area.show
-      end
-      @details_visible && !@layers.empty? ? @details.show : @details.hide
-      if @completed_region && !@loading && @file_load_id.nil? && !@layers.empty?
-        @view_summary.show
-      else
-        @view_summary.hide
-      end
+      has_layers = !@layers.empty?
+      set_visible(@navigation, has_layers)
+      set_visible(@track_panel, has_layers && @preferences.sidebar_visible?)
+      set_enabled(@sidebar_toggle, has_layers)
+      set_visible(@welcome, !has_layers)
+      set_visible(@area, has_layers)
+      @inspection.hide unless has_layers
+      set_visible(@details, @details_visible && has_layers)
+      set_visible(@view_summary, view_summary_ready?)
       @sidebar_toggle.text = D4Plot.t(@track_panel.visible? ? "app.hide_tracks" : "app.show_tracks")
       @progress.value = -1 if @loading && @file_load_id.nil?
-      @loading || @file_load_id ? @progress.show : @progress.hide
-      @file_load_id ? @cancel_files.show : @cancel_files.hide
+      set_visible(@progress, @loading || !@file_load_id.nil?)
+      set_visible(@cancel_files, !@file_load_id.nil?)
       update_region_controls
       update_layer_controls
       update_history_controls
-      @annotation_row.visible? && @file_load_id.nil? ? @remove_annotation.enable : @remove_annotation.disable
+      set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
+    end
+
+    private def view_summary_ready? : Bool
+      !@completed_region.nil? && !@loading && @file_load_id.nil? && !@layers.empty?
+    end
+
+    private def set_visible(control, visible : Bool) : Nil
+      visible ? control.show : control.hide
+    end
+
+    private def set_enabled(control, enabled : Bool) : Nil
+      enabled ? control.enable : control.disable
     end
 
     private def update_region_controls
       ready = !@layers.empty? && !@chromosomes.empty? && @file_load_id.nil?
       [@go, @chromosome_combo, @region_entry].each do |control|
-        ready ? control.enable : control.disable
+        set_enabled(control, ready)
       end
       [@tools.annotations, @tools.left, @tools.right, @tools.zoom_in, @tools.zoom_out, @tools.whole].each do |control|
-        ready ? control.enable : control.disable
+        set_enabled(control, ready)
       end
-      @loading || @file_load_id ? @tools.cancel.enable : @tools.cancel.disable
+      set_enabled(@tools.cancel, @loading || !@file_load_id.nil?)
     end
 
     private def update_layer_controls
       busy = !@file_load_id.nil?
-      busy ? @track_list.native.disable : @track_list.native.enable
-      busy ? @add.disable : @add.enable
-      @layers.empty? || busy ? @remove.disable : @remove.enable
-      @selected > 0 && !busy ? @up.enable : @up.disable
-      @selected < @layers.size - 1 && !busy ? @down.enable : @down.disable
-      layer = selected_layer
-      exportable = layer && layer.visible? && layer.view.try(&.region) == @completed_region && !layer.view.nil? && !@loading && !busy
-      exportable ? @tools.export.enable : @tools.export.disable
+      set_enabled(@track_list.native, !busy)
+      set_enabled(@add, !busy)
+      set_enabled(@remove, !@layers.empty? && !busy)
+      set_enabled(@up, @selected > 0 && !busy)
+      set_enabled(@down, @selected < @layers.size - 1 && !busy)
+      set_enabled(@tools.export, selected_layer_exportable? && !busy)
+    end
+
+    private def selected_layer_exportable? : Bool
+      return false if @loading
+      return false unless layer = selected_layer
+      return false unless layer.visible?
+      view = layer.view
+      !view.nil? && view.region == @completed_region
     end
 
     private def update_history_controls
-      @history.back? && !@loading && @file_load_id.nil? ? @tools.back.enable : @tools.back.disable
-      @history.forward? && !@loading && @file_load_id.nil? ? @tools.forward.enable : @tools.forward.disable
+      ready = !@loading && @file_load_id.nil?
+      set_enabled(@tools.back, @history.back? && ready)
+      set_enabled(@tools.forward, @history.forward? && ready)
     end
 
     private def mouse_event(event)

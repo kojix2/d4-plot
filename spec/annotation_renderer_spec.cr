@@ -8,7 +8,7 @@ describe D4Plot::AnnotationLaneAllocator do
 
     assignments = Array.new(5_000) { lanes.assign(overlapping) }
     assignments.first(4).should eq([0, 1, 2, 3])
-    assignments[4..].all?(&.nil?).should be_true
+    assignments[4..].all?(Nil).should be_true
     lanes.lane_count.should eq(4)
 
     later = D4Plot::AnnotationFeature.new("chr1", 11_u32, 20_u32, "gene", nil, nil)
