@@ -37,8 +37,10 @@ language: macOS uses the user's preferred languages, Windows uses the user
 locale, and Linux uses `LC_ALL`, `LC_MESSAGES`, `LANGUAGE`, or `LANG`.
 `--locale` overrides both the saved choice and the system language for that run.
 
-The saved language preference is kept in the standard per-user configuration
-location and is shared by portable and installed builds:
+Language and display preferences are kept in the standard per-user configuration
+location, shared by portable and installed builds. Toolbar labels, track height,
+shared Y scale, colors, resolution, fixed axis limits, reference lines, and the
+annotation limit are restored on the next launch:
 
 - macOS: `~/Library/Application Support/D4 Plot/settings.json`
 - Linux: `$XDG_CONFIG_HOME/d4-plot/settings.json`, or `~/.config/d4-plot/settings.json`
@@ -48,10 +50,14 @@ location and is shared by portable and installed builds:
 
 - Enter `chr1:100-200`, `chr1:100`, or `chr1`, then click **Go**.
 - Drag to pan, Shift-drag to select, double-click to zoom in, and right-click to zoom out.
-- Select multiple files at once with **Open D4** or **Add D4** to compare them. All files must use the same reference assembly.
+- Select multiple files at once with **Open D4** or **Add D4**. **Open D4** replaces the current tracks and annotations; **Add D4** keeps them and appends new tracks. All files must use the same reference assembly.
+- Select tracks in the left-hand list. Use the checkboxes to show or hide them, **Up** / **Down** to reorder them, and **Remove from view** to remove them without deleting files.
+- Use **Hide tracks** / **Show tracks** above the plot to toggle the sidebar and give the plot more space. The sidebar preference is restored on the next launch.
+- File checks run in the background with progress and cancellation. Cancelling or encountering an invalid file leaves the previous view intact; the selected files are applied together after validation.
 - Use **Annotations** to load GFF3, GTF, or BED. Large files should be compressed with bgzip and indexed with tabix.
+- Indexed annotations (`.gz` with `.tbi` or `.csi`) are read directly through hts.cr / HTSlib; the viewer does not invoke the `tabix` command.
 - Use **Export bins** to save the selected visible track as bedGraph.
-- Use **Display** to change resolution, Y scale, colors, track height, and toolbar labels.
+- Use **Display** to change resolution, Y scale, colors, and toolbar labels. Use **Height** above the plot to change track height. The toolbar shows icons with labels by default.
 
 Coordinates shown by the viewer are 1-based and inclusive. Exported bedGraph coordinates are 0-based and half-open. Plots display the mean value of each bin, so zoom in to inspect narrow peaks.
 

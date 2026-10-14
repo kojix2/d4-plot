@@ -103,21 +103,17 @@ module D4Plot
       selected_locale = (@language.selected || 0) == 0 ? nil : Translations::SUPPORTED_LOCALES[(@language.selected || 1) - 1]
       previous_locale = @preferences.locale
       language_changed = previous_locale != selected_locale
-      begin
-        @preferences.locale = selected_locale
-        @preferences.save
-      rescue ex : File::Error
-        @preferences.locale = previous_locale
-        raise ex
-      end
-      @settings.point_count = @bins.value
-      @settings.y_min = minimum
-      @settings.y_max = maximum
-      @settings.y_axis_from_zero = @zero.checked?
-      @settings.h_lines = lines
-      @settings.plot_color = @color.color
-      @settings.annotation_feature_limit = @limit.value
-      @settings.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
+      candidate = @settings.dup
+      candidate.point_count = @bins.value
+      candidate.y_min = minimum
+      candidate.y_max = maximum
+      candidate.y_axis_from_zero = @zero.checked?
+      candidate.h_lines = lines
+      candidate.plot_color = @color.color
+      candidate.annotation_feature_limit = @limit.value
+      candidate.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
+      @preferences.save(settings: candidate, locale: selected_locale)
+      @settings = candidate
       @on_apply.call(reload_data)
       @window.msg_box(D4Plot.t("settings.language_saved_title"), D4Plot.t("settings.language_saved")) if language_changed
     rescue ex : ArgumentError | File::Error

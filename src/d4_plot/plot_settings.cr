@@ -1,4 +1,5 @@
 require "uing"
+require "json"
 require "./data_sampler"
 
 module D4Plot
@@ -19,7 +20,7 @@ module D4Plot
     def initialize
       @point_count = DataSampler::DEFAULT_POINT_COUNT
       @annotation_feature_limit = 500
-      @toolbar_display_mode = UIng::Toolbar::DisplayMode::IconOnly
+      @toolbar_display_mode = UIng::Toolbar::DisplayMode::IconAndTextVertical
       @plot_color = {0.16, 0.42, 0.58, 1.0}
       @use_sum_index = true
       @show_axis_ticks = true
@@ -27,6 +28,52 @@ module D4Plot
       @y_min = nil
       @y_max = nil
       @h_lines = [] of Float64
+    end
+
+    def to_json(json : JSON::Builder)
+      {point_count: @point_count, annotation_feature_limit: @annotation_feature_limit,
+       toolbar_display_mode: @toolbar_display_mode.to_s, plot_color: @plot_color,
+       y_axis_from_zero: @y_axis_from_zero, y_min: @y_min, y_max: @y_max,
+       h_lines: @h_lines}.to_json(json)
+    end
+
+    # Validate each saved field independently so older or partially damaged
+    # preferences can still supply the remaining settings.
+    def self.from_preferences(value : JSON::Any?) : self
+      settings = new
+      return settings unless data = value.try(&.as_h?)
+      if count = data["point_count"]?.try(&.as_i64?)
+        settings.point_count = count.to_i if (16..4096).includes?(count)
+      end
+      if limit = data["annotation_feature_limit"]?.try(&.as_i64?)
+        settings.annotation_feature_limit = limit.to_i if (1..5000).includes?(limit)
+      end
+      if mode = data["toolbar_display_mode"]?.try(&.as_s?).try { |name| UIng::Toolbar::DisplayMode.parse?(name) }
+        settings.toolbar_display_mode = mode
+      end
+      zero = data["y_axis_from_zero"]?.try(&.as_bool?)
+      settings.y_axis_from_zero = zero unless zero.nil?
+      minimum = finite_number(data["y_min"]?)
+      maximum = finite_number(data["y_max"]?)
+      if minimum && maximum && minimum < maximum
+        settings.y_min = minimum
+        settings.y_max = maximum
+      end
+      if color = data["plot_color"]?.try(&.as_a?)
+        channels = color.compact_map { |channel| finite_number(channel) }
+        if color.size == 4 && channels.size == 4 && channels.all? { |channel| (0.0..1.0).includes?(channel) }
+          settings.plot_color = {channels[0], channels[1], channels[2], channels[3]}
+        end
+      end
+      if lines = data["h_lines"]?.try(&.as_a?)
+        settings.h_lines = lines.compact_map { |line| finite_number(line) }.uniq.sort
+      end
+      settings
+    end
+
+    private def self.finite_number(value : JSON::Any?) : Float64?
+      number = value.try(&.as_f?) || value.try(&.as_i64?).try(&.to_f)
+      number if number && number.finite?
     end
 
     def y_range(min_value : Float64, max_value : Float64) : Tuple(Float64, Float64)

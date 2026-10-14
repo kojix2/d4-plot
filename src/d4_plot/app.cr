@@ -3,6 +3,8 @@ require "d4"
 require "./i18n"
 require "./preferences"
 require "./view_loader"
+require "./file_loader"
+require "./track_list"
 require "./plot_renderer"
 require "./settings_window"
 require "./log"
@@ -24,8 +26,15 @@ module D4Plot
     @quit_window : UIng::Window?
     @quitting = false
     @welcome = UIng::Box.new(:vertical, padded: true)
+    @navigation = UIng::Box.new(:vertical, padded: true)
     @annotation_row = UIng::Box.new(:horizontal, padded: true)
     @loader = ViewLoader.new
+    @file_loader : FileLoader
+    @file_load_id : Int32?
+    @file_append = false
+    @file_region : String?
+    @file_done : Proc(Bool, Nil)?
+    @file_progress : FileLoadProgress?
     @history = ViewHistory.new
     @layers = [] of TrackLayer
     @selected = 0
@@ -38,7 +47,6 @@ module D4Plot
     @remove = UIng::Button.new(D4Plot.t("app.remove"))
     @up = UIng::Button.new(D4Plot.t("app.up"))
     @down = UIng::Button.new(D4Plot.t("app.down"))
-    @show = UIng::Checkbox.new(D4Plot.t("app.show"))
     @shared_y = UIng::Checkbox.new(D4Plot.t("app.shared_y"))
     @height = UIng::Combobox.new
     @source_entry = UIng::Entry.new(read_only: true)
@@ -53,7 +61,9 @@ module D4Plot
     @closed = false
     @drag : Tuple(Float64, Region, Bool)?
     @file_label = UIng::Label.new(D4Plot.t("app.no_d4_file"))
-    @track_combo = UIng::Combobox.new
+    @track_list : TrackList
+    @track_panel = UIng::Box.new(:vertical, padded: true)
+    @sidebar_toggle = UIng::Button.new(D4Plot.t("app.show_tracks"))
     @chromosome_combo = UIng::Combobox.new
     @region_entry = UIng::Entry.new
     @go = UIng::Button.new(D4Plot.t("app.go"))
@@ -62,10 +72,12 @@ module D4Plot
     @details_toggle = UIng::Button.new(D4Plot.t("app.show_details"))
     @details_visible = false
     @progress = UIng::ProgressBar.new
+    @cancel_files = UIng::Button.new(D4Plot.t("toolbar.cancel"))
     @annotation_label = UIng::Label.new("")
     @remove_annotation = UIng::Button.new(D4Plot.t("app.remove"))
-    @status = UIng::Label.new(D4Plot.t("app.initial_status"))
-    @inspection = UIng::Label.new(D4Plot.t("app.initial_inspection"))
+    @status = UIng::Label.new(D4Plot.t("app.status_ready"))
+    @inspection = UIng::Label.new(D4Plot.t("app.inspection_short"))
+    @view_summary = UIng::Label.new("")
 
     def self.create_menu_bar
       file = UIng::Menu.new(D4Plot.t("app.file"))
@@ -80,9 +92,13 @@ module D4Plot
       {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
     end
 
-    def initialize(menu_items, @preferences = Preferences.load)
+    def initialize(menu_items, @preferences = Preferences.load, @file_loader = FileLoader.new)
       @window = UIng::Window.new(PROGRAM_NAME, 1120, 780, menubar: true, margined: true)
       @area = UIng::Area.new(@handler, @canvas_width, 400)
+      @track_list = TrackList.new(->(index : Int32) { select_layer(index); nil }, ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil })
+      @settings = @preferences.settings
+      @row_height = {160.0, 220.0, 300.0}[@preferences.height_index]
+      @tools.native.display_mode = @settings.toolbar_display_mode
       setup_ui
       setup_handlers
       @window.on_content_size_changed { |_, _| resize_canvas }
@@ -114,6 +130,7 @@ module D4Plot
         if @closed
           0
         else
+          receive_files
           receive_result
           poll_conversion
           1
@@ -125,13 +142,8 @@ module D4Plot
     def run(paths : Array(String) = [] of String, region : String? = nil)
       @window.show
       resize_canvas
-      paths.each_with_index { |path, index| load_d4_file(path, append: index > 0) }
-      if region && !@layers.empty?
-        @region_entry.text = region
-        go_to_entry
-      end
-      # Advance both event loops: tabix pipe readers and child-process
-      # notifications need Crystal's scheduler as well as the native UI loop.
+      load_d4_files(paths, region) unless paths.empty?
+      # Keep Crystal's scheduler responsive alongside the native UI loop.
       UIng.main_steps
       while UIng.main_step(false)
         sleep 8.milliseconds
@@ -141,6 +153,7 @@ module D4Plot
       # Complete all native UI teardown before yielding to worker joins.
       UIng.uninit
       @loader.wait
+      @file_loader.wait
       @conversion_worker.wait
     end
 
@@ -156,17 +169,15 @@ module D4Plot
       # Intentional native-toolbar clearance, including icon-and-label mode.
       toolbar_gap = row
       root.append(toolbar_gap, false)
-      files = row
-      @track_combo.set_minimum_size(0, -1)
-      files.append(@file_label, false)
-      files.append(@track_combo, true)
-      files.append(@show, false)
-      files.append(@up, false)
-      files.append(@down, false)
-      files.append(@remove, false)
-      files.append(@add, false)
-      files.append(@details_toggle, false)
-      root.append(files, false)
+      @track_panel.append(@file_label, false)
+      @track_panel.append(@add, false)
+      @add.tooltip = D4Plot.t("app.add_d4_tip")
+      @track_panel.append(@track_list.native, true)
+      order = row
+      order.append(@up, true)
+      order.append(@down, true)
+      @track_panel.append(order, false)
+      @track_panel.append(@remove, false)
 
       location = row
       location.append(UIng::Label.new(D4Plot.t("app.chromosome")), false)
@@ -174,12 +185,19 @@ module D4Plot
       location.append(UIng::Label.new(D4Plot.t("app.region")), false)
       location.append(@region_entry, true)
       location.append(@go, false)
-      location.append(@shared_y, false)
-      location.append(UIng::Label.new(D4Plot.t("app.height")), false)
+      @navigation.append(location, false)
+      display = row
+      display.append(@sidebar_toggle, false)
+      display.append(UIng::Box.new(:horizontal), true)
+      @shared_y.checked = @preferences.shared_y?
+      display.append(@shared_y, false)
+      display.append(UIng::Label.new(D4Plot.t("app.height")), false)
       ["app.compact", "app.normal", "app.large"].each { |key| @height.append(D4Plot.t(key)) }
-      @height.selected = 1
-      location.append(@height, false)
-      root.append(location, false)
+      @height.selected = @preferences.height_index
+      display.append(@height, false)
+      display.append(@details_toggle, false)
+      @navigation.append(display, false)
+      root.append(@navigation, false)
 
       @annotation_label.set_minimum_size(0, -1)
       @annotation_row.append(@annotation_label, true)
@@ -191,36 +209,104 @@ module D4Plot
       @details.append(@source_entry, false)
       root.append(@details, false)
       @details.hide
+      setup_welcome
+      workspace = row
+      workspace.append(@track_panel, false)
+      plots = UIng::Box.new(:vertical)
+      plots.append(@welcome, true)
+      plots.append(@area, true)
+      workspace.append(plots, true)
+      root.append(workspace, true)
+      setup_status_bar(root)
+      @window.toolbar = @tools.native
+      @window.child = root
+    end
+
+    private def centered(control : UIng::Control) : UIng::Box
+      box = UIng::Box.new(:horizontal)
+      box.append(UIng::Box.new(:horizontal), true)
+      box.append(control, false)
+      box.append(UIng::Box.new(:horizontal), true)
+      box
+    end
+
+    private def setup_welcome
+      title = UIng::Label.new(D4Plot.t("app.welcome_title"))
+      title.font_size = 24
+      description = UIng::Label.new(D4Plot.t("app.welcome_body"))
+      description.font_size = 13
       @welcome.append(UIng::Box.new(:vertical), true)
-      @welcome.append(UIng::Label.new(D4Plot.t("app.welcome_title")), false)
-      @welcome.append(UIng::Label.new(D4Plot.t("app.welcome_body")), false)
-      welcome_buttons = row
+      @welcome.append(centered(title), false)
+      @welcome.append(centered(description), false)
+      gap = UIng::Box.new(:vertical)
+      gap.set_minimum_size(0, 16)
+      @welcome.append(gap, false)
+      welcome_buttons = UIng::Box.new(:horizontal)
       open = UIng::Button.new(D4Plot.t("app.open_d4"))
+      open.tooltip = D4Plot.t("toolbar.open_tip")
       create = UIng::Button.new(D4Plot.t("app.create_d4"))
+      open.set_minimum_size(168, 36)
+      create.set_minimum_size(168, 36)
       open.on_clicked { open_file_dialog }
       create.on_clicked { open_conversion }
       welcome_buttons.append(open, false)
+      button_gap = UIng::Box.new(:horizontal)
+      button_gap.set_minimum_size(12, 0)
+      welcome_buttons.append(button_gap, false)
       welcome_buttons.append(create, false)
-      @welcome.append(welcome_buttons, false)
+      @welcome.append(centered(welcome_buttons), false)
       @welcome.append(UIng::Box.new(:vertical), true)
-      root.append(@welcome, true)
-      root.append(@area, true)
-      root.append(@inspection, false)
+    end
+
+    private def setup_status_bar(root : UIng::Box)
+      root.append(UIng::Separator.new(:horizontal), false)
       status = row
+      status.set_minimum_size(0, 28)
       @status.set_minimum_size(0, -1)
       @inspection.set_minimum_size(0, -1)
-      status.append(@status, true)
+      @status.font_size = 12
+      @inspection.font_size = 12
+      @view_summary.font_size = 11
+      @inspection.tooltip = D4Plot.t("app.inspection_hint")
+      messages = UIng::Box.new(:horizontal)
+      messages.append(@status, true)
+      messages.append(@inspection, true)
+      @inspection.hide
+      status.append(messages, true)
+      status.append(@view_summary, false)
+      @view_summary.hide
+      @progress.set_minimum_size(84, -1)
       status.append(@progress, false)
+      status.append(@cancel_files, false)
+      @cancel_files.hide
       status.append(@conversion_status, false)
       @conversion_status.hide
       root.append(status, false)
       @progress.value = -1
       @progress.hide
-      @window.toolbar = @tools.native
-      @window.child = root
+    end
+
+    private def show_status(text : String)
+      @status.text = text
+      @status.tooltip = text
+      @inspection.hide
+      @status.show
+    end
+
+    private def show_inspection(text : String)
+      @inspection.text = text.gsub(" | ", " · ")
+      @inspection.tooltip = text
+      @status.hide
+      @inspection.show
+    end
+
+    private def reset_inspection
+      @inspection.text = D4Plot.t("app.inspection_short")
+      @inspection.tooltip = D4Plot.t("app.inspection_hint")
     end
 
     private def setup_handlers
+      @sidebar_toggle.on_clicked { toggle_sidebar }
       @details_toggle.on_clicked do
         @details_visible = !@details_visible
         @details_visible ? @details.show : @details.hide
@@ -233,24 +319,20 @@ module D4Plot
       @tools.settings.on_clicked { open_settings }
       @go.on_clicked { go_to_entry }
       @chromosome_combo.on_selected { |index| select_chromosome(index) unless @updating }
-      @track_combo.on_selected { |index| select_layer(index) unless @updating }
       @add.on_clicked { open_file_dialog(true) }
       @remove.on_clicked { remove_layer }
       @up.on_clicked { reorder_layer(-1) }
       @down.on_clicked { reorder_layer(1) }
-      @show.on_toggled do
+      @shared_y.on_toggled do
         unless @updating
-          if layer = selected_layer
-            layer.visible = @show.checked?
-            clear_drag
-            resize_canvas
-            refresh
-          end
+          save_view_preferences
+          @area.queue_redraw_all
         end
       end
-      @shared_y.on_toggled { @area.queue_redraw_all }
       @height.on_selected do |index|
-        @row_height = {160.0, 220.0, 300.0}[index]
+        next if @updating
+        save_view_preferences
+        @row_height = {160.0, 220.0, 300.0}[@height.selected || 1]
         clear_drag
         resize_canvas
       end
@@ -262,6 +344,7 @@ module D4Plot
       @tools.back.on_clicked { history_back }
       @tools.forward.on_clicked { history_forward }
       @tools.cancel.on_clicked { cancel_loading }
+      @cancel_files.on_clicked { cancel_loading }
       @tools.export.on_clicked { export_view }
       @remove_annotation.on_clicked do
         @annotation_path = nil
@@ -271,13 +354,14 @@ module D4Plot
         refresh
       end
       @handler.draw do |_, params|
-        @renderer.draw(params, visible_layers, @completed_region, @settings, @chromosomes, @annotation, @loading,
+        @renderer.draw(params, visible_layers, @completed_region, @settings, @chromosomes, @annotation, @loading || !@file_load_id.nil?,
           stack_geometry, @shared_y.checked?, selected_layer.try(&.source.key))
       end
       @handler.mouse_event { |_, event| mouse_event(event) }
       @handler.mouse_crossed do |_, left|
         if left
           @renderer.hover_index = nil
+          reset_inspection
           @area.queue_redraw_all
         end
       end
@@ -298,9 +382,25 @@ module D4Plot
     end
 
     private def resize_canvas
-      @canvas_width = Math.max(@window.content_size[0] - 64, 240)
+      sidebar = !@layers.empty? && @preferences.sidebar_visible?
+      @canvas_width = Math.max(@window.content_size[0] - (sidebar ? 356 : 64), 240)
       @area.set_size(@canvas_width, stack_geometry.height(AnnotationRenderer.height_for(@annotation)))
       @area.queue_redraw_all
+    end
+
+    private def toggle_sidebar
+      previous = @preferences.sidebar_visible?
+      begin
+        @preferences.sidebar_visible = !previous
+        @preferences.save
+      rescue ex : File::Error
+        @preferences.sidebar_visible = previous
+        show_error(D4Plot.t("app.preferences_error"), ex)
+        return
+      end
+      clear_drag
+      update_controls
+      resize_canvas
     end
 
     private def open_file_dialog(append : Bool = false)
@@ -309,37 +409,57 @@ module D4Plot
       end
     end
 
-    private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false) : Bool
-      load_d4_files([path], region_text, append)
+    private def load_d4_file(path : String, region_text : String? = nil, append : Bool = false, on_done : Proc(Bool, Nil)? = nil) : Bool
+      load_d4_files([path], region_text, append, on_done)
     end
 
-    private def load_d4_files(paths : Array(String), region_text : String? = nil, append : Bool = false) : Bool
+    private def load_d4_files(paths : Array(String), region_text : String? = nil, append : Bool = false, on_done : Proc(Bool, Nil)? = nil) : Bool
       return false if paths.empty?
-      candidates = append ? @layers.dup : [] of TrackLayer
-      paths.each do |path|
-        TrackSource.load(path).each do |source|
-          candidates << TrackLayer.new(source) unless candidates.any? { |layer| layer.source.key == source.key }
-        end
-      end
-      # Validate the complete candidate set before replacing the workspace.
-      TrackSource.chromosomes(candidates.map(&.source))
       cancel_loading
-      @layers = candidates
+      @file_load_id = @file_loader.submit(paths, append ? @layers.map(&.source) : [] of TrackSource)
+      @file_append = append
+      @file_region = region_text
+      @file_done = on_done
+      @file_progress = nil
+      show_status(D4Plot.t("app.opening_files", current: 1, total: paths.size, name: short_name(paths.first)))
+      @progress.value = 0
+      update_controls
+      true
+    end
+
+    private def receive_files
+      return unless id = @file_load_id
+      if (progress = @file_loader.progress) && progress.id == id && progress != @file_progress
+        @file_progress = progress
+        show_status(D4Plot.t("app.opening_files", current: progress.current, total: progress.total, name: short_name(progress.path)))
+        @progress.value = (100 * (progress.current - 1) // progress.total)
+      end
+      return unless result = @file_loader.poll
+      return unless result.id == id
+      append, region_text, done = @file_append, @file_region, @file_done
+      @file_load_id = nil
+      @file_done = nil
+      @file_progress = nil
+      if error = result.error
+        update_controls
+        done.try(&.call(false))
+        show_error(D4Plot.t("app.could_not_open"), Exception.new(error))
+        return
+      end
+      existing = append ? @layers.to_h { |layer| {layer.source.key, layer} } : {} of Tuple(String, String) => TrackLayer
+      @layers = result.sources.map { |source| existing[source.key]? || TrackLayer.new(source) }
       unless append
         @history.clear
         @completed_region = nil
         @annotation = nil
         @annotation_path = nil
+        @pending_annotation_path = nil
         @annotation_row.hide
         @selected = 0
         @area.scroll_to(0, 0, 1, 1)
       end
       rebuild_layers(region_text)
-      true
-    rescue ex
-      @updating = false
-      show_error(D4Plot.t("app.could_not_open"), ex)
-      false
+      done.try(&.call(true))
     end
 
     private def rebuild_layers(region_text : String? = nil)
@@ -349,9 +469,7 @@ module D4Plot
       @history.retain(@chromosomes)
       @selected = @selected.clamp(0, Math.max(@layers.size - 1, 0))
       @updating = true
-      @track_combo.clear
-      @layers.each_with_index { |layer, i| @track_combo.append("#{i + 1}. #{layer.source.label}") }
-      @track_combo.selected = @layers.empty? ? nil : @selected
+      @track_list.replace(@layers, @selected)
       @chromosome_combo.clear
       @chromosome_names.each { |name| @chromosome_combo.append(name) }
       @updating = false
@@ -365,7 +483,8 @@ module D4Plot
         @annotation_row.hide
         @region_entry.text = ""
         @source_entry.text = ""
-        @status.text = D4Plot.t("app.no_tracks_status")
+        @source_entry.tooltip = ""
+        show_status(D4Plot.t("app.status_ready"))
         update_controls
       elsif region_text
         @region_entry.text = region_text
@@ -383,11 +502,11 @@ module D4Plot
       return unless layer = @layers[index]?
       @selected = index
       @updating = true
-      @track_combo.selected = index
-      @show.checked = layer.visible?
+      @track_list.select_row(index)
       @source_entry.text = D4Plot.t("app.source_details", path: layer.source.path,
         track: layer.source.name.empty? ? D4Plot.t("app.default_track") : layer.source.name,
         denominator: layer.source.denominator)
+      @source_entry.tooltip = @source_entry.text
       @updating = false
       if scroll && (visible_index = visible_layers.index(layer))
         @area.scroll_to(0, stack_geometry.row_top(visible_index), 1, @row_height)
@@ -397,6 +516,7 @@ module D4Plot
     end
 
     private def remove_layer
+      return if @file_load_id
       return unless selected_layer
       cancel_loading
       @layers.delete_at(@selected)
@@ -404,16 +524,44 @@ module D4Plot
     end
 
     private def reorder_layer(delta : Int32)
+      return if @file_load_id
       target = @selected + delta
       return unless 0 <= target < @layers.size
       # Ordering does not affect data identity or require a new read.
       @layers.swap(@selected, target)
       @selected = target
       @updating = true
-      @track_combo.clear
-      @layers.each_with_index { |layer, i| @track_combo.append("#{i + 1}. #{layer.source.label}") }
+      @track_list.replace(@layers, @selected)
       @updating = false
       select_layer(target)
+    end
+
+    private def toggle_layer(index : Int32, visible : Bool)
+      return if @file_load_id
+      return unless layer = @layers[index]?
+      layer.visible = visible
+      @track_list.changed(index)
+      select_layer(index, false)
+      clear_drag
+      resize_canvas
+      refresh
+    end
+
+    private def save_view_preferences
+      previous_height, previous_shared = @preferences.height_index, @preferences.shared_y?
+      begin
+        @preferences.height_index = @height.selected || 1
+        @preferences.shared_y = @shared_y.checked?
+        @preferences.save
+      rescue ex : File::Error
+        @preferences.height_index = previous_height
+        @preferences.shared_y = previous_shared
+        @updating = true
+        @height.selected = previous_height
+        @shared_y.checked = previous_shared
+        @updating = false
+        show_error(D4Plot.t("app.preferences_error"), ex)
+      end
     end
 
     private def select_chromosome(index : Int32)
@@ -428,7 +576,7 @@ module D4Plot
     end
 
     private def request_view(region : Region, history_move : Int32 = 0)
-      return if @layers.empty?
+      return if @layers.empty? || @file_load_id
       region.validate!(@chromosomes)
       rollback_history
       @history_move = history_move
@@ -440,8 +588,8 @@ module D4Plot
       clear_drag
       @renderer.hover_index = nil
       @loading = true
-      @status.text = D4Plot.t("app.loading", region: region)
-      @inspection.text = D4Plot.t("app.loading_inspection")
+      show_status(D4Plot.t("app.loading", region: region))
+      @status.tooltip = D4Plot.t("app.loading_inspection")
       @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @pending_annotation_path || @annotation_path, @settings.annotation_feature_limit, @annotation_path)
       update_controls
       @area.queue_redraw_all
@@ -454,7 +602,7 @@ module D4Plot
       @requested_region = nil
       if error = result.error
         rollback_history
-        @status.text = D4Plot.t("app.read_failed", error: error)
+        show_status(D4Plot.t("app.read_failed", error: error))
         restore_location
       else
         # Publish the whole generation together. A failed/missing track has an
@@ -481,9 +629,15 @@ module D4Plot
         @history_move = 0
         @region_entry.text = result.request.region.to_s
         failed = result.layers.count { |sample| !sample.error.nil? }
-        @status.text = D4Plot.t("app.view_status", bases: DisplayFormat.position(result.request.region.length),
+        @view_summary.text = D4Plot.t("app.view_summary", bases: DisplayFormat.position(result.request.region.length), tracks: result.layers.size)
+        if failed > 0
+          @view_summary.text = "#{@view_summary.text} · #{D4Plot.t("app.unavailable_summary", failed: failed)}"
+        end
+        @view_summary.tooltip = D4Plot.t("app.view_status", bases: DisplayFormat.position(result.request.region.length),
           tracks: result.layers.size, failed: failed, elapsed: result.elapsed_ms.round(1))
-        @inspection.text = D4Plot.t("app.inspection_hint")
+        @status.hide
+        @inspection.show
+        reset_inspection
       end
       update_controls
       resize_canvas
@@ -513,14 +667,14 @@ module D4Plot
     end
 
     private def history_back
-      return if @loading
+      return if @loading || @file_load_id
       if region = @history.back
         request_view(region, -1)
       end
     end
 
     private def history_forward
-      return if @loading
+      return if @loading || @file_load_id
       if region = @history.forward
         request_view(region, 1)
       end
@@ -533,6 +687,13 @@ module D4Plot
     end
 
     private def cancel_loading
+      was_opening = !@file_load_id.nil?
+      @file_loader.cancel
+      @file_load_id = nil
+      @file_progress = nil
+      done = @file_done
+      @file_done = nil
+      done.try(&.call(false))
       was_loading = @loading
       clear_drag
       @loader.cancel
@@ -544,7 +705,8 @@ module D4Plot
       end
       rollback_history
       restore_location
-      @status.text = D4Plot.t("app.loading_cancelled") if was_loading
+      show_status(D4Plot.t("app.loading_cancelled")) if was_loading
+      show_status(D4Plot.t("app.files_cancelled")) if was_opening
       update_controls
       @area.queue_redraw_all
     end
@@ -552,7 +714,7 @@ module D4Plot
     private def restore_location
       if region = @completed_region
         @region_entry.text = region.to_s
-        @inspection.text = D4Plot.t("app.inspection_hint")
+        reset_inspection
         @updating = true
         @chromosome_combo.selected = @chromosome_names.index(region.chromosome)
         @updating = false
@@ -560,7 +722,7 @@ module D4Plot
     end
 
     private def open_annotation_dialog
-      return if @layers.empty?
+      return if @layers.empty? || @file_load_id
       if path = @window.open_file
         @pending_annotation_path = path
         @annotation_label.text = D4Plot.t("app.loading_annotation", name: short_name(path))
@@ -584,6 +746,7 @@ module D4Plot
         window.show
       else
         window = SettingsWindow.new(@settings, @preferences, @window, ->(reload_data : Bool) {
+          @settings = @preferences.settings
           @tools.native.display_mode = @settings.toolbar_display_mode
           reload_data ? refresh : @area.queue_redraw_all
         }, -> { @settings_window = nil })
@@ -595,7 +758,7 @@ module D4Plot
     private def export_view
       return unless layer = selected_layer
       return unless view = layer.view
-      return if @loading || !layer.visible? || view.region != @completed_region
+      return if @loading || @file_load_id || !layer.visible? || view.region != @completed_region
       if path = @window.save_file
         (@layers.map(&.source.path) + [@annotation_path].compact).each do |source|
           if File.expand_path(path) == File.expand_path(source) || (File.exists?(path) && File.same?(path, source))
@@ -606,7 +769,7 @@ module D4Plot
           io << "# Source: " << layer.source.path.gsub(/[\r\n]/, " ") << "; track: " << layer.source.name.gsub(/[\r\n]/, " ") << '\n'
           view.write_bedgraph(io)
         end
-        @status.text = D4Plot.t("app.exported", number: view.points.size, name: File.basename(path))
+        show_status(D4Plot.t("app.exported", number: view.points.size, name: File.basename(path)))
       end
     rescue ex
       show_error(D4Plot.t("app.could_not_export"), ex)
@@ -614,53 +777,67 @@ module D4Plot
 
     private def update_controls
       if @layers.empty?
+        @navigation.hide
+        @track_panel.hide
+        @sidebar_toggle.disable
         @welcome.show
         @area.hide
         @inspection.hide
       else
+        @navigation.show
+        @preferences.sidebar_visible? ? @track_panel.show : @track_panel.hide
+        @sidebar_toggle.enable
         @welcome.hide
         @area.show
-        @inspection.show
       end
-      @loading ? @progress.show : @progress.hide
+      @details_visible && !@layers.empty? ? @details.show : @details.hide
+      if @completed_region && !@loading && @file_load_id.nil? && !@layers.empty?
+        @view_summary.show
+      else
+        @view_summary.hide
+      end
+      @sidebar_toggle.text = D4Plot.t(@track_panel.visible? ? "app.hide_tracks" : "app.show_tracks")
+      @progress.value = -1 if @loading && @file_load_id.nil?
+      @loading || @file_load_id ? @progress.show : @progress.hide
+      @file_load_id ? @cancel_files.show : @cancel_files.hide
       update_region_controls
       update_layer_controls
       update_history_controls
-      @annotation_row.visible? ? @remove_annotation.enable : @remove_annotation.disable
+      @annotation_row.visible? && @file_load_id.nil? ? @remove_annotation.enable : @remove_annotation.disable
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end
 
     private def update_region_controls
-      ready = !@layers.empty? && !@chromosomes.empty?
+      ready = !@layers.empty? && !@chromosomes.empty? && @file_load_id.nil?
       [@go, @chromosome_combo, @region_entry].each do |control|
         ready ? control.enable : control.disable
       end
       [@tools.annotations, @tools.left, @tools.right, @tools.zoom_in, @tools.zoom_out, @tools.whole].each do |control|
         ready ? control.enable : control.disable
       end
-      @loading ? @tools.cancel.enable : @tools.cancel.disable
+      @loading || @file_load_id ? @tools.cancel.enable : @tools.cancel.disable
     end
 
     private def update_layer_controls
-      @layers.size > 1 ? @track_combo.enable : @track_combo.disable
-      [@remove, @show].each do |control|
-        @layers.empty? ? control.disable : control.enable
-      end
-      @selected > 0 ? @up.enable : @up.disable
-      @selected < @layers.size - 1 ? @down.enable : @down.disable
+      busy = !@file_load_id.nil?
+      busy ? @track_list.native.disable : @track_list.native.enable
+      busy ? @add.disable : @add.enable
+      @layers.empty? || busy ? @remove.disable : @remove.enable
+      @selected > 0 && !busy ? @up.enable : @up.disable
+      @selected < @layers.size - 1 && !busy ? @down.enable : @down.disable
       layer = selected_layer
-      exportable = layer && layer.visible? && layer.view.try(&.region) == @completed_region && !layer.view.nil? && !@loading
+      exportable = layer && layer.visible? && layer.view.try(&.region) == @completed_region && !layer.view.nil? && !@loading && !busy
       exportable ? @tools.export.enable : @tools.export.disable
     end
 
     private def update_history_controls
-      @history.back? && !@loading ? @tools.back.enable : @tools.back.disable
-      @history.forward? && !@loading ? @tools.forward.enable : @tools.forward.disable
+      @history.back? && !@loading && @file_load_id.nil? ? @tools.back.enable : @tools.back.disable
+      @history.forward? && !@loading && @file_load_id.nil? ? @tools.forward.enable : @tools.forward.disable
     end
 
     private def mouse_event(event)
       return unless region = @completed_region
-      return if @loading
+      return if @loading || @file_load_id
       stack = stack_geometry
       layers = visible_layers
       index = stack.index_at(event.y)
@@ -689,7 +866,7 @@ module D4Plot
       return unless view = layer.view
       return unless view.region == region
       bin = view.bin_at(fraction)
-      @inspection.text = "#{layer.source.label} | #{view.inspect_bin(bin)}"
+      show_inspection("#{layer.source.label} · #{view.inspect_bin(bin)}")
       @renderer.hover_index = bin
       @renderer.hover_layer = layer.source.key
     end
@@ -710,11 +887,11 @@ module D4Plot
     private def preview_drag(drag : Tuple(Float64, Region, Bool), fraction : Float64)
       if drag[2]
         @renderer.selection = {drag[0], fraction}
-        @inspection.text = D4Plot.t("app.release_selection")
+        show_inspection(D4Plot.t("app.release_selection"))
       else
         preview = drag[1].pan(drag[0] - fraction, @chromosomes[drag[1].chromosome])
         @renderer.preview_region = preview
-        @inspection.text = D4Plot.t("app.preview_pan", region: preview)
+        show_inspection(D4Plot.t("app.preview_pan", region: preview))
       end
     end
 
@@ -754,7 +931,7 @@ module D4Plot
       @renderer.preview_region = nil
       @renderer.hover_index = nil
       @renderer.hover_layer = nil
-      @inspection.text = D4Plot.t("app.inspection_hint")
+      reset_inspection
     end
 
     private def key_event(event) : Bool
@@ -863,7 +1040,7 @@ module D4Plot
 
     private def show_error(title, error)
       message = error.message || error.class.name
-      @status.text = message
+      show_status(message)
       @window.msg_box_error(title, message)
     end
 
@@ -878,6 +1055,10 @@ module D4Plot
       @quit_window.try(&.destroy)
       @quit_window = nil
       @loader.close
+      @file_loader.close
+      @file_done = nil
+      @track_panel.delete(@track_list.native)
+      @track_list.free
       @window.toolbar = nil
       @tools.free
     end

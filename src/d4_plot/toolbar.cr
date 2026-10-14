@@ -21,7 +21,7 @@ module D4Plot
     @images = [] of UIng::Image
 
     def initialize
-      @native.display_mode = UIng::Toolbar::DisplayMode::IconOnly
+      @native.display_mode = UIng::Toolbar::DisplayMode::IconAndTextVertical
       @open = button(D4Plot.t("toolbar.open"), D4Plot.t("toolbar.open_tip"), [[{2, 16}, {2, 4}, {8, 4}, {10, 6}, {18, 6}, {18, 16}, {2, 16}], [{2, 9}, {18, 9}]])
       @create = button(D4Plot.t("toolbar.create"), D4Plot.t("toolbar.create_tip"), [[{3, 2}, {12, 2}, {17, 7}, {17, 18}, {3, 18}, {3, 2}], [{12, 2}, {12, 7}, {17, 7}], [{6, 12}, {14, 12}], [{10, 8}, {10, 16}]])
       @annotations = button(D4Plot.t("toolbar.annotations"), D4Plot.t("toolbar.annotations_tip"), [[{2, 6}, {18, 6}], [{5, 3}, {5, 9}], [{8, 3}, {8, 9}], [{2, 14}, {18, 14}], [{12, 11}, {12, 17}], [{15, 11}, {15, 17}]])
