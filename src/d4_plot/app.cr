@@ -134,8 +134,11 @@ module D4Plot
         else
           UIRuntime.check_thread!
           @background_io.poll
+          next 0 if @closed
           receive_files
+          next 0 if @closed
           receive_result
+          next 0 if @closed
           poll_conversion
           1
         end
