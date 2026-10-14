@@ -23,7 +23,7 @@ tr:
     create_d4_from_alignment: "BAM / CRAM'den D4 Oluştur…"
     export_bins: "Seçili iz bölmelerini dışa aktar…"
     navigation_help: "Gezinme ve veri yorumlama"
-    about: "D4 genomik sinyal görüntüleyici\nhttps://github.com/kojix2/d4.cr"
+    about: "D4 genomik sinyal görüntüleyici\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 Ekle…"
     remove: "Görünümden kaldır"
     dismiss: "Kapat"

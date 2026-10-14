@@ -23,7 +23,7 @@ de:
     create_d4_from_alignment: "D4 aus BAM / CRAM erstellen…"
     export_bins: "Bins der ausgewählten Spur exportieren…"
     navigation_help: "Navigation und Dateninterpretation"
-    about: "D4-Genomsignalbetrachter\nhttps://github.com/kojix2/d4.cr"
+    about: "D4-Genomsignalbetrachter\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 hinzufügen…"
     remove: "Aus Ansicht entfernen"
     dismiss: "Verwerfen"

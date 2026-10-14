@@ -23,7 +23,7 @@ bn:
     create_d4_from_alignment: "BAM / CRAM থেকে D4 তৈরি করুন…"
     export_bins: "নির্বাচিত ট্র্যাকের বিন রপ্তানি করুন…"
     navigation_help: "নেভিগেশন ও ডেটা ব্যাখ্যা"
-    about: "D4 জিনোমিক সংকেত প্রদর্শক\nhttps://github.com/kojix2/d4.cr"
+    about: "D4 জিনোমিক সংকেত প্রদর্শক\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 যোগ করুন…"
     remove: "ভিউ থেকে সরান"
     dismiss: "বন্ধ করুন"

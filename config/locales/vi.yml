@@ -23,7 +23,7 @@ vi:
     create_d4_from_alignment: "Tạo D4 từ BAM / CRAM…"
     export_bins: "Xuất các bin của track đã chọn…"
     navigation_help: "Điều hướng và diễn giải dữ liệu"
-    about: "Trình xem tín hiệu hệ gen D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Trình xem tín hiệu hệ gen D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Thêm D4…"
     remove: "Xóa khỏi chế độ xem"
     dismiss: "Đóng"

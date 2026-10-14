@@ -23,7 +23,7 @@ ja:
     create_d4_from_alignment: "BAM / CRAM から D4 を作成…"
     export_bins: "選択したトラックのビンを書き出す…"
     navigation_help: "ナビゲーションとデータの見方"
-    about: "D4 ゲノムシグナルビューア\nhttps://github.com/kojix2/d4.cr"
+    about: "D4 ゲノムシグナルビューア\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 を追加…"
     remove: "表示から外す"
     dismiss: "閉じる"

@@ -5,7 +5,7 @@
 D4 creation uses [mopdepth](https://github.com/kojix2/mopdepth) (MIT),
 [hts.cr](https://github.com/bio-cr/hts.cr) (MIT) and native
 [HTSlib](https://github.com/samtools/htslib) (MIT/Expat and Modified BSD).
-[d4.cr](https://github.com/kojix2/d4.cr) supplies the D4 writer and reader, and
+[d4.cr](https://github.com/bio-cr/d4.cr) supplies the D4 writer and reader, and
 [UIng](https://github.com/kojix2/uing) supplies native GUI bindings (both MIT).
 Exact Crystal dependency revisions are recorded in `shard.lock`.
 

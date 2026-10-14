@@ -23,7 +23,7 @@ ur:
     create_d4_from_alignment: "BAM / CRAM سے D4 بنائیں…"
     export_bins: "منتخب ٹریک کے بن برآمد کریں…"
     navigation_help: "رہنمائی اور ڈیٹا کی تشریح"
-    about: "D4 جینومک سگنل ویوَر\nhttps://github.com/kojix2/d4.cr"
+    about: "D4 جینومک سگنل ویوَر\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 شامل کریں…"
     remove: "منظر سے ہٹائیں"
     dismiss: "بند کریں"

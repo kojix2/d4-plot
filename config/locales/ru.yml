@@ -23,7 +23,7 @@ ru:
     create_d4_from_alignment: "Создать D4 из BAM / CRAM…"
     export_bins: "Экспортировать бины выбранной дорожки…"
     navigation_help: "Навигация и интерпретация данных"
-    about: "Просмотрщик геномного сигнала D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Просмотрщик геномного сигнала D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Добавить D4…"
     remove: "Убрать из вида"
     dismiss: "Закрыть"

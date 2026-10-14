@@ -23,7 +23,7 @@ nl:
     create_d4_from_alignment: "D4 maken van BAM / CRAM…"
     export_bins: "Bins van geselecteerd spoor exporteren…"
     navigation_help: "Navigatie en gegevensinterpretatie"
-    about: "D4-viewer voor genomische signalen\nhttps://github.com/kojix2/d4.cr"
+    about: "D4-viewer voor genomische signalen\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 toevoegen…"
     remove: "Uit weergave verwijderen"
     dismiss: "Negeren"

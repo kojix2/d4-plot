@@ -23,7 +23,7 @@ id:
     create_d4_from_alignment: "Buat D4 dari BAM / CRAM…"
     export_bins: "Ekspor bin trek terpilih…"
     navigation_help: "Navigasi dan penafsiran data"
-    about: "Penampil sinyal genomik D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Penampil sinyal genomik D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Tambah D4…"
     remove: "Hapus dari tampilan"
     dismiss: "Tutup"

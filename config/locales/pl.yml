@@ -23,7 +23,7 @@ pl:
     create_d4_from_alignment: "Utwórz D4 z BAM / CRAM…"
     export_bins: "Eksportuj biny wybranej ścieżki…"
     navigation_help: "Nawigacja i interpretacja danych"
-    about: "Przeglądarka sygnału genomowego D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Przeglądarka sygnału genomowego D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Dodaj D4…"
     remove: "Usuń z widoku"
     dismiss: "Zamknij"

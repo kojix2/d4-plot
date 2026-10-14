@@ -23,7 +23,7 @@ fr:
     create_d4_from_alignment: "Créer D4 depuis BAM / CRAM…"
     export_bins: "Exporter les bins de la piste sélectionnée…"
     navigation_help: "Navigation et interprétation des données"
-    about: "Visionneuse de signal génomique D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Visionneuse de signal génomique D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Ajouter D4…"
     remove: "Retirer de la vue"
     dismiss: "Ignorer"

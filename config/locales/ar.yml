@@ -23,7 +23,7 @@ ar:
     create_d4_from_alignment: "إنشاء D4 من BAM / CRAM…"
     export_bins: "تصدير فواصل المسار المحدد…"
     navigation_help: "التنقل وتفسير البيانات"
-    about: "عارض الإشارة الجينومية D4\nhttps://github.com/kojix2/d4.cr"
+    about: "عارض الإشارة الجينومية D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "إضافة D4…"
     remove: "إزالة من العرض"
     dismiss: "إغلاق"

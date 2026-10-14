@@ -16,7 +16,7 @@ dependencies:
     github: kojix2/uing
     branch: main
   d4:
-    github: kojix2/d4.cr
+    github: bio-cr/d4.cr
     branch: main
   mopdepth:
     github: kojix2/mopdepth

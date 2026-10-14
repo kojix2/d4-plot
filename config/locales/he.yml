@@ -23,7 +23,7 @@ he:
     create_d4_from_alignment: "יצירת D4 מ-BAM / CRAM…"
     export_bins: "ייצוא bins של הרצועה שנבחרה…"
     navigation_help: "ניווט ופירוש נתונים"
-    about: "מציג אותות גנומיים D4\nhttps://github.com/kojix2/d4.cr"
+    about: "מציג אותות גנומיים D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "הוספת D4…"
     remove: "הסרה מהתצוגה"
     dismiss: "סגירה"

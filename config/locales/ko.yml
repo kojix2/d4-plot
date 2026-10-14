@@ -23,7 +23,7 @@ ko:
     create_d4_from_alignment: "BAM / CRAM에서 D4 만들기…"
     export_bins: "선택한 트랙 빈 내보내기…"
     navigation_help: "탐색 및 데이터 해석"
-    about: "D4 게놈 신호 뷰어\nhttps://github.com/kojix2/d4.cr"
+    about: "D4 게놈 신호 뷰어\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "D4 추가…"
     remove: "보기에서 제외"
     dismiss: "닫기"

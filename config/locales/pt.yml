@@ -23,7 +23,7 @@ pt:
     create_d4_from_alignment: "Criar D4 a partir de BAM / CRAM…"
     export_bins: "Exportar bins da faixa selecionada…"
     navigation_help: "Navegação e interpretação de dados"
-    about: "Visualizador de sinal genômico D4\nhttps://github.com/kojix2/d4.cr"
+    about: "Visualizador de sinal genômico D4\nhttps://github.com/bio-cr/d4.cr"
     add_d4: "Adicionar D4…"
     remove: "Remover da visualização"
     dismiss: "Fechar"
