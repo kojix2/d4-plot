@@ -38,10 +38,10 @@ for library in bz2 lzma z deflate regex tre intl; do
 done
 static_libs+=(-Wl,--end-group -lws2_32)
 
-# `crystal spec` has no `--static` option. HTSlib and its native
-# dependencies are still selected as static archives by the explicit `-l:`
-# arguments above; the distributable application is built statically below.
-crystal spec spec --link-flags="${static_libs[*]}"
+# `crystal spec` has no `--static` option, so define the same compiler flag
+# explicitly. Besides selecting the archives below, this prevents Windows
+# foreign data symbols from being emitted as DLL imports.
+crystal spec spec -D static --link-flags="${static_libs[*]}"
 crystal build src/d4-plot.cr --release --no-debug --static \
   --link-flags="${static_libs[*]} -mwindows" -o bin/d4-plot.exe
 
