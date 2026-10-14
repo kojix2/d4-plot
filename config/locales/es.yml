@@ -105,10 +105,10 @@ es:
     whole_tip: "Mostrar el cromosoma completo (tecla: Inicio)"
     cancel: "Cancelar"
     cancel_tip: "Cancelar la carga y conservar el último gráfico terminado (tecla: Esc)"
-    display: "Pantalla"
-    display_tip: "Configurar resolución de bins, escala Y y líneas de referencia"
+    settings: "Ajustes"
+    settings_tip: "Abrir los ajustes"
   settings:
-    title: "Ajustes de visualización"
+    title: "Ajustes"
     auto_scale: "Escalar automáticamente cada vista"
     include_zero: "Incluir cero en la escala automática"
     toolbar_vertical: "Iconos y etiquetas debajo"

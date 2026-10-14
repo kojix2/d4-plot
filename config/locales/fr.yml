@@ -105,10 +105,10 @@ fr:
     whole_tip: "Afficher le chromosome entier (touche : Début)"
     cancel: "Annuler"
     cancel_tip: "Annuler le chargement et conserver le dernier graphique terminé (touche : Échap)"
-    display: "Affichage"
-    display_tip: "Régler la résolution des bins, l’échelle Y et les lignes de référence"
+    settings: "Paramètres"
+    settings_tip: "Ouvrir les paramètres"
   settings:
-    title: "Paramètres d’affichage"
+    title: "Paramètres"
     auto_scale: "Mettre chaque vue à l’échelle automatiquement"
     include_zero: "Inclure zéro dans l’échelle automatique"
     toolbar_vertical: "Icônes et libellés en dessous"

@@ -105,10 +105,10 @@ tr:
     whole_tip: "Kromozomun tamamını göster (tuş: Home)"
     cancel: "İptal"
     cancel_tip: "Yüklemeyi iptal et ve son tamamlanmış grafiği koru (tuş: Esc)"
-    display: "Görüntü"
-    display_tip: "Bölme çözünürlüğünü, Y ölçeğini ve referans çizgilerini ayarla"
+    settings: "Ayarlar"
+    settings_tip: "Ayarları aç"
   settings:
-    title: "Görüntü ayarları"
+    title: "Ayarlar"
     auto_scale: "Her görünümü otomatik ölçekle"
     include_zero: "Otomatik ölçekte sıfırı dahil et"
     toolbar_vertical: "Simgeler ve etiketler aşağıda"

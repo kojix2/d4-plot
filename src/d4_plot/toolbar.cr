@@ -38,7 +38,7 @@ module D4Plot
       @whole = button(D4Plot.t("toolbar.whole"), D4Plot.t("toolbar.whole_tip"), [[{2, 4}, {2, 16}], [{18, 4}, {18, 16}], [{2, 10}, {18, 10}], [{6, 6}, {2, 10}, {6, 14}], [{14, 6}, {18, 10}, {14, 14}]])
       @cancel = button(D4Plot.t("toolbar.cancel"), D4Plot.t("toolbar.cancel_tip"), [[{5, 5}, {15, 15}], [{5, 15}, {15, 5}]])
       @native.append_separator
-      @settings = button(D4Plot.t("toolbar.display"), D4Plot.t("toolbar.display_tip"), [[{3, 5}, {17, 5}], [{3, 10}, {17, 10}], [{3, 15}, {17, 15}], [{7, 3}, {7, 7}], [{13, 8}, {13, 12}], [{7, 13}, {7, 17}]])
+      @settings = button(D4Plot.t("toolbar.settings"), D4Plot.t("toolbar.settings_tip"), [[{3, 5}, {17, 5}], [{3, 10}, {17, 10}], [{3, 15}, {17, 15}], [{7, 3}, {7, 7}], [{13, 8}, {13, 12}], [{7, 13}, {7, 17}]])
     end
 
     def free

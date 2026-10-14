@@ -105,10 +105,10 @@ zh:
     whole_tip: "显示整条染色体（绘图快捷键：Home）"
     cancel: "取消"
     cancel_tip: "取消加载并保留最后完成的图（绘图快捷键：Esc）"
-    display: "显示"
-    display_tip: "设置区间分辨率、Y 轴缩放和参考线"
+    settings: "设置"
+    settings_tip: "打开设置"
   settings:
-    title: "显示设置"
+    title: "设置"
     auto_scale: "自动缩放每个视图"
     include_zero: "在自动缩放中包含零"
     toolbar_vertical: "图标和标签显示在下方"

@@ -105,10 +105,10 @@ nl:
     whole_tip: "Het hele chromosoom tonen (toets: Home)"
     cancel: "Annuleren"
     cancel_tip: "Laden annuleren en laatste voltooide plot behouden (toets: Esc)"
-    display: "Weergave"
-    display_tip: "Bin-resolutie, Y-schaal en referentielijnen instellen"
+    settings: "Instellingen"
+    settings_tip: "Instellingen openen"
   settings:
-    title: "Weergave-instellingen"
+    title: "Instellingen"
     auto_scale: "Elke weergave automatisch schalen"
     include_zero: "Nul opnemen in automatische schaal"
     toolbar_vertical: "Pictogrammen en labels eronder"

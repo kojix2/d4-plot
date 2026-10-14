@@ -105,10 +105,10 @@ he:
     whole_tip: "הצגת הכרומוזום כולו (מקש: Home)"
     cancel: "ביטול"
     cancel_tip: "ביטול הטעינה ושמירת התרשים האחרון שהושלם (מקש: Esc)"
-    display: "תצוגה"
-    display_tip: "הגדרת רזולוציית bins, סולם Y וקווי ייחוס"
+    settings: "הגדרות"
+    settings_tip: "פתיחת ההגדרות"
   settings:
-    title: "הגדרות תצוגה"
+    title: "הגדרות"
     auto_scale: "שינוי קנה מידה אוטומטי לכל תצוגה"
     include_zero: "כלילת אפס בסולם האוטומטי"
     toolbar_vertical: "סמלים ותוויות מתחת"

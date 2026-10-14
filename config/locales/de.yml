@@ -105,10 +105,10 @@ de:
     whole_tip: "Ganzes Chromosom anzeigen (Taste: Pos1)"
     cancel: "Abbrechen"
     cancel_tip: "Laden abbrechen und letzten fertigen Plot beibehalten (Taste: Esc)"
-    display: "Anzeige"
-    display_tip: "Bin-Auflösung, Y-Skala und Referenzlinien einstellen"
+    settings: "Einstellungen"
+    settings_tip: "Einstellungen öffnen"
   settings:
-    title: "Anzeigeeinstellungen"
+    title: "Einstellungen"
     auto_scale: "Jede Ansicht automatisch skalieren"
     include_zero: "Null in automatische Skalierung einbeziehen"
     toolbar_vertical: "Symbole und Beschriftungen darunter"

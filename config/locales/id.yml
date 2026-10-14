@@ -105,10 +105,10 @@ id:
     whole_tip: "Tampilkan seluruh kromosom (tombol: Home)"
     cancel: "Batal"
     cancel_tip: "Batalkan pemuatan dan pertahankan plot selesai terakhir (tombol: Esc)"
-    display: "Tampilan"
-    display_tip: "Atur resolusi bin, skala Y, dan garis referensi"
+    settings: "Pengaturan"
+    settings_tip: "Buka pengaturan"
   settings:
-    title: "Pengaturan tampilan"
+    title: "Pengaturan"
     auto_scale: "Skalakan setiap tampilan secara otomatis"
     include_zero: "Sertakan nol dalam skala otomatis"
     toolbar_vertical: "Ikon dan label di bawah"

@@ -105,10 +105,10 @@ ko:
     whole_tip: "염색체 전체 표시(플롯 키: Home)"
     cancel: "취소"
     cancel_tip: "불러오기를 취소하고 마지막 완료 플롯 유지(플롯 키: Esc)"
-    display: "표시"
-    display_tip: "빈 해상도, Y축 배율 및 기준선 설정"
+    settings: "설정"
+    settings_tip: "설정 열기"
   settings:
-    title: "표시 설정"
+    title: "설정"
     auto_scale: "각 보기 자동 배율"
     include_zero: "자동 배율에 0 포함"
     toolbar_vertical: "아이콘과 레이블을 아래에 표시"

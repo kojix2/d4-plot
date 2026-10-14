@@ -105,10 +105,10 @@ ja:
     whole_tip: "染色体全体を表示する（プロットキー: Home）"
     cancel: "キャンセル"
     cancel_tip: "読み込みをキャンセルし、最後に完了したプロットを保持する（プロットキー: Esc）"
-    display: "表示"
-    display_tip: "ビン解像度、Y 軸スケール、基準線を設定する"
+    settings: "設定"
+    settings_tip: "設定を開く"
   settings:
-    title: "表示設定"
+    title: "設定"
     auto_scale: "各ビューを自動スケール"
     include_zero: "自動スケールにゼロを含める"
     toolbar_vertical: "アイコンとラベルを下に表示"

@@ -105,10 +105,10 @@ vi:
     whole_tip: "Hiển thị toàn bộ nhiễm sắc thể (phím: Home)"
     cancel: "Hủy"
     cancel_tip: "Hủy tải và giữ biểu đồ đã hoàn tất gần nhất (phím: Esc)"
-    display: "Hiển thị"
-    display_tip: "Đặt độ phân giải bin, thang Y và các đường tham chiếu"
+    settings: "Cài đặt"
+    settings_tip: "Mở cài đặt"
   settings:
-    title: "Cài đặt hiển thị"
+    title: "Cài đặt"
     auto_scale: "Tự động chia thang mỗi khung xem"
     include_zero: "Bao gồm số không trong thang tự động"
     toolbar_vertical: "Biểu tượng và nhãn ở dưới"

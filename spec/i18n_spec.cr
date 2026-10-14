@@ -53,10 +53,11 @@ describe D4Plot::Translations do
       D4Plot.t("app.loading", region: "chr1:1-10").should eq("chr1:1-10 を読み込み中…")
     end
 
-    {"zh", "es", "de", "fr", "ko", "nl", "pt", "pl", "tr", "ru", "hi", "id", "ur", "vi", "he", "ar", "bn"}.each do |locale|
+    D4Plot::Translations::SUPPORTED_LOCALES.each do |locale|
       I18n.with_locale(locale) do
         D4Plot.t("app.open_d4").should_not contain("missing translation")
-        D4Plot.t("toolbar.display").should_not contain("missing translation")
+        D4Plot.t("toolbar.settings").should eq(D4Plot.t("settings.title"))
+        D4Plot.t("toolbar.settings_tip").should_not contain("missing translation")
         D4Plot.t("app.window_title", number: 2).should_not contain("%{")
       end
     end

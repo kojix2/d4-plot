@@ -105,10 +105,10 @@ en:
     whole_tip: "Show the whole chromosome (plot key: Home)"
     cancel: "Cancel"
     cancel_tip: "Cancel loading and keep the last completed plot (plot key: Esc)"
-    display: "Display"
-    display_tip: "Set bin resolution, Y scale and reference lines"
+    settings: "Settings"
+    settings_tip: "Open settings"
   settings:
-    title: "Display settings"
+    title: "Settings"
     auto_scale: "Automatically scale each view"
     include_zero: "Include zero in automatic scale"
     toolbar_vertical: "Icons and labels below"

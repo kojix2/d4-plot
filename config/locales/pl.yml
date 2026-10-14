@@ -105,10 +105,10 @@ pl:
     whole_tip: "Pokaż cały chromosom (klawisz: Home)"
     cancel: "Anuluj"
     cancel_tip: "Anuluj wczytywanie i zachowaj ostatni ukończony wykres (klawisz: Esc)"
-    display: "Wyświetlanie"
-    display_tip: "Ustaw rozdzielczość binów, skalę Y i linie odniesienia"
+    settings: "Ustawienia"
+    settings_tip: "Otwórz ustawienia"
   settings:
-    title: "Ustawienia wyświetlania"
+    title: "Ustawienia"
     auto_scale: "Automatycznie skaluj każdy widok"
     include_zero: "Uwzględnij zero w skali automatycznej"
     toolbar_vertical: "Ikony i etykiety poniżej"
