@@ -1,0 +1,25 @@
+title: "D4 Plot Guide"
+description: "View and create D4 genomic signal files with D4 Plot"
+url: "https://kojix2.github.io"
+url_prefix: "d4-plot"
+footer: 'Built with <a href="https://github.com/ralsina/nicolino">Nicolino</a>'
+
+theme: "blox"
+color_scheme: "default"
+
+output: "output/"
+content: "content/"
+books: "books/"
+
+language: "en"
+locale: "en_US.UTF-8"
+date_output_format: "%B %e, %Y"
+verbosity: 4
+
+features:
+  - assets
+  - base16
+  - books
+  - folder_indexes
+  - pages
+  - search

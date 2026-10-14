@@ -1,0 +1,12 @@
+[book]
+title = "D4 Plotガイド"
+description = "D4 PlotでD4ゲノムシグナルファイルを表示・作成します。"
+authors = ["D4 Plot contributors"]
+language = "ja"
+
+[build]
+create-missing = false
+
+[output.html]
+git-repository-url = "https://github.com/kojix2/d4-plot"
+edit-url-template = "https://github.com/kojix2/d4-plot/edit/main/guide/content/books/guide_ja/{path}"

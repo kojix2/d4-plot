@@ -17,6 +17,12 @@ replace them. MSYS2 package sources are available from
 <https://packages.msys2.org/>; HTSlib's Windows build is pinned in
 `scripts/build-windows.sh`.
 
+## Documentation theme
+
+The Blox documentation theme in `guide/themes/blox` is derived from Hugo Blox
+by Lore Labs and was ported to Nicolino. It is distributed under the MIT
+License; the license text is included in `guide/themes/blox/LICENSE`.
+
 ## Test fixtures
 
 `spec/fixtures/rust-input-10nt.d4` and `spec/fixtures/rust-multitrack.d4` come from [d4-format](https://github.com/38/d4-format). The upstream license is reproduced below.

@@ -1,0 +1,12 @@
+[book]
+title = "D4 Plot Guide"
+description = "View and create D4 genomic signal files with D4 Plot."
+authors = ["D4 Plot contributors"]
+language = "en"
+
+[build]
+create-missing = false
+
+[output.html]
+git-repository-url = "https://github.com/kojix2/d4-plot"
+edit-url-template = "https://github.com/kojix2/d4-plot/edit/main/guide/content/books/guide_en/{path}"
