@@ -83,10 +83,9 @@ module D4Plot
         lines += 1
         raise AnnotationCancelled.new if lines % 1_024 == 0 && cancelled.try(&.call)
         bytes += line.bytesize + 1
-        if bytes > MAX_IN_MEMORY_BYTES || features.size >= MAX_IN_MEMORY_FEATURES
-          raise D4Plot.t("annotation.memory_limit")
-        end
+        raise D4Plot.t("annotation.memory_limit") if bytes > MAX_IN_MEMORY_BYTES
         if feature = parse_line(line)
+          raise D4Plot.t("annotation.memory_limit") if features.size >= MAX_IN_MEMORY_FEATURES
           features << feature
         end
       end

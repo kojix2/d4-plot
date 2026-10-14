@@ -34,6 +34,18 @@ describe D4Plot::AnnotationIndex do
       File.delete(path) if File.exists?(path)
     end
   end
+
+  it "allows comments after exactly the in-memory feature limit" do
+    path = File.tempname("d4-annotation-limit", ".bed")
+    begin
+      File.write(path, "chr1\t0\t1\n" * D4Plot::AnnotationIndex::MAX_IN_MEMORY_FEATURES + "# trailing comment\n")
+      D4Plot::AnnotationIndex.load(path).size.should eq(D4Plot::AnnotationIndex::MAX_IN_MEMORY_FEATURES)
+      File.open(path, "a") { |file| file.puts "chr1\t1\t2" }
+      expect_raises(Exception, /in-memory limit/) { D4Plot::AnnotationIndex.load(path) }
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
 end
 
 describe "Indexed annotations" do
