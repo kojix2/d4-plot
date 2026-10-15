@@ -30,7 +30,12 @@ module D4Plot
       client.connect_timeout = connect_timeout
       client.read_timeout = read_timeout
       client.exec("GET", path) do |response|
-        detail = response_excerpt(response.body_io, MAX_RESPONSE_BODY_BYTES)
+        # Crystal does not provide body_io for responses such as HTTP 204.
+        detail = if HTTP::Client::Response.mandatory_body?(response.status)
+                   response_excerpt(response.body_io, MAX_RESPONSE_BODY_BYTES)
+                 else
+                   ""
+                 end
         unless response.success?
           suffix = detail.empty? ? "" : ": #{detail}"
           raise "IGV Desktop returned HTTP #{response.status_code}#{suffix}"
