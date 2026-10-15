@@ -1,8 +1,33 @@
 require "./spec_helper"
+require "http/server"
+require "../src/d4_plot/igv_integration"
 require "../src/d4_plot/preferences"
 require "../src/d4_plot/ui_runtime"
 
 describe D4Plot::BackgroundIO do
+  it "sends an IGV Desktop request from its background context" do
+    server = HTTP::Server.new(&.response.print("OK"))
+    address = server.bind_tcp("127.0.0.1", 0)
+    spawn { server.listen }
+    io = D4Plot::BackgroundIO.new
+    outcome = Channel(String | Exception).new(1)
+    begin
+      io.submit(-> {
+        begin
+          D4Plot::IGVDesktop.goto(D4Plot::Region.new("chr1", 1_u32, 2_u32), address.port)
+          outcome.send("ok")
+        rescue ex
+          outcome.send(ex)
+        end
+      }) { }
+      outcome.receive.should eq("ok")
+    ensure
+      io.close
+      io.wait
+      server.close
+    end
+  end
+
   it "serializes snapshots and drains accepted writes on close" do
     path = File.tempname("d4-background-settings", ".json")
     io = D4Plot::BackgroundIO.new

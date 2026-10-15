@@ -1,7 +1,8 @@
 require "deque"
+require "wait_group"
 
 module D4Plot
-  # Work runs serially on a dedicated thread; completions run only in poll.
+  # Work runs serially in a dedicated execution context; completions run only in poll.
   # Jobs must capture snapshots, never read controls or mutate UI state.
   class BackgroundIO
     record Job, work : Proc(Nil), done : Proc(Exception?, Nil)
@@ -12,10 +13,19 @@ module D4Plot
     @jobs = Deque(Job).new
     @results = Deque(Result).new
     @closed = false
-    @worker : Fiber::ExecutionContext::Isolated
+    @context : Fiber::ExecutionContext::Concurrent
+    @finished = WaitGroup.new(1)
+    @worker_error : Exception?
 
     def initialize
-      @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-io") { run }
+      @context = Fiber::ExecutionContext::Concurrent.new("d4-plot-io")
+      @context.spawn do
+        run
+      rescue ex
+        @worker_error = ex
+      ensure
+        @finished.done
+      end
     end
 
     def submit(work : Proc(Nil), &done : Exception? -> Nil) : Nil
@@ -44,7 +54,10 @@ module D4Plot
 
     # Only after native UI teardown (or in non-UI tests).
     def wait : Nil
-      @worker.wait
+      @finished.wait
+      if error = @worker_error
+        raise error
+      end
     end
 
     private def next_job : Job?
