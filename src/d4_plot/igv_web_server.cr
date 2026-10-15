@@ -76,6 +76,7 @@ module D4Plot
   # Read-only loopback server used by the browser integration.  API routes are
   # capability URLs issued per server instance; no route accepts a local path.
   class IGVWebServer
+    Log                          = D4Plot::Log.for("web")
     MAX_FEATURE_BINS             = 1_024
     MAX_CONTROL_BODY_BYTES       = 4 * 1024
     MAX_QUERY_VALUE_BYTES        = 512
@@ -130,6 +131,7 @@ module D4Plot
       end
       @snapshot = snapshot
       @signal_query.activate_revision(@snapshot.revision)
+      Log.info &.emit("web.ready", port: @address.port, tracks: @sources.size, revision: @snapshot.revision)
     end
 
     def url : String
@@ -151,6 +153,7 @@ module D4Plot
     end
 
     def listen : Nil
+      Log.info &.emit("web.listening", port: @address.port)
       @server.listen
     rescue ex : IO::Error
       raise ex unless closed?
@@ -171,6 +174,7 @@ module D4Plot
         next_snapshot = build_snapshot(@sources, @initial_region, @selected_reference)
         @signal_query.activate_revision(next_snapshot.revision)
         @snapshot = next_snapshot
+        Log.info &.emit("web.session_updated", tracks: sources.size, revision: next_snapshot.revision)
       end
     end
 
@@ -184,6 +188,7 @@ module D4Plot
         true
       end
       return unless should_close
+      Log.info &.emit("web.stopping", port: @address.port)
       @signal_query.close
       @server.close
     end
@@ -202,6 +207,8 @@ module D4Plot
     end
 
     private def handle(context : HTTP::Server::Context) : Nil
+      started = Time.instant
+      context.response.headers["X-Request-ID"] = Logging.next_correlation_id.to_s
       unless begin_request
         secure_headers(context.response)
         failure(context, 503, "SERVER_STOPPING", "The web server is stopping")
@@ -215,9 +222,14 @@ module D4Plot
 
         dispatch(context)
       rescue ex
-        STDERR.puts "D4 Plot web request failed: #{ex.class.name}: #{ex.message}" unless closed?
-        failure(context, 500, "INTERNAL_ERROR", "Request failed") unless context.response.closed?
+        if context.response.closed?
+          Logging.report_exception(Log, "http.response_failed", ex, request_id: context.response.headers["X-Request-ID"]?) unless closed?
+        else
+          failure(context, 500, "INTERNAL_ERROR", "Request failed", ex)
+        end
       ensure
+        Log.debug &.emit("http.completed", request_id: context.response.headers["X-Request-ID"]?,
+          route: log_route(context), status: response.status_code, elapsed_ms: Logging.elapsed_ms(started))
         finish_request
       end
     end
@@ -411,7 +423,8 @@ module D4Plot
       return send_empty_features(context, snapshot, chromosome, false) if left >= right
 
       layout = BinLayout.for_viewport(left, right, bp_per_pixel, chromosome_size, MAX_FEATURE_BINS)
-      result = @signal_query.query(track.source, d4_chromosome, layout, snapshot.revision, client_id, navigation_id)
+      result = @signal_query.query(track.source, d4_chromosome, layout, snapshot.revision, client_id, navigation_id,
+        request_id: context.response.headers["X-Request-ID"].to_i64)
       context.response.content_type = "application/json; charset=utf-8"
       JSON.build(context.response) do |json|
         json.object do
@@ -445,8 +458,7 @@ module D4Plot
     rescue ex
       # Source/OS exception text can contain an absolute D4 path. Keep that
       # diagnostic in the local process log, never in a browser response.
-      STDERR.puts "D4 Plot D4 read failed: #{ex.class.name}: #{ex.message}"
-      failure(context, 500, "READ_FAILED", "D4 read failed")
+      failure(context, 500, "READ_FAILED", "D4 read failed", ex)
     end
 
     private def send_empty_features(context : HTTP::Server::Context, snapshot : IGVWebSession, chromosome : String, unavailable : Bool) : Nil
@@ -479,6 +491,7 @@ module D4Plot
       end
       context.response.content_type = "application/json; charset=utf-8"
       context.response.print({revision: snapshot.revision}.to_json)
+      Log.info &.emit("web.reference_changed", revision: snapshot.revision, request_id: context.response.headers["X-Request-ID"]?)
     rescue ex : JSON::ParseException | TypeCastError | ArgumentError | ReferenceValidationError
       failure(context, 400, "INVALID_REFERENCE", ex.message || "Invalid reference request")
     end
@@ -498,7 +511,7 @@ module D4Plot
     rescue ex : JSON::ParseException | TypeCastError | ArgumentError
       failure(context, 400, "INVALID_LOCUS", ex.message || "Invalid locus")
     rescue ex
-      failure(context, 502, "IGV_DESKTOP_UNAVAILABLE", ex.message || "IGV Desktop is unavailable")
+      failure(context, 502, "IGV_DESKTOP_UNAVAILABLE", ex.message || "IGV Desktop is unavailable", ex)
     end
 
     private def serve_reference_resource(context : HTTP::Server::Context, route_id : String) : Nil
@@ -735,7 +748,28 @@ module D4Plot
       !name.empty? && !name.includes?('\0') && !/\s/.matches?(name)
     end
 
-    private def failure(context : HTTP::Server::Context, status : Int32, code : String, message : String) : Nil
+    # Never log request.path: it includes the viewer capability token.
+    private def log_route(context : HTTP::Server::Context) : String
+      prefix = "/#{@token}"
+      path = context.request.path
+      return "unmatched" unless path == prefix || path.starts_with?("#{prefix}/")
+      suffix = path.byte_slice(prefix.bytesize, path.bytesize - prefix.bytesize)
+      return "/reference/:id" if suffix.starts_with?("/reference/")
+      return suffix if suffix.in?({"", "/", "/api/state", "/api/features", "/api/reference", "/api/desktop-goto", "/health", "/d4-igv.js", "/igv.min.js"})
+      "unmatched"
+    end
+
+    private def failure(context : HTTP::Server::Context, status : Int32, code : String, message : String, error : Exception? = nil) : Nil
+      request_id = context.response.headers["X-Request-ID"]?
+      if status >= 500 && code != "SERVER_STOPPING" && error
+        Logging.report_exception(Log, "http.failed", error, request_id: request_id,
+          route: log_route(context), status: status, code: code)
+      elsif status >= 500 && code != "SERVER_STOPPING"
+        Log.error &.emit("http.failed", request_id: request_id,
+          route: log_route(context), status: status, code: code)
+      else
+        Log.debug &.emit("http.rejected", request_id: request_id, status: status, code: code)
+      end
       return if context.response.closed?
       context.response.status_code = status
       context.response.content_type = "application/json; charset=utf-8"

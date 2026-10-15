@@ -19,6 +19,7 @@ module D4Plot
   record DisplayBins, bins : Array(SampledBin), exact : Bool
 
   class DataSampler
+    Log                         = D4Plot::Log.for("sampler")
     DEFAULT_POINT_COUNT         =        256
     MIN_INDEX_BIN_SIZE          = 65_536_i64
     DEFAULT_MAX_STREAMING_BASES = 64_i64 * 1024 * 1024
@@ -46,7 +47,9 @@ module D4Plot
       raise ArgumentError.new(D4Plot.t("errors.region_exceeds_chromosome")) if end0_excl > track.chromosome_size(chromosome)
       total_len = end0_excl.to_i64 - start0
       count = Math.min(npoints.to_i64, total_len).to_i
-      points = if use_sum_index && total_len // count >= index_bin_size(track) && track.has_index?(D4::IndexKind::Sum)
+      indexed = use_sum_index && total_len // count >= index_bin_size(track) && track.has_index?(D4::IndexKind::Sum)
+      Log.debug &.emit("sample.started", bases: total_len, bins: count, indexed: indexed)
+      points = if indexed
                  indexed_sample(track, chromosome, start0, end0_excl, count, cancelled)
                else
                  stream_sample(track, chromosome, start0, end0_excl, count, cancelled)
@@ -78,6 +81,7 @@ module D4Plot
                   begin
                     indexed_bins(track, chromosome, bins, cancelled)
                   rescue D4::IndexPrecisionError | D4::MissingIndexError
+                    Log.debug { "sample.index_fallback" }
                     require_streaming_budget!(bins, max_streaming_bases)
                     streamed_bins(track, chromosome, bins, cancelled)
                   end
@@ -106,6 +110,7 @@ module D4Plot
       raise ArgumentError.new("Display sampling budget must be positive") if max_sample_bases <= 0
       DisplayBins.new(sample_bins(track, chromosome, bins, true, cancelled, max_streaming_bases), true)
     rescue SamplingBudgetExceeded
+      Log.debug &.emit("sample.approximate", bins: bins.size, max_streaming_bases: max_streaming_bases, max_sample_bases: max_sample_bases)
       DisplayBins.new(stratified_bins(track, chromosome, bins, cancelled, max_sample_bases), false)
     end
 

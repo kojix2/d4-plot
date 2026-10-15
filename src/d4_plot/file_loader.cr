@@ -1,4 +1,5 @@
 require "./track_layer"
+require "./log"
 
 module D4Plot
   record FileLoadRequest, id : Int32, paths : Array(String), existing : Array(TrackSource)
@@ -8,6 +9,7 @@ module D4Plot
   # Metadata reads use their own handles and never call the native UI. A new
   # request or cancellation invalidates both queued and in-flight results.
   class FileLoader
+    Log = D4Plot::Log.for("file_loader")
     @mutex = Thread::Mutex.new
     @wake = Thread::ConditionVariable.new
     @generation = Atomic(Int32).new(0)
@@ -80,6 +82,8 @@ module D4Plot
 
     private def work : Nil
       while request = next_request
+        started = Time.instant
+        Log.info &.emit("files.started", request_id: request.id, files: request.paths.size, existing_tracks: request.existing.size)
         sources = request.existing.dup
         keys = sources.map(&.key).to_set
         path = ""
@@ -87,6 +91,7 @@ module D4Plot
           request.paths.each_with_index do |file, index|
             break unless request.id == @generation.get
             path = file
+            Log.debug &.emit("file.opening", request_id: request.id, file_index: index, path: path)
             @mutex.synchronize do
               @progress = FileLoadProgress.new(request.id, index + 1, request.paths.size, path) if request.id == @generation.get
             end
@@ -101,13 +106,23 @@ module D4Plot
           end
           result = FileLoadResult.new(request.id, sources)
         rescue ex
+          Logging.report_exception(Log, "files.failed", ex, request_id: request.id, elapsed_ms: Logging.elapsed_ms(started)) if request.id == @generation.get
           result = FileLoadResult.new(request.id, [] of TrackSource, "#{path}\n#{ex.message || ex.class.name}")
         end
-        @mutex.synchronize do
-          if !@closed && request.id == @generation.get
-            @result = result
-            @progress = nil
-          end
+        finish(request, result, started)
+      end
+    end
+
+    private def finish(request, result, started) : Nil
+      if request.id != @generation.get
+        Log.debug &.emit("files.cancelled", request_id: request.id, elapsed_ms: Logging.elapsed_ms(started))
+      elsif result.error.nil?
+        Log.info &.emit("files.completed", request_id: request.id, tracks: result.sources.size, elapsed_ms: Logging.elapsed_ms(started))
+      end
+      @mutex.synchronize do
+        if !@closed && request.id == @generation.get
+          @result = result
+          @progress = nil
         end
       end
     end

@@ -12,6 +12,7 @@ module D4Plot
   # One worker owns its file handles. Only the latest pending request/result is
   # retained, so rapid navigation cannot accumulate work or large allocations.
   class ViewLoader
+    Log = D4Plot::Log.for("view_loader")
     # Native synchronization avoids yielding the GUI fiber into Crystal's
     # scheduler while libui owns the main thread's event loop.
     @mutex = Thread::Mutex.new
@@ -72,6 +73,8 @@ module D4Plot
       while request = next_request
         next unless request.id == @generation.get
         started = Time.instant
+        Log.debug &.emit("view.started", request_id: request.id, tracks: request.sources.size,
+          region: request.region.to_s, bins: request.bins, use_index: request.use_index)
         begin
           cancelled = -> { request.id != @generation.get }
           layers = request.sources.map do |source|
@@ -82,11 +85,19 @@ module D4Plot
           track, annotation_error = annotation_for(request, cancelled)
           result = ViewResult.new(request, layers, track, (Time.instant - started).total_milliseconds, nil, annotation_error)
         rescue SamplingCancelled | AnnotationCancelled
+          Log.debug &.emit("view.cancelled", request_id: request.id, elapsed_ms: Logging.elapsed_ms(started))
           next
         rescue ex
+          Logging.report_exception(Log, "view.failed", ex, request_id: request.id, elapsed_ms: Logging.elapsed_ms(started))
           result = ViewResult.new(request, [] of LayerSample, nil, (Time.instant - started).total_milliseconds, ex.message || ex.class.name)
         end
-        next unless request.id == @generation.get
+        unless request.id == @generation.get
+          Log.debug &.emit("view.discarded", request_id: request.id)
+          next
+        end
+        Log.info &.emit("view.completed", request_id: request.id, tracks: result.layers.size,
+          failed_tracks: result.layers.count { |layer| !layer.error.nil? }, annotation_failed: !result.annotation_error.nil?,
+          failed: !result.error.nil?, elapsed_ms: result.elapsed_ms.round(2))
         @mutex.synchronize do
           @result = result unless @closed || request.id != @generation.get
         end
@@ -97,15 +108,20 @@ module D4Plot
 
     private def sample(source, request, cancelled) : LayerSample
       unless source.chromosomes.has_key?(request.region.chromosome)
+        Log.debug &.emit("track.no_data", request_id: request.id, path: source.path, track: source.name, chromosome: request.region.chromosome)
         return LayerSample.new(source, nil, D4Plot.t("errors.no_track_data", chromosome: request.region.chromosome))
       end
       request.region.validate!(source.chromosomes)
       current_file = file_for(source.path)
-      points = DataSampler.downsample(current_file.track(source.name), request.region, request.bins, request.use_index, cancelled)
+      points = ::Log.with_context(request_id: request.id) do
+        DataSampler.downsample(current_file.track(source.name), request.region, request.bins, request.use_index, cancelled)
+      end
       LayerSample.new(source, SampledView.new(request.region, points), nil)
     rescue ex : SamplingCancelled
       raise ex
     rescue ex
+      Logging.report_exception(Log, "track.failed", ex, request_id: request.id)
+      Log.debug &.emit("track.failed.source", request_id: request.id, path: source.path, track: source.name)
       LayerSample.new(source, nil, D4Plot.t("errors.read_failed", error: ex.message || ex.class.name))
     end
 
@@ -140,6 +156,7 @@ module D4Plot
     rescue ex : AnnotationCancelled
       raise ex
     rescue ex
+      Logging.report_exception(Log, "annotation.failed", ex, request_id: request.id)
       error = ex.message || ex.class.name
       # A rejected replacement must not discard the previous selection, and its
       # fallback must be read at the new coordinates, not reuse an old track.
@@ -148,7 +165,8 @@ module D4Plot
                   read_annotation(fallback, request, cancelled)
                 rescue ex : AnnotationCancelled
                   raise ex
-                rescue
+                rescue exception
+                  Logging.report_exception(Log, "annotation.fallback_failed", exception, request_id: request.id)
                   AnnotationTrack.notice(D4Plot.t("annotation.unavailable"))
                 end
               end

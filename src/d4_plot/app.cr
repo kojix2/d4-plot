@@ -180,6 +180,7 @@ module D4Plot
       @igv_web_server.try(&.wait)
       @retired_igv_web_servers.each(&.wait)
       @retired_igv_web_servers.clear
+      Log.info { "ui.workers_stopped" }
     end
 
     private def row : UIng::Box
@@ -612,6 +613,7 @@ module D4Plot
     private def receive_result
       return unless result = @loader.poll
       return unless result.request.id == @request_id && @loading
+      Log.debug &.emit("view.applied", request_id: result.request.id)
       @loading = false
       @requested_region = nil
       @renderer.preview_region = nil
@@ -780,7 +782,8 @@ module D4Plot
         sources = @layers.map(&.source.path) + [@annotation_path].compact
         export = BedgraphExport.new(path, sources, layer.source.path, layer.source.name, view)
         count = view.points.size
-        @background_io.submit(-> { export.write }) do |error|
+        Log.debug &.emit("export.requested", path: path, bins: count)
+        @background_io.submit(-> { export.write }, operation: "bedgraph.export") do |error|
           if error
             show_error(D4Plot.t("app.could_not_export"), error)
           else
@@ -798,7 +801,7 @@ module D4Plot
     private def view_in_igv_desktop : Nil
       return if @closed
       return unless region = active_region
-      @background_io.submit(-> { IGVDesktop.goto(region) }) do |error|
+      @background_io.submit(-> { IGVDesktop.goto(region) }, operation: "igv.desktop_goto") do |error|
         if error
           show_error(D4Plot.t("app.igv_error"), error)
         else
@@ -827,7 +830,7 @@ module D4Plot
       end
 
       address = server.browser_url(region)
-      @background_io.submit(-> { BrowserLauncher.open(address) }) do |error|
+      @background_io.submit(-> { BrowserLauncher.open(address) }, operation: "igv.open_browser") do |error|
         show_error(D4Plot.t("app.igv_error"), error) if error
         # Keep the capability URL accessible when the operating-system
         # launcher is unavailable (for example, in a remote desktop session).
@@ -851,7 +854,7 @@ module D4Plot
       # than retain a stale server capability.
       retire_igv_web_server(server) if server
       @igv_web_server = nil
-      Log.error("Could not refresh IGV.js session: #{ex.message || ex.class.name}")
+      Logging.report_exception(Log, "web.refresh_failed", ex)
     end
 
     private def retire_igv_web_server(server : IGVWebServer) : Nil
@@ -1150,6 +1153,7 @@ module D4Plot
     private def shutdown
       return if @closed
       @closed = true
+      Log.info { "ui.stopping" }
       @igv_web_server.try(&.close)
       @background_io.close
       @settings_window.try(&.destroy)

@@ -8,6 +8,8 @@ module D4Plot
   # and the GUI-free `d4-plot-server` executable. Keep this file free of app,
   # UIng, and UI-runtime requires so the latter can be built on headless hosts.
   module ServeCLI
+    Log = D4Plot::Log.for("cli")
+
     class UsageError < ArgumentError
     end
 
@@ -58,6 +60,7 @@ module D4Plot
     end
 
     def self.run(arguments : Array(String) = ARGV) : Int32
+      Logging.setup
       configuration = parse(arguments)
       if configuration.help?
         puts usage
@@ -66,6 +69,7 @@ module D4Plot
 
       Translations.setup(configuration.locale)
       sources = configuration.files.flat_map { |path| TrackSource.load(path) }
+      Log.info &.emit("files.loaded", files: configuration.files.size, tracks: sources.size)
       initial_region = configuration.region.try do |text|
         if sources.empty?
           region = Region.parse(text)
@@ -85,10 +89,11 @@ module D4Plot
           begin
             BrowserLauncher.open(browser_url)
           rescue ex
+            Logging.report_warning(Log, "browser.open_failed", ex)
             # The token URL was already printed. A missing xdg-open or a
             # headless host must not turn --open into a request to stop the
             # server before the user can paste that URL into another browser.
-            STDERR.puts "d4-plot serve: could not open browser: #{ex.message || ex.class.name}; server remains running"
+            Logging.write_stderr("d4-plot serve: could not open browser: #{ex.message || ex.class.name}; server remains running")
           end
         end
         server.listen
@@ -98,12 +103,15 @@ module D4Plot
         server.wait
       end
     rescue ex : UsageError | OptionParser::InvalidOption | OptionParser::MissingOption
-      STDERR.puts "d4-plot serve: #{ex.message || ex.class.name}"
-      STDERR.puts usage
+      Log.warn &.emit("cli.invalid_arguments", error_class: ex.class.name)
+      Logging.write_stderr("d4-plot serve: #{ex.message || ex.class.name}\n#{usage}")
       2
     rescue ex
-      STDERR.puts "d4-plot serve: #{ex.message || ex.class.name}"
+      Logging.report_exception(Log, "cli.failed", ex)
+      Logging.write_stderr("d4-plot serve: #{ex.message || ex.class.name}")
       1
+    ensure
+      Logging.close
     end
 
     # Public so callers and specs can validate their command line before

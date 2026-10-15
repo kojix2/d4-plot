@@ -130,7 +130,9 @@ module D4Plot
 
     def initialize(@source : TrackSource, @d4_chromosome : String, @layout : BinLayout,
                    @reference_revision : String, @client_id : String, @navigation_id : Int64,
-                   @reply : Channel(SignalQueryCompletion)); end
+                   @reply : Channel(SignalQueryCompletion), @request_id : Int64); end
+
+    getter request_id : Int64
 
     getter source : TrackSource
     getter d4_chromosome : String
@@ -145,6 +147,7 @@ module D4Plot
   # seekable source.  One worker is intentional as the safe default for HDDs,
   # NFS, and large compressed containers.
   class SignalQuery
+    Log                    = D4Plot::Log.for("signal_query")
     DEFAULT_MAX_PENDING    = 32
     DEFAULT_MAX_OPEN_FILES =  8
     DEFAULT_CACHE_BYTES    = 64_i64 * 1024 * 1024
@@ -173,12 +176,12 @@ module D4Plot
     end
 
     def query(source : TrackSource, d4_chromosome : String, layout : BinLayout, reference_revision : String,
-              client_id : String, navigation_id : Int64) : SignalResult
+              client_id : String, navigation_id : Int64, request_id : Int64 = Logging.next_correlation_id) : SignalResult
       raise SignalQueryClosed.new("D4 reader is closed") if @closed.get
       validate_request!(source, d4_chromosome, layout, reference_revision, client_id, navigation_id)
       note_navigation(navigation_key(source, client_id), navigation_id)
       reply = Channel(SignalQueryCompletion).new(1)
-      request = SignalQueryRequest.new(source, d4_chromosome, layout, reference_revision, client_id, navigation_id, reply)
+      request = SignalQueryRequest.new(source, d4_chromosome, layout, reference_revision, client_id, navigation_id, reply, request_id)
       begin
         select
         when @queue.send(request)
@@ -234,6 +237,9 @@ module D4Plot
     end
 
     private def execute(request : SignalQueryRequest) : SignalResult
+      started = Time.instant
+      Log.debug &.emit("query.started", request_id: request.request_id, navigation_id: request.navigation_id,
+        revision: request.reference_revision, bins: request.layout.bins.size)
       raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
       stamp = file_stamp(request.source.path)
       track = file_for(request.source.path, stamp).track(request.source.name)
@@ -243,6 +249,8 @@ module D4Plot
         if entry.stamp.same_source?(stamp)
           entry.last_used = tick
           raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
+          Log.debug &.emit("query.completed", request_id: request.request_id, cache_hit: true,
+            exact: entry.exact, bins: entry.bins.size, elapsed_ms: Logging.elapsed_ms(started))
           return SignalResult.new(entry.bins.dup, entry.bin_width, true, entry.exact)
         end
         # The handle may have been evicted before an atomic same-size,
@@ -252,9 +260,13 @@ module D4Plot
       end
 
       cancelled = -> { stale?(request) }
-      sampled = DataSampler.display_bins(track, request.d4_chromosome, layout.bins, cancelled)
+      sampled = ::Log.with_context(request_id: request.request_id) do
+        DataSampler.display_bins(track, request.d4_chromosome, layout.bins, cancelled)
+      end
       raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
       cache_result(key, request.source.path, stamp, sampled.bins, layout.width, sampled.exact)
+      Log.debug &.emit("query.completed", request_id: request.request_id, cache_hit: false,
+        exact: sampled.exact, bins: sampled.bins.size, elapsed_ms: Logging.elapsed_ms(started))
       SignalResult.new(sampled.bins.dup, layout.width, false, sampled.exact)
     rescue ex : SamplingCancelled
       raise SignalQueryCancelled.new(ex.message || "D4 query was superseded")

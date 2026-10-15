@@ -19,7 +19,7 @@ describe D4Plot::BackgroundIO do
         rescue ex
           outcome.send(ex)
         end
-      }) { }
+      }, operation: "test.igv_goto") { }
       outcome.receive.should eq("ok")
     ensure
       io.close
@@ -34,11 +34,11 @@ describe D4Plot::BackgroundIO do
     gate = Channel(Nil).new
     first = Channel(String).new(1)
     begin
-      io.submit(-> { gate.receive }) { }
+      io.submit(-> { gate.receive }, operation: "test.wait") { }
       preferences = D4Plot::Preferences.new(path)
       preferences.settings.h_lines = [1.0]
       preferences.save_async(io) { }
-      io.submit(-> { first.send(File.read(path)) }) { }
+      io.submit(-> { first.send(File.read(path)) }, operation: "test.read") { }
       preferences.settings.h_lines << 2.0
       preferences.sidebar_visible = false
       preferences.save_async(io) { }
@@ -67,7 +67,7 @@ describe D4Plot::BackgroundIO do
         error.should be_a(File::Error)
         events << "failed"
       end
-      io.submit(-> { completed.send(nil) }) { events << "continued" }
+      io.submit(-> { completed.send(nil) }, operation: "test.complete") { events << "continued" }
       completed.receive
       owner = Thread.current
       events.should be_empty

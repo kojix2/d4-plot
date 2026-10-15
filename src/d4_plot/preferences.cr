@@ -27,8 +27,9 @@ module D4Plot
         locale = data["locale"]?.try(&.as_s?)
         preference.locale = locale if locale && Translations.supported?(locale)
         preference.load_display(data)
-      rescue JSON::ParseException | File::Error
+      rescue ex : JSON::ParseException | File::Error
         # A damaged preference should never prevent the GUI from starting.
+        Logging.report_warning(Log, "preferences.defaults_used", ex)
       end
       preference
     end
@@ -53,7 +54,7 @@ module D4Plot
     def save_async(io : BackgroundIO, settings : PlotSettings = @settings, locale : String? = @locale, &done : Exception? -> Nil) : Nil
       path = @path
       data = serialized(settings, locale)
-      io.submit(-> { Preferences.write(path, data) }, &done)
+      io.submit(-> { Preferences.write(path, data) }, operation: "preferences.save", &done)
       @settings = settings
       @locale = locale
     end
