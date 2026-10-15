@@ -7,11 +7,11 @@ nl:
   app:
     status_ready: "Gereed"
     inspection_short: "Aanwijzen om te inspecteren · Slepen om te verschuiven"
-    view_summary: "%{bases} bp · %{tracks} tracks"
+    view_summary: "%{bases} bp · %{tracks} sporen"
     unavailable_summary: "%{failed} niet beschikbaar"
     show_tracks: "Tracks tonen"
     hide_tracks: "Tracks verbergen"
-    track_list: "Track"
+    track_list: "Spoor"
     add_d4_tip: "Voeg D4-bestanden toe aan de huidige weergave. Meerdere bestanden selecteren is mogelijk."
     opening_files: "Controleren %{current} / %{total}: %{name}…"
     files_cancelled: "Openen geannuleerd. De vorige weergave is behouden."
