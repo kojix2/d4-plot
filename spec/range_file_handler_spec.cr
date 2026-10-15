@@ -41,8 +41,10 @@ describe D4Plot::RangeFileHandler do
       id = handler.register(path, "text/plain")
 
       id.size.should eq(43)
-      id.each_byte.all? { |byte| (byte >= 65_u8 && byte <= 90_u8) || (byte >= 97_u8 && byte <= 122_u8) ||
-        (byte >= 48_u8 && byte <= 57_u8) || byte == 45_u8 || byte == 95_u8 }.should be_true
+      id.each_byte.all? do |byte|
+        (byte >= 65_u8 && byte <= 90_u8) || (byte >= 97_u8 && byte <= 122_u8) ||
+          (byte >= 48_u8 && byte <= 57_u8) || byte == 45_u8 || byte == 95_u8
+      end.should be_true
       id.should_not contain(path)
       handler.registered?(id).should be_true
 

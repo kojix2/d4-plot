@@ -35,7 +35,6 @@ describe D4Plot::IGVWebServer do
     File.write("#{fasta}.fai", "not-a-valid-fai\n")
     source = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
     port = available_loopback_port
-    replacement = nil.as(D4Plot::IGVWebServer?)
     begin
       expect_raises(D4Plot::ReferenceValidationError) do
         D4Plot::IGVWebServer.new(source, port: port, reference: D4Plot::ReferenceSpec.fasta(fasta))
@@ -44,9 +43,9 @@ describe D4Plot::IGVWebServer do
       # Rebinding exactly the same port proves the failed constructor did not
       # strand its listener. The successful server also owns a fresh worker.
       replacement = D4Plot::IGVWebServer.new(source, port: port)
+      replacement.close
+      replacement.wait
     ensure
-      replacement.try(&.close)
-      replacement.try(&.wait)
       File.delete?("#{fasta}.fai")
       File.delete?(fasta)
       Dir.delete?(directory)
@@ -64,7 +63,7 @@ describe D4Plot::IGVWebServer do
       state = JSON.parse(state_response.body)
       state["referenceInfo"]["kind"].as_s.should eq("contigs_only")
       state["referenceInfo"]["dictionaryVerified"].as_bool.should be_true
-      state["referenceChoices"].as_a.find(&.["id"].as_s.==("contigs-only")).not_nil!["label"].as_s.should eq("Contigs only")
+      state["referenceChoices"].as_a.find!(&.["id"].as_s.==("contigs-only"))["label"].as_s.should eq("Contigs only")
       revision = state["revision"].as_s
       track_id = state["tracks"].as_a.first["id"].as_s
       state["igvReference"]["reference"]["format"].as_s.should eq("chromsizes")
@@ -84,7 +83,7 @@ describe D4Plot::IGVWebServer do
       features = JSON.parse(features_response.body)
       features["coordinateSystem"].as_s.should eq("0-based-half-open")
       features["aggregation"].as_s.should eq("mean")
-      features["features"].as_a.map { |item| item["value"].as_f }.should eq([0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 0.0])
+      features["features"].as_a.map(&.["value"].as_f).should eq([0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 0.0])
 
       stale = URI::Params.encode({
         "track" => track_id, "chr" => "chr", "start" => "0", "end" => "10", "bp_per_pixel" => "1",
@@ -148,7 +147,7 @@ describe D4Plot::IGVWebServer do
     server.start
     begin
       state = JSON.parse(server_get("#{server.url}api/state").body)
-      state["tracks"].as_a.map { |track| track["compatibility"].as_s }.should eq(["compatible", "incompatible"])
+      state["tracks"].as_a.map(&.["compatibility"].as_s).should eq(["compatible", "incompatible"])
     ensure
       server.close
       server.wait

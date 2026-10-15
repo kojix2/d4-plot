@@ -30,7 +30,7 @@ module D4Plot
       # two universally conventional spellings when they identify one track
       # contig unambiguously.  Do not apply general prefix stripping.
       return reference_chromosome if @source.chromosomes.has_key?(reference_chromosome)
-      candidates = unverified_candidates(reference_chromosome).select { |name| @source.chromosomes.has_key?(name) }.uniq
+      candidates = unverified_candidates(reference_chromosome).select { |candidate| @source.chromosomes.has_key?(candidate) }.uniq!
       candidates.size == 1 ? candidates.first : nil
     end
 
@@ -214,44 +214,55 @@ module D4Plot
         secure_headers(response)
         return failure(context, 403, "LOCAL_ONLY", "Local connections only") unless valid_host?(context)
 
-        path = context.request.path
-        prefix = "/#{@token}"
-        return failure(context, 404, "NOT_FOUND", "Not found") unless path == prefix || path.starts_with?("#{prefix}/")
-        suffix = path.byte_slice(prefix.bytesize, path.bytesize - prefix.bytesize)
-        suffix = "/" if suffix.empty?
-
-        case {context.request.method, suffix}
-        when {"GET", "/"}
-          serve_html(context)
-        when {"GET", "/d4-igv.js"}
-          serve_script(context)
-        when {"GET", "/igv.min.js"}
-          serve_igv_bundle(context)
-        when {"GET", "/api/state"}
-          send_state(context)
-        when {"GET", "/api/features"}
-          send_features(context)
-        when {"POST", "/api/reference"}
-          return failure(context, 403, "INVALID_ORIGIN", "Invalid request origin") unless valid_control_origin?(context)
-          select_reference(context)
-        when {"POST", "/api/desktop-goto"}
-          return failure(context, 403, "INVALID_ORIGIN", "Invalid request origin") unless valid_control_origin?(context)
-          desktop_goto(context)
-        when {"GET", "/health"}
-          response.content_type = "text/plain; charset=utf-8"
-          response.print("ok\n")
-        else
-          if context.request.method.in?({"GET", "HEAD"}) && suffix.starts_with?("/reference/")
-            serve_reference_resource(context, suffix.byte_slice("/reference/".bytesize, suffix.bytesize - "/reference/".bytesize))
-          else
-            failure(context, 404, "NOT_FOUND", "Not found")
-          end
-        end
+        dispatch(context)
       rescue ex
         STDERR.puts "D4 Plot web request failed: #{ex.class.name}: #{ex.message}" unless closed?
         failure(context, 500, "INTERNAL_ERROR", "Request failed") unless context.response.closed?
       ensure
         finish_request
+      end
+    end
+
+    # Routes remain explicit to keep the token-scoped public surface auditable.
+    # ameba:disable Metrics/CyclomaticComplexity
+    private def dispatch(context : HTTP::Server::Context) : Nil
+      path = context.request.path
+      prefix = "/#{@token}"
+      response = context.response
+      return failure(context, 404, "NOT_FOUND", "Not found") unless path == prefix || path.starts_with?("#{prefix}/")
+      suffix = path.byte_slice(prefix.bytesize, path.bytesize - prefix.bytesize)
+      suffix = "/" if suffix.empty?
+
+      case {context.request.method, suffix}
+      when {"GET", "/"}
+        serve_html(context)
+      when {"GET", "/d4-igv.js"}
+        serve_script(context)
+      when {"GET", "/igv.min.js"}
+        serve_igv_bundle(context)
+      when {"GET", "/api/state"}
+        send_state(context)
+      when {"GET", "/api/features"}
+        send_features(context)
+      when {"POST", "/api/reference"}
+        return failure(context, 403, "INVALID_ORIGIN", "Invalid request origin") unless valid_control_origin?(context)
+        select_reference(context)
+      when {"POST", "/api/desktop-goto"}
+        return failure(context, 403, "INVALID_ORIGIN", "Invalid request origin") unless valid_control_origin?(context)
+        desktop_goto(context)
+      when {"GET", "/health"}
+        response.content_type = "text/plain; charset=utf-8"
+        response.print("ok\n")
+      else
+        serve_reference_or_not_found(context, suffix)
+      end
+    end
+
+    private def serve_reference_or_not_found(context : HTTP::Server::Context, suffix : String) : Nil
+      if context.request.method.in?({"GET", "HEAD"}) && suffix.starts_with?("/reference/")
+        serve_reference_resource(context, suffix.byte_slice("/reference/".bytesize, suffix.bytesize - "/reference/".bytesize))
+      else
+        failure(context, 404, "NOT_FOUND", "Not found")
       end
     end
 
@@ -319,7 +330,7 @@ module D4Plot
     end
 
     private def send_state(context : HTTP::Server::Context) : Nil
-      snapshot, selected_key, choices = @mutex.synchronize { {@snapshot, @selected_reference_key, @reference_options.keys.sort} }
+      snapshot, selected_key, choices = @mutex.synchronize { {@snapshot, @selected_reference_key, @reference_options.keys.sort!} }
       initial = requested_initial_region(context.request.query_params["locus"]?, snapshot) || snapshot.initial_region
       context.response.content_type = "application/json; charset=utf-8"
       JSON.build(context.response) do |json|
@@ -366,6 +377,9 @@ module D4Plot
       end
     end
 
+    # The validation branches intentionally preserve a distinct HTTP error for
+    # each untrusted query field.
+    # ameba:disable Metrics/CyclomaticComplexity
     private def send_features(context : HTTP::Server::Context) : Nil
       snapshot = @mutex.synchronize { @snapshot }
       params = context.request.query_params
@@ -425,7 +439,7 @@ module D4Plot
       failure(context, 409, "QUERY_CANCELLED", ex.message || "D4 query was superseded")
     rescue ex : SignalQueryBudgetExceeded
       failure(context, 422, "SCAN_BUDGET_EXCEEDED", ex.message || "D4 aggregation exceeds the streaming budget")
-    rescue ex : SignalQueryClosed
+    rescue SignalQueryClosed
       failure(context, 503, "SERVER_STOPPING", "The D4 reader is stopping")
     rescue ex : ArgumentError
       failure(context, 400, "INVALID_QUERY", ex.message || "Invalid D4 query")
@@ -501,7 +515,7 @@ module D4Plot
 
     private def serve_generated_resource(context : HTTP::Server::Context, resource : ReferenceResource) : Nil
       return failure(context, 405, "METHOD_NOT_ALLOWED", "Only GET and HEAD are supported") unless context.request.method.in?({"GET", "HEAD"})
-      content = resource.content.not_nil!
+      content = resource.content || return failure(context, 500, "RESOURCE_MISSING", "Generated reference resource is unavailable")
       return failure(context, 413, "RESOURCE_TOO_LARGE", "Generated reference resource is too large") if content.bytesize > MAX_GENERATED_RESOURCE_BYTES
       context.response.content_type = resource.content_type
       context.response.headers["Accept-Ranges"] = "none"
@@ -622,9 +636,10 @@ module D4Plot
     private def default_region(reference : ResolvedReference, tracks : Array(IGVWebTrack)) : Region
       if dictionary = reference.dictionary
         dictionary.each do |contig|
-          if track = tracks.find { |candidate| candidate.d4_chromosome_for(contig.name) }
-            d4_name = track.d4_chromosome_for(contig.name).not_nil!
-            return bounded_region(contig.name, track.source.chromosomes[d4_name])
+          if track = tracks.find(&.d4_chromosome_for(contig.name))
+            if d4_name = track.d4_chromosome_for(contig.name)
+              return bounded_region(contig.name, track.source.chromosomes[d4_name])
+            end
           end
         end
         # A custom reference and every D4 track may be mutually incompatible.

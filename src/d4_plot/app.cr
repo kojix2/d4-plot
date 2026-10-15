@@ -862,6 +862,9 @@ module D4Plot
       @retired_igv_web_servers << server
     end
 
+    # UI state is derived atomically so controls cannot transiently contradict
+    # one another while a file-load transition is in progress.
+    # ameba:disable Metrics/CyclomaticComplexity
     private def update_controls
       has_layers = !@layers.empty?
       set_visible(@navigation, has_layers)

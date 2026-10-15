@@ -70,7 +70,7 @@ module D4Plot
       sampled = if indexed
                   begin
                     indexed_bins(track, chromosome, bins, cancelled)
-                  rescue ex : D4::IndexPrecisionError | D4::MissingIndexError
+                  rescue D4::IndexPrecisionError | D4::MissingIndexError
                     require_streaming_budget!(bins, max_streaming_bases)
                     streamed_bins(track, chromosome, bins, cancelled)
                   end

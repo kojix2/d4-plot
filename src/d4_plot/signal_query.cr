@@ -27,6 +27,9 @@ module D4Plot
       raise ArgumentError.new("Invalid bin width") if @width <= 0
     end
 
+    # Bound checks are deliberately explicit because browser coordinates are
+    # untrusted and may be near Int64 limits.
+    # ameba:disable Metrics/CyclomaticComplexity
     def self.for_viewport(start0 : Int64, end0 : Int64, bp_per_pixel : Float64, chromosome_size : Int64,
                           max_bins : Int32 = 8_192, alignment : Int64? = nil) : self
       raise ArgumentError.new("Invalid chromosome size") if chromosome_size <= 0
@@ -187,8 +190,10 @@ module D4Plot
         raise SignalQueryClosed.new("D4 reader is closed")
       end
       completion = reply.receive
-      raise completion.error.not_nil! if completion.error
-      completion.result.not_nil!
+      if error = completion.error
+        raise error
+      end
+      completion.result || raise SignalQueryClosed.new("D4 query completed without a result")
     rescue Channel::ClosedError
       raise SignalQueryClosed.new("D4 reader is closed")
     end
@@ -225,7 +230,7 @@ module D4Plot
         request.reply.send(completion)
       end
     ensure
-      @files.each_value { |entry| entry.file.close }
+      @files.each_value(&.file.close)
       @files.clear
     end
 
@@ -278,7 +283,9 @@ module D4Plot
     private def evict_files : Nil
       while @files.size > @max_open_files
         oldest_path = oldest_file_path || break
-        @files.delete(oldest_path).not_nil!.file.close
+        if entry = @files.delete(oldest_path)
+          entry.file.close
+        end
       end
     end
 
@@ -309,8 +316,9 @@ module D4Plot
     private def evict_cache : Nil
       while @cache_bytes > @max_cache_bytes
         key = oldest_cache_key || break
-        entry = @cache.delete(key).not_nil!
-        @cache_bytes -= entry.bytes
+        if entry = @cache.delete(key)
+          @cache_bytes -= entry.bytes
+        end
       end
     end
 
@@ -329,8 +337,9 @@ module D4Plot
     private def discard_cached_path(path : String) : Nil
       doomed = @cache.select { |_key, entry| entry.path == path }.keys
       doomed.each do |key|
-        entry = @cache.delete(key).not_nil!
-        @cache_bytes -= entry.bytes
+        if entry = @cache.delete(key)
+          @cache_bytes -= entry.bytes
+        end
       end
     end
 
@@ -406,7 +415,7 @@ module D4Plot
 
     private def evict_oldest_navigation : Nil
       oldest_id = @latest_navigation.min_by? { |_client_id, state| state.last_seen }.try(&.[0])
-      @latest_navigation.delete(oldest_id.not_nil!) if oldest_id
+      @latest_navigation.delete(oldest_id) if oldest_id
     end
 
     private def validate_request!(source : TrackSource, d4_chromosome : String, layout : BinLayout,

@@ -93,7 +93,7 @@ module D4Plot
         end
         return id if inserted
       end
-    rescue ex : File::Error
+    rescue File::Error
       raise RegistrationError.new("Registered resources must be readable regular files")
     end
 
@@ -132,11 +132,11 @@ module D4Plot
       ensure
         @transfer_slots.send(nil)
       end
-    rescue ex : ResourceUnavailable
+    rescue ResourceUnavailable
       # Do not disclose whether a formerly valid resource was deleted,
       # replaced, or redirected through a symlink.
       respond_not_found(context)
-    rescue ex : RequestCancelled
+    rescue RequestCancelled
       respond_stopping(context) unless context.response.closed?
     end
 
@@ -175,7 +175,7 @@ module D4Plot
         file.close
         raise ex
       end
-    rescue ex : File::Error
+    rescue File::Error
       raise ResourceUnavailable.new
     end
 
@@ -320,6 +320,8 @@ module D4Plot
 
     # Only one byte-range is intentionally supported.  Ignoring additional
     # ranges would turn a bounded request into a potentially huge 200 response.
+    # Each condition corresponds to a distinct malformed Range grammar case.
+    # ameba:disable Metrics/CyclomaticComplexity
     private def parse_single_byte_range(header : String, file_size : Int64) : ByteRange?
       value = header.strip
       return unless value.bytesize >= 6 && value.byte_slice(0, 6).downcase == "bytes="

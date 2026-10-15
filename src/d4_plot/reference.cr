@@ -273,7 +273,7 @@ module D4Plot
             raise ReferenceValidationError.new("Alias file line #{line_number} must contain at least two tab-separated names")
           end
           names.each { |name| ContigDictionary.validate_name!(name) }
-          canonical_names = names.select { |name| dictionary.includes?(name) }.uniq
+          canonical_names = names.select { |name| dictionary.includes?(name) }.uniq!
           next if canonical_names.empty?
           if canonical_names.size != 1
             raise ReferenceValidationError.new("Alias file line #{line_number} names multiple reference contigs: #{canonical_names.join(", ")}")
@@ -314,7 +314,7 @@ module D4Plot
     getter kind : ReferenceResourceKind
     getter path : String?
     getter content : String?
-    getter range_required : Bool
+    getter? range_required : Bool
 
     def initialize(@id : String, @kind : ReferenceResourceKind, @path : String? = nil, @content : String? = nil, @range_required : Bool = false)
       raise ReferenceValidationError.new("Reference resource id is empty") if @id.empty?
@@ -438,7 +438,9 @@ module D4Plot
         @name = name || @id
         ReferenceFiles.preset_id!(@id)
         raise ReferenceValidationError.new("Preset name is empty") if @name.strip.empty?
-        @aliases.validate_against!(@dictionary.not_nil!) if @dictionary
+        if dictionary = @dictionary
+          @aliases.validate_against!(dictionary)
+        end
       end
     end
 
@@ -524,14 +526,14 @@ module D4Plot
     def resolve(registry : PresetRegistry = PresetRegistry.default) : ResolvedReference
       case @kind
       when .preset?
-        definition = registry.fetch(@preset_id.not_nil!)
+        definition = registry.fetch(@preset_id || (raise ReferenceValidationError.new("Preset id is unavailable")))
         ResolvedReference.preset(definition)
       when .fasta?
-        ResolvedReference.from_fasta(@fasta_path.not_nil!, @fai_path, @id, @name, @aliases)
+        ResolvedReference.from_fasta(@fasta_path || (raise ReferenceValidationError.new("FASTA path is unavailable")), @fai_path, @id, @name, @aliases)
       when .igv_json?
-        ResolvedReference.from_igv_json(@json_path.not_nil!, @aliases)
+        ResolvedReference.from_igv_json(@json_path || (raise ReferenceValidationError.new("IGV JSON path is unavailable")), @aliases)
       when .contigs_only?
-        ResolvedReference.contigs_only(@contigs.not_nil!, @id.not_nil!, @name.not_nil!)
+        ResolvedReference.contigs_only(@contigs || (raise ReferenceValidationError.new("Contig dictionary is unavailable")), @id || (raise ReferenceValidationError.new("Reference id is unavailable")), @name || (raise ReferenceValidationError.new("Reference name is unavailable")))
       else
         raise ReferenceValidationError.new("Unsupported reference kind")
       end
@@ -720,7 +722,7 @@ module D4Plot
             json.field "genomeList" do
               json.array { browser.write_igv_definition(json, @id, @name) }
             end
-            json.field "genome", @preset_id.not_nil!
+            json.field("genome", @preset_id || raise ReferenceValidationError.new("Preset id is unavailable"))
           else
             json.field "reference" do
               write_igv_reference(json, resource_urls)
@@ -734,6 +736,9 @@ module D4Plot
       JSON.parse(igv_browser_config_json(resource_urls))
     end
 
+    # Exact, explicit-alias, and conservative-alias matching intentionally use
+    # separate branches so unsafe implicit mappings cannot be introduced.
+    # ameba:disable Metrics/CyclomaticComplexity
     def compatibility_with(track : ContigDictionary) : ReferenceCompatibility
       reference = @dictionary
       return ReferenceCompatibility.new(CompatibilityStatus::Unverified, unmapped_track_contigs: track.entries.map(&.name)) unless reference
@@ -771,7 +776,7 @@ module D4Plot
       end
 
       unmapped = track.entries.reject { |entry| used.has_key?(entry.name) }.map(&.name)
-      status = if mismatches.any? || ambiguous.any?
+      status = if mismatches.present? || ambiguous.present?
                  CompatibilityStatus::Incompatible
                elsif matches.empty?
                  CompatibilityStatus::Incompatible
@@ -809,7 +814,7 @@ module D4Plot
     private def url_for!(id : String, resource_urls : Hash(String, String)) : String
       resource = resource(id) || raise ReferenceValidationError.new("Unknown reference resource: #{id}")
       url = resource_urls[id]? || raise ReferenceValidationError.new("No browser URL registered for reference resource: #{id}")
-      if url.empty? || url.includes?('\0') || url.starts_with?("file:") || (path = resource.path) == url
+      if url.empty? || url.includes?('\0') || url.starts_with?("file:") || resource.path == url
         raise ReferenceValidationError.new("Unsafe browser URL for reference resource: #{id}")
       end
       url

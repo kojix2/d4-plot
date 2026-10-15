@@ -27,10 +27,11 @@ describe D4Plot::ReferenceSpec do
     with_reference_fixture do |directory|
       fasta = write_small_fasta(directory)
       resolved = D4Plot::ReferenceSpec.fasta(fasta).resolve
+      dictionary = resolved.dictionary || raise "FASTA reference has no dictionary"
 
       resolved.kind.should eq(D4Plot::ReferenceKind::Fasta)
-      resolved.dictionary.not_nil!["chr1"].should eq(4_i64)
-      resolved.dictionary.not_nil!["chrM"].should eq(3_i64)
+      dictionary["chr1"].should eq(4_i64)
+      dictionary["chrM"].should eq(3_i64)
       resolved.resources.map(&.id).should eq(["fasta", "fai"])
       resolved.resources.map(&.path).should contain(File.realpath(fasta))
 
@@ -86,7 +87,7 @@ describe D4Plot::ReferenceSpec do
       resolved.aliases.canonical_for("NC_000001.1").should eq("chr1")
       resolved.resources.map(&.id).should eq(["fasta", "fai", "aliases", "chrom-sizes"])
 
-      descriptor = resolved.resources.find { |resource| resource.id == "fasta" }.not_nil!.to_json
+      descriptor = resolved.resources.find! { |resource| resource.id == "fasta" }.to_json
       descriptor.should_not contain(File.realpath(fasta))
       config = resolved.igv_browser_config_json({
         "fasta"       => "/reference/fasta",

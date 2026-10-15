@@ -43,9 +43,9 @@ module D4Plot
         when .auto?
           nil
         when .preset?
-          ReferenceSpec.preset(@genome.not_nil!)
+          ReferenceSpec.preset(@genome || raise UsageError.new("--genome is required"))
         when .file?
-          path = @reference_path.not_nil!
+          path = @reference_path || raise UsageError.new("--reference is required")
           if path.downcase.ends_with?(".json")
             ReferenceSpec.igv_json(path)
           else
@@ -100,6 +100,8 @@ module D4Plot
 
     # Public so callers and specs can validate their command line before
     # opening a D4 file or binding a listening socket.
+    # Each option conflict has a separate diagnostic for CLI users.
+    # ameba:disable Metrics/CyclomaticComplexity
     def self.parse(arguments : Array(String)) : Configuration
       args = arguments.dup
       genome : String? = nil
@@ -138,7 +140,7 @@ module D4Plot
       if reference_index && !reference_path
         raise UsageError.new("--reference-index requires --reference")
       end
-      if reference_index && reference_path.not_nil!.downcase.ends_with?(".json")
+      if reference_index && reference_path.try(&.downcase.ends_with?(".json"))
         raise UsageError.new("--reference-index cannot be used with an IGV genome JSON reference")
       end
 
