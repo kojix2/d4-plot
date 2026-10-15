@@ -46,3 +46,6 @@ sidebar can be hidden to give the plot more space.
 The **Settings** window controls the number of bins, automatic or fixed Y scale,
 whether automatic scaling includes zero, reference lines, signal color,
 annotation limit, and toolbar labels.
+
+See [IGV integration](igv-integration.md) to send the current locus to IGV
+Desktop or view D4 tracks in IGV.js.

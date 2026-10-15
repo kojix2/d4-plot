@@ -30,3 +30,8 @@ pollします。ネイティブcallback内でファイルI/O、sleep、channel�
 その`poll`から適用します。起動時の読み込みにはウィンドウ作成前に`UIRuntime.load`を使います。
 このhelperは現在のOSスレッドをblockするため、UI callbackから呼び出してはいけません。
 受理済みの書き込みはネイティブUI終了後に完了まで待機されます。
+
+`BackgroundIO`は`Concurrent`実行コンテキストを使用します。IGV DesktopへのHTTP通信も
+ここで実行し、結果だけをUIスレッドの`poll`で反映します。macOSでは特に、ネットワーク
+I/Oを行うfiberからUIngのGUIを操作しないでください。HTTP応答の本文は常に存在するとは
+限りません。たとえばIGV Desktopが204を返した場合、`body_io`を読まずに成功として扱います。

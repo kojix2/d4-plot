@@ -6,6 +6,7 @@ Documentation for D4 Plot.
 - [Getting started]()
   - [Installation](installation.md)
   - [Viewing tracks](viewing-tracks.md)
+  - [IGV integration](igv-integration.md)
   - [Annotations and export](annotations-and-export.md)
   - [Creating D4 files](creating-d4.md)
   - [Preferences and languages](preferences.md)

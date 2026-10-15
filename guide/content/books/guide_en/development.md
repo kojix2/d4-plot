@@ -34,3 +34,9 @@ apply their completions from its `poll` method. Startup reads use
 `UIRuntime.load` before windows are created. That helper blocks the current OS
 thread and must not be called from a UI callback. Accepted writes are drained
 after native UI teardown.
+
+`BackgroundIO` uses a `Concurrent` execution context. HTTP calls to IGV
+Desktop run there; only their results are applied by `poll` on the UI thread.
+Especially on macOS, do not touch UIng controls from a fiber doing network
+I/O. HTTP responses do not always have a body: an IGV Desktop 204 response,
+for example, must be accepted without reading `body_io`.
