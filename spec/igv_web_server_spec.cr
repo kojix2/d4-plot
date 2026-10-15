@@ -27,6 +27,45 @@ private def available_loopback_port : Int32
 end
 
 describe D4Plot::IGVWebServer do
+  it "interrupts an accepted request during shutdown" do
+    server = D4Plot::IGVWebServer.new([] of D4Plot::TrackSource)
+    server.start
+    uri = URI.parse(server.url)
+    port = uri.port || raise "IGV web server URL has no port"
+    socket = TCPSocket.new("127.0.0.1", port)
+    begin
+      # Receiving 100 Continue proves the handler has accepted the request and
+      # is blocked reading the body that this client deliberately withholds.
+      socket << "POST #{uri.path}api/reference HTTP/1.1\r\nHost: #{uri.host}:#{uri.port}\r\nOrigin: #{uri.scheme}://#{uri.host}:#{uri.port}\r\nContent-Length: 10\r\nExpect: 100-continue\r\n\r\n"
+      response = HTTP::Client::Response.from_io(socket, ignore_body: true)
+      response.status_code.should eq(100)
+
+      server.close
+      completed = Channel(Exception?).new(1)
+      waiter = Fiber::ExecutionContext::Isolated.new("igv-web-shutdown-spec") do
+        error = begin
+          server.wait
+          nil
+        rescue ex
+          ex
+        end
+        completed.send(error)
+      end
+
+      select
+      when error = completed.receive
+        raise error if error
+      when timeout(2.seconds)
+        fail "IGV web server did not stop after closing an accepted connection"
+      end
+    ensure
+      socket.close
+      server.close
+      waiter.try(&.wait)
+      server.wait unless waiter
+    end
+  end
+
   it "starts a genome browser without D4 and accepts later D4 updates" do
     server = D4Plot::IGVWebServer.new([] of D4Plot::TrackSource)
     server.start

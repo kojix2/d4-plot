@@ -10,6 +10,55 @@ require "./signal_query"
 require "./track_layer"
 
 module D4Plot
+  # HTTP::Server#close stops accepting connections but deliberately lets
+  # accepted connections finish. That can leave an idle keep-alive connection
+  # waiting for another request forever. Retain those sockets so application
+  # shutdown can interrupt their reads and writes before joining the server.
+  private class InterruptibleHTTPServer < HTTP::Server
+    @connections_mutex = Thread::Mutex.new
+    @connections = [] of IO
+    @stopping = false
+
+    protected def dispatch(io)
+      connection = io.as(IO)
+      accepted = @connections_mutex.synchronize do
+        if @stopping
+          false
+        else
+          @connections.reject!(&.closed?)
+          @connections << connection
+          true
+        end
+      end
+
+      if accepted
+        super(connection)
+      else
+        close_connection(connection)
+      end
+    end
+
+    def close : Nil
+      connections = @connections_mutex.synchronize do
+        return if @stopping
+        @stopping = true
+        @connections.dup
+      end
+
+      begin
+        super
+      ensure
+        connections.each { |connection| close_connection(connection) }
+      end
+    end
+
+    private def close_connection(connection : IO) : Nil
+      connection.close
+    rescue IO::Error
+      # The request fiber may have closed the connection concurrently.
+    end
+  end
+
   # An immutable, browser-visible track descriptor.  Its opaque id is stable
   # for the lifetime of one SessionSnapshot and never contains a filename.
   private class IGVWebTrack
@@ -111,7 +160,7 @@ module D4Plot
       @reference_options = {} of String => ReferenceSpec
       @selected_reference_key = ""
       @selected_reference = ReferenceSpec.preset("hg38")
-      @server = HTTP::Server.new { |context| handle(context) }
+      @server = InterruptibleHTTPServer.new { |context| handle(context) }
       @address = @server.bind_tcp("127.0.0.1", port)
       @token = Random::Secure.urlsafe_base64(32)
       @signal_query = SignalQuery.new
