@@ -12,6 +12,7 @@ require "./toolbar"
 require "./conversion_window"
 require "./ui_runtime"
 require "./bedgraph_export"
+require "./igv_web_server"
 
 module D4Plot
   class App
@@ -79,6 +80,13 @@ module D4Plot
     @status = UIng::Label.new(D4Plot.t("app.status_ready"))
     @inspection = UIng::Label.new(D4Plot.t("app.inspection_short"))
     @view_summary = UIng::Label.new("")
+    @igv_web_server : IGVWebServer?
+    # A refresh can retire a server while its accepted Range/D4 requests are
+    # still unwinding. Keep it alive until native UI teardown, then join it;
+    # joining in a menu callback would freeze the GUI on slow storage.
+    @retired_igv_web_servers = [] of IGVWebServer
+    @igv_desktop_menu_item : UIng::MenuItem
+    @igv_web_menu_item : UIng::MenuItem
 
     def self.create_menu_bar
       file = UIng::Menu.new(D4Plot.t("app.file"))
@@ -87,15 +95,21 @@ module D4Plot
       export = file.append_item(D4Plot.t("app.export_bins"))
       settings = file.append_preferences_item
       file.append_quit_item
+      igv = UIng::Menu.new("IGV")
+      igv_desktop = igv.append_item(D4Plot.t("app.igv_desktop"))
+      igv_web = igv.append_item(D4Plot.t("app.igv_web"))
       help = UIng::Menu.new(D4Plot.t("app.help"))
       guide = help.append_item(D4Plot.t("app.navigation_help"))
       about = help.append_about_item
-      {open: open, create: create, export: export, settings: settings, guide: guide, about: about}
+      {open: open, create: create, export: export, settings: settings, guide: guide, about: about,
+       igv_desktop: igv_desktop, igv_web: igv_web}
     end
 
     def initialize(menu_items, @preferences : Preferences, @file_loader = FileLoader.new, @background_io = BackgroundIO.new)
       @window = UIng::Window.new(PROGRAM_NAME, 1120, 780, menubar: true, margined: true)
       @area = UIng::Area.new(@handler, @canvas_width, 400)
+      @igv_desktop_menu_item = menu_items[:igv_desktop]
+      @igv_web_menu_item = menu_items[:igv_web]
       @track_list = TrackList.new(->(index : Int32) { select_layer(index); nil }, ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil })
       @settings = @preferences.settings
       @row_height = {160.0, 220.0, 300.0}[@preferences.height_index]
@@ -106,6 +120,8 @@ module D4Plot
       menu_items[:open].on_clicked { open_file_dialog }
       menu_items[:create].on_clicked { open_conversion }
       menu_items[:export].on_clicked { export_view }
+      @igv_desktop_menu_item.on_clicked { view_in_igv_desktop }
+      @igv_web_menu_item.on_clicked { open_igv_web }
       menu_items[:settings].on_clicked { open_settings }
       menu_items[:guide].on_clicked { show_help }
       menu_items[:about].on_clicked { @window.msg_box(PROGRAM_NAME, D4Plot.t("app.about")) }
@@ -161,6 +177,9 @@ module D4Plot
       @loader.wait
       @file_loader.wait
       @conversion_worker.wait
+      @igv_web_server.try(&.wait)
+      @retired_igv_web_servers.each(&.wait)
+      @retired_igv_web_servers.clear
     end
 
     private def row : UIng::Box
@@ -493,6 +512,7 @@ module D4Plot
         @completed_region = nil
         select_chromosome(0)
       end
+      refresh_igv_web_session
       resize_canvas
     end
 
@@ -770,6 +790,78 @@ module D4Plot
       show_error(D4Plot.t("app.could_not_export"), ex)
     end
 
+    # Both IGV integrations use an immutable region snapshot.  The desktop
+    # listener can block while connecting, so it always runs outside the
+    # native UI event loop.
+    private def view_in_igv_desktop : Nil
+      return if @closed
+      return unless region = active_region
+      @background_io.submit(-> { IGVDesktop.goto(region) }) do |error|
+        if error
+          show_error(D4Plot.t("app.igv_error"), error)
+        else
+          show_status(D4Plot.t("app.igv_sent", region: region.to_s))
+        end
+      end
+    rescue ex
+      show_error(D4Plot.t("app.igv_error"), ex) unless @closed
+    end
+
+    # A single loopback server is retained while the application is open. A
+    # new browser launch replaces its immutable session snapshot, so the web
+    # viewer always receives the current track list and locus without binding
+    # another port or leaking a previous server.
+    private def open_igv_web : Nil
+      return if @closed || @layers.empty? || @file_load_id
+      sources = @layers.map(&.source)
+      region = active_region
+      server = @igv_web_server
+      if server
+        server.update(sources, region)
+      else
+        server = IGVWebServer.new(sources, region)
+        server.start
+        @igv_web_server = server
+      end
+
+      address = server.browser_url(region)
+      @background_io.submit(-> { BrowserLauncher.open(address) }) do |error|
+        show_error(D4Plot.t("app.igv_error"), error) if error
+        # Keep the capability URL accessible when the operating-system
+        # launcher is unavailable (for example, in a remote desktop session).
+        show_status(D4Plot.t("app.igv_web_url", url: address))
+      end
+    rescue ex
+      retire_igv_web_server(server) if server
+      @igv_web_server = nil if @igv_web_server == server
+      show_error(D4Plot.t("app.igv_error"), ex) unless @closed
+    end
+
+    # Model changes invalidate an already-open browser snapshot immediately.
+    # This prevents an old capability URL from continuing to serve a track
+    # that was removed from the desktop application.
+    private def refresh_igv_web_session : Nil
+      return unless server = @igv_web_server
+      if @layers.empty?
+        retire_igv_web_server(server)
+        @igv_web_server = nil
+        return
+      end
+      server.update(@layers.map(&.source), active_region)
+    rescue ex
+      # The desktop view stays usable if a reference resource was changed on
+      # disk and makes the web snapshot impossible to rebuild. Close rather
+      # than retain a stale server capability.
+      retire_igv_web_server(server) if server
+      @igv_web_server = nil
+      Log.error("Could not refresh IGV.js session: #{ex.message || ex.class.name}")
+    end
+
+    private def retire_igv_web_server(server : IGVWebServer) : Nil
+      server.close
+      @retired_igv_web_servers << server
+    end
+
     private def update_controls
       has_layers = !@layers.empty?
       set_visible(@navigation, has_layers)
@@ -787,6 +879,9 @@ module D4Plot
       update_region_controls
       update_layer_controls
       update_history_controls
+      igv_ready = has_layers && @file_load_id.nil? && !@closed
+      set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
+      set_enabled(@igv_web_menu_item, igv_ready)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end
@@ -1050,6 +1145,7 @@ module D4Plot
     private def shutdown
       return if @closed
       @closed = true
+      @igv_web_server.try(&.close)
       @background_io.close
       @settings_window.try(&.destroy)
       @settings_window = nil

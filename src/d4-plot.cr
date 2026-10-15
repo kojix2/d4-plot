@@ -1,4 +1,14 @@
 require "option_parser"
+require "./d4_plot/serve_cli"
+
+# The standalone d4-plot-server target is the GUI-free distribution option.
+# Keep the familiar subcommand on the desktop executable as well, but dispatch
+# it before the UI runtime is prepared or any native window is initialized.
+if ARGV.first? == "serve"
+  ARGV.shift
+  exit D4Plot::ServeCLI.run(ARGV)
+end
+
 require "./d4_plot/i18n"
 require "./d4_plot/preferences"
 require "./d4_plot/app"
