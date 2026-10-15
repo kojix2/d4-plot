@@ -7,10 +7,12 @@ version=${tag#v}
 
 bundle=dist/d4-plot.app
 executable=$bundle/Contents/MacOS/d4-plot
+server_executable=$bundle/Contents/MacOS/d4-plot-server
 archive="dist/d4-plot-${tag}-macos-${arch}.zip"
 
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 install -m 755 bin/d4-plot "$executable"
+install -m 755 bin/d4-plot-server "$server_executable"
 install -m 644 LICENSE README.md "$bundle/Contents/Resources/"
 crystal run scripts/make-icns.cr -- assets/d4-plot.png "$bundle/Contents/Resources/d4-plot.icns"
 bash scripts/collect-licenses.sh "$bundle/Contents/Resources/licenses"
@@ -51,7 +53,7 @@ cat > "$bundle/Contents/Info.plist" <<EOF
 EOF
 
 # Copy Homebrew dylibs and rewrite their paths inside the bundle.
-dylibbundler -ns -od -b -x "$executable" \
+dylibbundler -ns -od -b -x "$executable" -x "$server_executable" \
   -d "$bundle/Contents/Frameworks" \
   -p '@executable_path/../Frameworks/'
 

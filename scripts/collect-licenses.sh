@@ -7,3 +7,6 @@ for dependency in d4 hts mopdepth uing; do
 done
 cp shard.lock "$destination/shard.lock"
 cp THIRD_PARTY_NOTICES.md "$destination/"
+mkdir -p "$destination/igv.js"
+cp vendor/igv/LICENSE "$destination/igv.js/LICENSE"
+cp vendor/igv/manifest.json "$destination/igv.js/manifest.json"

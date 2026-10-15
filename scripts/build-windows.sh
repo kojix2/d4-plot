@@ -48,6 +48,8 @@ icon_resource=$(cygpath -m "$PWD/build/d4-plot-icon.o")
 crystal spec spec -D static --link-flags="${static_libs[*]}"
 crystal build src/d4-plot.cr --release --no-debug --static \
   --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/d4-plot.exe
+crystal build src/d4-plot-server.cr --release --no-debug --static \
+  --link-flags="${static_libs[*]}" -o bin/d4-plot-server.exe
 
 # Include upstream license texts in both portable ZIP and installer.
 bash scripts/collect-licenses.sh build/licenses

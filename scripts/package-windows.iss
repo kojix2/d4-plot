@@ -20,6 +20,7 @@ SetupIconFile=..\assets\d4-plot.ico
 
 [Files]
 Source: "..\bin\d4-plot.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\bin\d4-plot-server.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs

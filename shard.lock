@@ -6,7 +6,7 @@ shards:
 
   d4:
     git: https://github.com/bio-cr/d4.cr.git
-    version: 0.1.0+git.commit.7075796d5c1ced4e31d33abc9f078adfeed85603
+    version: 0.1.0+git.commit.63228a19d7c02be7570f686ae19e32bee94e4d55
 
   hts:
     git: https://github.com/bio-cr/hts.cr.git
@@ -18,7 +18,7 @@ shards:
 
   mopdepth:
     git: https://github.com/kojix2/mopdepth.git
-    version: 0.0.6+git.commit.51ffbe27ff1737435408c539badf33c731139e52
+    version: 0.0.6+git.commit.418df3c963e4610107dd5510772d7b8736f626ad
 
   uing:
     git: https://github.com/kojix2/uing.git

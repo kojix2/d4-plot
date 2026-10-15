@@ -9,6 +9,7 @@ install -d -m 755 "$package/DEBIAN" "$package/usr/bin" \
   "$package/usr/share/applications" "$package/usr/share/doc/d4-plot" \
   "$package/usr/share/icons/hicolor/256x256/apps"
 install -m 755 bin/d4-plot "$package/usr/bin/d4-plot"
+install -m 755 bin/d4-plot-server "$package/usr/bin/d4-plot-server"
 install -m 644 assets/d4-plot-256.png "$package/usr/share/icons/hicolor/256x256/apps/d4-plot.png"
 install -m 644 LICENSE "$package/usr/share/doc/d4-plot/copyright"
 install -m 644 README.md "$package/usr/share/doc/d4-plot/README.md"

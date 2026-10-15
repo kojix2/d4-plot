@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 binary=${1:?Executable path required}
+subsystem=${2:-gui}
 headers=$(objdump -p "$binary")
 printf '%s\n' "$headers" | grep -E 'Subsystem|DLL Name'
-grep -Eq 'Subsystem[[:space:]]+00000002' <<< "$headers" || {
-  echo 'Expected the Windows GUI subsystem (no console window).' >&2; exit 1;
-}
+case "$subsystem" in
+  gui)
+    grep -Eq 'Subsystem[[:space:]]+00000002' <<< "$headers" || {
+      echo 'Expected the Windows GUI subsystem (no console window).' >&2; exit 1;
+    }
+    ;;
+  console)
+    grep -Eq 'Subsystem[[:space:]]+00000003' <<< "$headers" || {
+      echo 'Expected the Windows console subsystem.' >&2; exit 1;
+    }
+    ;;
+  *)
+    echo "Unknown expected subsystem: $subsystem" >&2; exit 2
+    ;;
+esac
 # Fail closed: any non-system import requires a deliberate packaging decision.
 while read -r dll; do
   case ${dll,,} in

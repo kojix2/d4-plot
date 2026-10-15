@@ -30,3 +30,5 @@ development_dependencies:
 targets:
   d4-plot:
     main: src/d4-plot.cr
+  d4-plot-server:
+    main: src/d4-plot-server.cr
