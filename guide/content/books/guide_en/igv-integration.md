@@ -27,9 +27,9 @@ tracks in its local IGV.js viewer. These are separate features.
 1. Choose **IGV → Open genome browser (IGV.js)…** in D4 Plot. You can start
    without a D4 file and add other tracks in the browser.
 2. In the browser, select a reference. If needed, select tracks under **D4
-   tracks** and click **Apply D4 tracks**. You can deselect every D4 track to
+   tracks** and click **Apply selection**. You can deselect every D4 track to
    view only the tracks you add.
-3. Use **Add tracks** to add a local file or data URL. IGV.js can display BAM,
+3. Use **Add track** to add a local file or data URL. IGV.js can display BAM,
    CRAM, VCF, BED, GTF, GFF3, BigWig, and other supported formats beside D4.
    Supply an index when needed. If the format cannot be inferred from the name,
    enter a format or track type override.
@@ -42,7 +42,7 @@ tracks in its local IGV.js viewer. These are separate features.
 | --- | --- |
 | Initial locus | Uses the visible D4 Plot locus; falls back to a valid locus if it does not fit the selected reference. |
 | Tracks | Selects the first 12 tracks by default; choose others under **D4 tracks**. |
-| Added tracks | Use **Add tracks** with a local file or URL. Supply matching indexes for large BAM, CRAM, compressed VCF, and annotation files when available. |
+| Added tracks | Use **Add track** with a local file or URL. Supply matching indexes for large BAM, CRAM, compressed VCF, and annotation files when available. |
 | Reference | Starts with D4-derived **Contigs only** when D4 is open, otherwise `hg38`; the browser can switch to `hg38`, `hg19`, `hs1`, or `mm39`. |
 | Gene annotations | Public presets load an assembly-matched gene track automatically: GENCODE for `hg38`, `hg19`, and `mm39`; NCBI RefSeq for `hs1`. Contigs only and local references have no automatic gene track. |
 | D4 values | Uses up to 1024 resolution-dependent bins per request. Wide ranges without a usable sum index may use sampled means; narrow peaks can be missed. Zoom in for exact values. |

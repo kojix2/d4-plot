@@ -8,80 +8,124 @@
   <style>
     :root { color-scheme: light; font: 14px/1.5 system-ui, -apple-system, sans-serif; color: #253040; }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body { margin: 0; background: #f6f7f8; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-      padding: 14px 24px; border-bottom: 1px solid #d9dce0; background: #fff; }
-    h1 { font-size: 19px; font-weight: 650; margin: 0; }
-    .sub { color: #667384; font-size: 12px; }
-    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    select, button, input[type="file"], input[type="text"] { border: 1px solid #aeb6c1; background: #fff; border-radius: 6px; padding: 7px 12px;
-      color: #26354a; }
+    header { background: #fff; border-bottom: 1px solid #d9dce0; }
+    .toolbar { max-width: 1650px; min-height: 62px; padding: 10px 20px; margin: auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    h1 { font-size: 18px; font-weight: 650; margin: 0; white-space: nowrap; }
+    .sub { color: #667384; font-size: 12px; font-weight: 400; }
+    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .actions > label { white-space: nowrap; }
+    select, button, input[type="file"], input[type="text"] { border: 1px solid #b8c1cd; background: #fff;
+      border-radius: 6px; color: #26354a; font: inherit; }
+    .actions > select, .actions > button, .menu > summary { min-height: 34px; padding: 5px 10px; }
     button { cursor: pointer; }
-    button:hover { background: #eaf0f8; }
+    button:hover, .menu > summary:hover { background: #eef3f9; }
     button:disabled, select:disabled { opacity: .5; cursor: default; }
-    details { position: relative; color: #53677c; font-size: 12px; }
-    details > summary { cursor: pointer; }
-    #track-choices { display: grid; gap: 4px; max-height: 220px; overflow: auto; min-width: 250px;
-      margin: 7px 0; padding: 7px; border: 1px solid #cfd4da; border-radius: 6px; background: #fff; }
-    #track-choices label { display: block; overflow-wrap: anywhere; }
-    #add-track-picker > div { display: grid; gap: 12px; min-width: 280px; max-width: 380px; margin: 7px 0; }
-    #add-track-picker form { display: grid; gap: 7px; padding: 9px; border: 1px solid #cfd4da;
-      border-radius: 6px; background: #fff; }
-    #add-track-picker h2 { margin: 0; font-size: 13px; }
-    #add-track-picker label { display: grid; gap: 3px; }
-    #add-track-picker input { width: 100%; font-size: 12px; }
-    #add-track-picker .hint { margin: 0; color: #667384; }
-    #status { margin: 0; color: #53677c; font-size: 12px; }
+    .menu { position: relative; }
+    .menu > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer;
+      border: 1px solid #b8c1cd; border-radius: 6px; background: #fff; white-space: nowrap; }
+    .menu > summary::-webkit-details-marker { display: none; }
+    .menu > summary::after { content: "▾"; color: #64748b; }
+    .menu[open] > summary { background: #eaf1fa; border-color: #8aa8cf; }
+    .popover { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+      width: min(370px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow: auto;
+      padding: 14px; border: 1px solid #cfd7e2; border-radius: 10px; background: #fff;
+      box-shadow: 0 14px 36px #1b33542b; }
+    .popover h2 { margin: 0 0 10px; font-size: 14px; color: #26354a; }
+    #track-choices { display: grid; gap: 8px; max-height: 260px; overflow: auto; margin-bottom: 12px; }
+    #track-choices label { overflow-wrap: anywhere; cursor: pointer; }
+    #track-choices input { accent-color: #23549a; }
+    #load-tracks { width: 100%; padding: 7px 10px; }
+    .source-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px;
+      margin-bottom: 12px; border-radius: 7px; background: #edf1f5; }
+    .source-switch button { border: 0; padding: 6px 8px; background: transparent; }
+    .source-switch button[aria-pressed="true"] { background: #fff; color: #194b8d;
+      box-shadow: 0 1px 3px #1b335426; font-weight: 600; }
+    #add-track-picker form { display: grid; gap: 10px; }
+    #add-track-picker label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+    #add-track-picker input { width: 100%; padding: 7px 9px; font-size: 13px; font-weight: 400; }
+    #add-track-picker input[type="file"] { padding: 5px; }
+    .advanced { font-size: 12px; }
+    .advanced > summary { color: #376494; cursor: pointer; }
+    .advanced-fields { display: grid; gap: 9px; margin-top: 10px; }
+    .submit-track { padding: 8px 10px; background: #23549a; border-color: #23549a; color: #fff; font-weight: 600; }
+    .submit-track:hover { background: #19457f; }
+    .submit-track:disabled { background: #e8edf3; border-color: #d5dce5; color: #8490a1; }
+    .hint { margin: 12px 0 0; color: #667384; font-size: 11px; }
+    .feedback { max-width: 1650px; margin: 0 auto; padding: 8px 20px 0; }
+    #status { color: #53677c; font-size: 12px; }
     #status.error { color: #ad2828; }
-    main { margin: 20px auto; padding: 0 20px; max-width: 1650px; }
+    main { margin: 10px auto 20px; padding: 0 20px; max-width: 1650px; }
     #igv { min-height: 360px; border: 1px solid #cfd4da; background: white; border-radius: 7px;
       padding: 6px; overflow: hidden; }
-    .footer { padding-top: 12px; color: #6b7280; font-size: 12px; }
-    @media (max-width: 800px) { header { flex-direction: column; align-items: flex-start; } }
+    .footer { padding-top: 12px; color: #6b7280; font-size: 11px; }
+    @media (max-width: 800px) {
+      .toolbar { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .actions { justify-content: flex-start; }
+      .popover { position: fixed; top: 110px; left: 16px; right: 16px; width: auto;
+        max-height: calc(100vh - 126px); }
+    }
   </style>
   <script defer src="./igv.min.js"></script>
   <script defer src="./d4-igv.js"></script>
 </head>
 <body>
   <header>
-    <div>
+    <div class="toolbar">
       <h1>D4 Plot <span class="sub">/ IGV.js</span></h1>
-    </div>
-    <div class="actions">
-      <label class="sub" for="reference">Reference</label>
-      <select id="reference" aria-label="Reference genome" disabled></select>
-      <details id="track-picker">
-        <summary>D4 tracks</summary>
-        <div id="track-choices" aria-label="D4 tracks"></div>
-        <button id="load-tracks" type="button">Apply D4 tracks</button>
-      </details>
-      <details id="add-track-picker">
-        <summary>Add tracks</summary>
-        <div>
-          <form id="local-track-form">
-            <h2>Local file</h2>
-            <label>Data file <input id="track-file" type="file" required></label>
-            <label>Index file (if needed) <input id="track-index-file" type="file"></label>
-            <label>Format override (optional) <input id="local-track-format" type="text" placeholder="e.g. gff3"></label>
-            <label>Track type override (optional) <input id="local-track-type" type="text" placeholder="e.g. annotation"></label>
-            <button type="submit" disabled>Add local track</button>
-          </form>
-          <form id="url-track-form">
-            <h2>Remote URL</h2>
-            <label>Data URL <input id="track-url" type="text" placeholder="https://…" required></label>
-            <label>Index URL (if needed) <input id="track-index-url" type="text"></label>
-            <label>Format override (optional) <input id="url-track-format" type="text" placeholder="e.g. gff3"></label>
-            <label>Track type override (optional) <input id="url-track-type" type="text" placeholder="e.g. annotation"></label>
-            <button type="submit" disabled>Add URL track</button>
-          </form>
-          <p class="hint">Supports IGV.js track formats, including BAM, CRAM, VCF, BED, GTF, GFF3, and BigWig. Select an index for indexed data.</p>
-        </div>
-      </details>
-      <button id="send-desktop" disabled>View locus in IGV Desktop</button>
-      <button id="reload" title="Reload this browser session">Reload</button>
-      <span id="status" role="status" aria-live="polite">Loading IGV.js…</span>
+      <div class="actions">
+        <label class="sub" for="reference">Genome</label>
+        <select id="reference" aria-label="Reference genome" disabled></select>
+        <details class="menu" id="track-picker">
+          <summary>D4 tracks</summary>
+          <div class="popover">
+            <h2>Choose D4 tracks</h2>
+            <div id="track-choices" aria-label="D4 tracks"></div>
+            <button id="load-tracks" type="button">Apply selection</button>
+          </div>
+        </details>
+        <details class="menu" id="add-track-picker">
+          <summary>Add track</summary>
+          <div class="popover">
+            <div class="source-switch" aria-label="Track source">
+              <button id="local-source" type="button" aria-pressed="true">Local file</button>
+              <button id="url-source" type="button" aria-pressed="false">Remote URL</button>
+            </div>
+            <form id="local-track-form">
+              <label>Track file <input id="track-file" type="file" required></label>
+              <label>Index file (optional) <input id="track-index-file" type="file"></label>
+              <details class="advanced">
+                <summary>Format and track type</summary>
+                <div class="advanced-fields">
+                  <label>Format <input id="local-track-format" type="text" placeholder="Auto detect"></label>
+                  <label>Track type <input id="local-track-type" type="text" placeholder="Auto detect"></label>
+                </div>
+              </details>
+              <button class="submit-track" type="submit" disabled>Add track</button>
+            </form>
+            <form id="url-track-form" hidden>
+              <label>Track URL <input id="track-url" type="text" placeholder="https://example.org/data.bam" required></label>
+              <label>Index URL (optional) <input id="track-index-url" type="text" placeholder="https://example.org/data.bam.bai"></label>
+              <details class="advanced">
+                <summary>Format and track type</summary>
+                <div class="advanced-fields">
+                  <label>Format <input id="url-track-format" type="text" placeholder="Auto detect"></label>
+                  <label>Track type <input id="url-track-type" type="text" placeholder="Auto detect"></label>
+                </div>
+              </details>
+              <button class="submit-track" type="submit" disabled>Add track</button>
+            </form>
+            <p class="hint">IGV.js accepts BAM, CRAM, VCF, BED, GTF, GFF, BigWig, and other supported formats. Provide an index for large indexed files.</p>
+          </div>
+        </details>
+        <button id="send-desktop" title="Send this locus to a running IGV Desktop" disabled>IGV Desktop</button>
+        <button id="reload" title="Reload this browser session">Reload</button>
+      </div>
     </div>
   </header>
+  <div class="feedback"><span id="status" role="status" aria-live="polite">Loading IGV.js…</span></div>
   <main>
     <section id="igv" aria-label="Interactive genome browser"></section>
     <p class="footer">D4 Plot verifies contig names and lengths when a local reference dictionary is available.

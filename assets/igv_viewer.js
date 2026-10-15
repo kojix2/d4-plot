@@ -5,6 +5,10 @@
   const desktopButton = document.getElementById("send-desktop");
   const reloadButton = document.getElementById("reload");
   const referenceSelect = document.getElementById("reference");
+  const trackPicker = document.getElementById("track-picker");
+  const addTrackPicker = document.getElementById("add-track-picker");
+  const localSourceButton = document.getElementById("local-source");
+  const urlSourceButton = document.getElementById("url-source");
   const trackChoices = document.getElementById("track-choices");
   const loadTracksButton = document.getElementById("load-tracks");
   const localTrackForm = document.getElementById("local-track-form");
@@ -30,6 +34,14 @@
   let loadingLocalTrack = false;
   let loadingUrlTrack = false;
 
+  const chooseTrackSource = (source) => {
+    const local = source === "local";
+    localTrackForm.hidden = !local;
+    urlTrackForm.hidden = local;
+    localSourceButton.setAttribute("aria-pressed", String(local));
+    urlSourceButton.setAttribute("aria-pressed", String(!local));
+  };
+
   const updateTrackButtons = () => {
     localTrackForm.querySelector("button").disabled = !browser || loadingLocalTrack || !trackFileInput.files.length;
     urlTrackForm.querySelector("button").disabled = !browser || loadingUrlTrack || !trackUrlInput.value.trim();
@@ -44,6 +56,7 @@
     if (format) config.format = format.toLowerCase();
     if (type) config.type = type.toLowerCase();
     await browser.loadTrack(config);
+    addTrackPicker.open = false;
     show(`Added ${name}.`);
   };
 
@@ -210,6 +223,7 @@
   };
 
   const setTrackChoices = (selected) => {
+    trackPicker.hidden = state.tracks.length === 0;
     trackChoices.replaceChildren();
     for (const track of state.tracks) {
       const label = document.createElement("label");
@@ -288,16 +302,45 @@
     updateTrackButtons();
 
     desktopButton.disabled = !state.desktopGotoAvailable;
+    desktopButton.title = state.desktopGotoAvailable
+      ? "Send this locus to a running IGV Desktop"
+      : "A reference with a verified contig dictionary is required";
     const omitted = state.tracks.length - tracks.length;
-    const desktopNote = state.desktopGotoAvailable ? "" : "; IGV Desktop goto needs a reference with a verified contig dictionary";
     const sampledNote = d4Sources.some((source) => source.approximationShown)
-      ? "; broad D4 ranges without a usable sum index use sampled bin means" : "";
-    show(`${tracks.length} D4 track${tracks.length === 1 ? "" : "s"} loaded${omitted > 0 ? ` (${omitted} not selected)` : ""}${sampledNote}${desktopNote}`);
+      ? " · Wide D4 view uses sampled depth" : "";
+    const trackMessage = tracks.length === 0 ? "Genome browser ready" :
+      `${tracks.length} D4 track${tracks.length === 1 ? "" : "s"} loaded${omitted > 0 ? ` (${omitted} not selected)` : ""}`;
+    show(`${trackMessage}${sampledNote}`);
   } catch (error) {
     show(error.message || String(error), true);
   }
 
   reloadButton.addEventListener("click", () => window.location.reload());
+  localSourceButton.addEventListener("click", () => chooseTrackSource("local"));
+  urlSourceButton.addEventListener("click", () => chooseTrackSource("url"));
+  for (const menu of [trackPicker, addTrackPicker]) {
+    menu.addEventListener("toggle", () => {
+      if (menu.open) {
+        for (const other of [trackPicker, addTrackPicker]) {
+          if (other !== menu) other.open = false;
+        }
+      }
+    });
+  }
+  document.addEventListener("pointerdown", (event) => {
+    for (const menu of [trackPicker, addTrackPicker]) {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    for (const menu of [trackPicker, addTrackPicker]) {
+      if (menu.open) {
+        menu.open = false;
+        menu.querySelector("summary").focus();
+      }
+    }
+  });
   trackFileInput.addEventListener("change", updateTrackButtons);
   trackUrlInput.addEventListener("input", updateTrackButtons);
   localTrackForm.addEventListener("submit", async (event) => {
