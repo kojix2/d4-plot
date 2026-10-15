@@ -9,7 +9,8 @@ module D4Plot::Logging
     include ::Log::Dispatcher
 
     @mutex = Thread::Mutex.new
-    @close_mutex = Thread::Mutex.new
+    # #close waits for an isolated worker, which can migrate the caller fiber.
+    @close_mutex = Sync::Mutex.new
     @wake = Thread::ConditionVariable.new
     @queue = Deque(Tuple(::Log::Entry, ::Log::Backend)).new
     @closed = false

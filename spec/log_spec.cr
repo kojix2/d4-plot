@@ -126,6 +126,32 @@ describe D4Plot::Logging do
     end
   end
 
+  it "waits for an active log write before closing" do
+    dispatcher = D4Plot::Logging::NonBlockingDispatcher.new
+    entered = Channel(Nil).new(1)
+    gate = LogGate.new
+    backend = SlowLogBackend.new(dispatcher, entered, gate)
+    builder = Log::Builder.new
+    Log.setup(:info, backend, builder: builder)
+    builder.for("d4_plot.test").info { "pending write" }
+    select
+    when entered.receive
+    when timeout(5.seconds)
+      raise "Logger did not start"
+    end
+
+    releaser = Fiber::ExecutionContext::Isolated.new("log-close-release") do
+      sleep 20.milliseconds
+      gate.release
+    end
+    backend.close
+    releaser.wait
+    backend.entries.map(&.message).should eq(["pending write"])
+  ensure
+    gate.try(&.release)
+    backend.try(&.close)
+  end
+
   it "keeps application work running when log writes fail" do
     dispatcher = D4Plot::Logging::NonBlockingDispatcher.new
     backend = Log::IOBackend.new(BrokenLogIO.new, dispatcher: dispatcher)

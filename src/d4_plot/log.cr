@@ -11,7 +11,8 @@ module D4Plot
   # Crystal's Log owns filtering, sources, entries and metadata. The custom
   # components only keep native UI callbacks away from yielding and file I/O.
   module Logging
-    @@lifecycle_mutex = Thread::Mutex.new
+    # Closing the backend waits for its worker and may resume on another OS thread.
+    @@lifecycle_mutex = Sync::Mutex.new
     @@backend : ::Log::Backend?
     @@correlation_ids = Atomic(Int64).new(0)
 
