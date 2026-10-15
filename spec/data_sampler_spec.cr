@@ -51,4 +51,31 @@ describe D4Plot::DataSampler do
       end
     end
   end
+
+  it "samples explicit Int64 half-open bins and preserves denominator semantics" do
+    path = File.tempname("d4-plot-explicit-bins", ".d4")
+    begin
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", 6)], denominator: 2.0) do |writer|
+        writer.write_values("chr", 0, [2_i32, 4_i32, -6_i32, 0_i32, 8_i32, 10_i32])
+      end
+      D4.open(path) do |file|
+        bins = [D4Plot::BinRange.new(0_i64, 2_i64), D4Plot::BinRange.new(2_i64, 5_i64), D4Plot::BinRange.new(5_i64, 6_i64)]
+        sampled = D4Plot::DataSampler.sample_bins(file.default_track, "chr", bins)
+        sampled.should eq([
+          D4Plot::SampledBin.new(0_i64, 2_i64, 1.5),
+          D4Plot::SampledBin.new(2_i64, 5_i64, 1.0 / 3),
+          D4Plot::SampledBin.new(5_i64, 6_i64, 5.0),
+        ])
+        expect_raises(ArgumentError, /contiguous/) do
+          D4Plot::DataSampler.sample_bins(file.default_track, "chr", [D4Plot::BinRange.new(0_i64, 2_i64), D4Plot::BinRange.new(3_i64, 4_i64)])
+        end
+        expect_raises(D4Plot::SamplingBudgetExceeded, /would scan 6 bases/) do
+          D4Plot::DataSampler.sample_bins(file.default_track, "chr", [D4Plot::BinRange.new(0_i64, 6_i64)],
+            max_streaming_bases: 5_i64)
+        end
+      end
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
 end

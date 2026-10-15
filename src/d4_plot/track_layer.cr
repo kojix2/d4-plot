@@ -39,6 +39,20 @@ module D4Plot
       end
       result
     end
+
+    # Returns a deterministic dictionary suitable for a shared browser
+    # reference. If independently loaded tracks disagree about a contig
+    # length, the first track supplies that reference length; the later track
+    # is then marked incompatible by ReferenceCompatibility instead of making
+    # every other track impossible to view. GUI layer loading still uses
+    # #chromosomes above when it needs a conflict-free common dictionary.
+    def self.reference_chromosomes(sources : Enumerable(TrackSource)) : Hash(String, UInt32)
+      result = {} of String => UInt32
+      sources.each do |source|
+        source.chromosomes.each { |name, size| result[name] ||= size }
+      end
+      result
+    end
   end
 
   class TrackLayer
