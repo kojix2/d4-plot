@@ -588,17 +588,18 @@ module D4Plot
       show_error(D4Plot.t("app.check_region"), ex)
     end
 
-    private def request_view(region : Region, history_move : Int32 = 0)
+    private def request_view(region : Region, history_move : Int32 = 0, pan_preview : Region? = nil)
       return if @layers.empty? || @file_load_id
       region.validate!(@chromosomes)
       rollback_history
+      # Keep the final pan position visible while its samples are loading.
+      clear_drag(pan_preview)
       @history_move = history_move
       @requested_region = region
       @region_entry.text = region.to_s
       @updating = true
       @chromosome_combo.selected = @chromosome_names.index(region.chromosome)
       @updating = false
-      clear_drag
       @renderer.hover_index = nil
       @loading = true
       show_status(D4Plot.t("app.loading", region: region))
@@ -613,6 +614,7 @@ module D4Plot
       return unless result.request.id == @request_id && @loading
       @loading = false
       @requested_region = nil
+      @renderer.preview_region = nil
       if error = result.error
         @pending_annotation_path = nil
         update_annotation_label
@@ -1012,24 +1014,29 @@ module D4Plot
 
     private def finish_drag(fraction, layout)
       drag = @drag
-      clear_drag
       return unless drag
       start, region, selecting = drag
-      return if (fraction - start).abs * layout.width < 4
+      if (fraction - start).abs * layout.width < 4
+        clear_drag
+        return
+      end
       if selecting
+        clear_drag
         left, right = {start, fraction}.minmax
         start0 = region.start0.to_i64 + (left * region.length).floor.to_i64
         end0 = region.start0.to_i64 + (right * region.length).ceil.to_i64
         request_view(Region.bounded(region.chromosome, start0, end0 - start0, @chromosomes[region.chromosome]))
       else
-        request_view(region.pan(start - fraction, @chromosomes[region.chromosome]))
+        target = region.pan(start - fraction, @chromosomes[region.chromosome])
+        clear_drag(target)
+        request_view(target, pan_preview: target)
       end
     end
 
-    private def clear_drag
+    private def clear_drag(preview_region : Region? = nil)
       @drag = nil
       @renderer.selection = nil
-      @renderer.preview_region = nil
+      @renderer.preview_region = preview_region
       @renderer.hover_index = nil
       @renderer.hover_layer = nil
       reset_inspection
