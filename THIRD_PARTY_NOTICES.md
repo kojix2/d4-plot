@@ -17,6 +17,13 @@ replace them. MSYS2 package sources are available from
 <https://packages.msys2.org/>; HTSlib's Windows build is pinned in
 `scripts/build-windows.sh`.
 
+## IGV.js
+
+The local browser viewer uses [IGV.js](https://github.com/igvteam/igv.js),
+distributed under the MIT License. Its exact npm package version, tarball
+provenance, and bundle hash are recorded in `vendor/igv/manifest.json`; its
+license text is in `vendor/igv/LICENSE`. The viewer never uses a CDN fallback.
+
 ## Documentation theme
 
 The Blox documentation theme in `guide/themes/blox` is derived from Hugo Blox

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "package": {
+    "name": "igv",
+    "version": "3.8.10",
+    "registry": "https://registry.npmjs.org/",
+    "tarball_integrity": "sha512-foqT9SJHoKvVXl7euYUsOy7XMs1nTrPeJMQbGRp7qWU7a6HzF345FER/nHUTdsL5cumaoAe19gDmJYsEHO08rw==",
+    "tarball_sha1": "28d2204bc19334bf6bed8be16ffa22dc335356cc"
+  },
+  "artifacts": {
+    "bundle": {
+      "path": "vendor/igv/igv.min.js",
+      "npm_path": "package/dist/igv.min.js",
+      "sha256": "87b991ae2a720978172e269dd5127c495e56df5af31144dff19c83124e2f5744",
+      "bytes": 1504208
+    },
+    "license": {
+      "path": "vendor/igv/LICENSE",
+      "npm_path": "package/LICENSE",
+      "sha256": "fd69572836ffc3e7e17d19177bcd55c62c74c5c8a3db0d7a5f867759d7f9d443",
+      "bytes": 1147
+    }
+  }
+}
