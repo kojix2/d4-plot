@@ -1,0 +1,6 @@
+# Keep shell scripts runnable on Windows checkouts using MSYS2.
+*.sh text eol=lf
+
+# The IGV.js manifest records the exact bytes of these npm artifacts.
+vendor/igv/LICENSE -text
+vendor/igv/igv.min.js -text
