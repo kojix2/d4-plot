@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>D4 Plot · IGV.js</title>
+  <style>
+    :root { color-scheme: light; font: 14px/1.5 system-ui, -apple-system, sans-serif; color: #253040; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f6f7f8; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      padding: 14px 24px; border-bottom: 1px solid #d9dce0; background: #fff; }
+    h1 { font-size: 19px; font-weight: 650; margin: 0; }
+    .sub { color: #667384; font-size: 12px; }
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    select, button { border: 1px solid #aeb6c1; background: #fff; border-radius: 6px; padding: 7px 12px;
+      color: #26354a; }
+    button { cursor: pointer; }
+    button:hover { background: #eaf0f8; }
+    button:disabled, select:disabled { opacity: .5; cursor: default; }
+    details { position: relative; color: #53677c; font-size: 12px; }
+    details > summary { cursor: pointer; }
+    #track-choices { display: grid; gap: 4px; max-height: 220px; overflow: auto; min-width: 250px;
+      margin: 7px 0; padding: 7px; border: 1px solid #cfd4da; border-radius: 6px; background: #fff; }
+    #track-choices label { display: block; overflow-wrap: anywhere; }
+    #status { margin: 0; color: #53677c; font-size: 12px; }
+    #status.error { color: #ad2828; }
+    main { margin: 20px auto; padding: 0 20px; max-width: 1650px; }
+    #igv { min-height: 360px; border: 1px solid #cfd4da; background: white; border-radius: 7px;
+      padding: 6px; overflow: hidden; }
+    .footer { padding-top: 12px; color: #6b7280; font-size: 12px; }
+    @media (max-width: 800px) { header { flex-direction: column; align-items: flex-start; } }
+  </style>
+  <script defer src="./igv.min.js"></script>
+  <script defer src="./d4-igv.js"></script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>D4 Plot <span class="sub">/ IGV.js</span></h1>
+      <div class="sub">D4 tracks are read locally; requested intervals are mean-aggregated on demand.</div>
+      <div id="reference-summary" class="sub" aria-live="polite"></div>
+      <div id="aggregation-summary" class="sub" aria-live="polite"></div>
+    </div>
+    <div class="actions">
+      <label class="sub" for="reference">Reference</label>
+      <select id="reference" aria-label="Reference genome" disabled></select>
+      <details id="track-picker">
+        <summary>D4 tracks</summary>
+        <div id="track-choices" aria-label="D4 tracks"></div>
+        <button id="load-tracks" type="button">Load selected tracks</button>
+      </details>
+      <button id="send-desktop" disabled>View locus in IGV Desktop</button>
+      <button id="reload" title="Reload this browser session">Reload</button>
+      <span id="status" role="status" aria-live="polite">Loading IGV.js…</span>
+    </div>
+  </header>
+  <main>
+    <section id="igv" aria-label="Interactive genome browser"></section>
+    <p class="footer">D4 Plot verifies contig names and lengths when a local reference dictionary is available.
+      Matching names and lengths do not prove identical sequence assemblies. Coarse bins are means; zoom in to inspect narrow peaks.</p>
+  </main>
+</body>
+</html>
