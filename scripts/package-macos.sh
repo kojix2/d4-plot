@@ -1,8 +1,51 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-tag=$1
-arch=$2
+usage() {
+  cat <<'EOF'
+Usage: scripts/package-macos.sh [TAG [ARCH]]
+
+Package the already-built bin/d4-plot and bin/d4-plot-server executables.
+TAG defaults to v<version from shard.yml>.
+ARCH defaults to the current Mac's architecture (arm64 or x64).
+
+Examples:
+  scripts/package-macos.sh
+  scripts/package-macos.sh v0.0.5 arm64
+  scripts/package-macos.sh --help
+EOF
+}
+
+if [[ ${1:-} == --help || ${1:-} == -h ]]; then
+  usage
+  exit 0
+fi
+if (( $# > 2 )); then
+  usage >&2
+  exit 2
+fi
+
+tag=${1:-}
+if [[ -z $tag ]]; then
+  package_version=$(awk '$1 == "version:" { print $2; exit }' shard.yml)
+  if [[ -z $package_version ]]; then
+    echo "Could not read the package version from shard.yml" >&2
+    exit 1
+  fi
+  tag="v${package_version}"
+fi
+
+arch=${2:-}
+if [[ -z $arch ]]; then
+  case $(uname -m) in
+    arm64|aarch64) arch=arm64 ;;
+    x86_64) arch=x64 ;;
+    *)
+      echo "Unsupported architecture; pass arm64 or x64 explicitly" >&2
+      exit 1
+      ;;
+  esac
+fi
 version=${tag#v}
 
 bundle=dist/d4-plot.app
