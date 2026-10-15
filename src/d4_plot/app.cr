@@ -814,7 +814,7 @@ module D4Plot
     # viewer always receives the current track list and locus without binding
     # another port or leaking a previous server.
     private def open_igv_web : Nil
-      return if @closed || @layers.empty? || @file_load_id
+      return if @closed || @file_load_id
       sources = @layers.map(&.source)
       region = active_region
       server = @igv_web_server
@@ -844,11 +844,6 @@ module D4Plot
     # that was removed from the desktop application.
     private def refresh_igv_web_session : Nil
       return unless server = @igv_web_server
-      if @layers.empty?
-        retire_igv_web_server(server)
-        @igv_web_server = nil
-        return
-      end
       server.update(@layers.map(&.source), active_region)
     rescue ex
       # The desktop view stays usable if a reference resource was changed on
@@ -886,7 +881,7 @@ module D4Plot
       update_history_controls
       igv_ready = has_layers && @file_load_id.nil? && !@closed
       set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
-      set_enabled(@igv_web_menu_item, igv_ready)
+      set_enabled(@igv_web_menu_item, @file_load_id.nil? && !@closed)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end

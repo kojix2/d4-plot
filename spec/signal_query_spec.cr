@@ -18,6 +18,12 @@ describe D4Plot::BinLayout do
     capped.bins.size.should eq(3)
     capped.width.should eq(34_i64)
 
+    chromosome = D4Plot::BinLayout.for_viewport(0_i64, 250_000_000_i64, 1.0,
+      250_000_000_i64, 1_024)
+    chromosome.bins.size.should be <= 1_024
+    chromosome.bins.first.start0.should eq(0_i64)
+    chromosome.bins.last.end0.should eq(250_000_000_i64)
+
     aligned = D4Plot::BinLayout.for_viewport(5_i64, 26_i64, 4.0, 30_i64, alignment: 8_i64)
     aligned.width.should eq(8_i64)
     aligned.bins.should eq([

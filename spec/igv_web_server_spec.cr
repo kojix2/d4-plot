@@ -27,6 +27,34 @@ private def available_loopback_port : Int32
 end
 
 describe D4Plot::IGVWebServer do
+  it "starts a genome browser without D4 and accepts later D4 updates" do
+    server = D4Plot::IGVWebServer.new([] of D4Plot::TrackSource)
+    server.start
+    begin
+      state = JSON.parse(server_get("#{server.url}api/state?locus=chr2:10-20").body)
+      state["tracks"].as_a.should be_empty
+      state["locus"].as_s.should eq("chr2:10-20")
+      state["igvReference"]["genome"].as_s.should eq("hg38")
+      state["referenceChoices"].as_a.map(&.["id"].as_s).should_not contain("contigs-only")
+
+      source = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+      server.update(source)
+      updated = JSON.parse(server_get("#{server.url}api/state").body)
+      updated["tracks"].as_a.size.should eq(1)
+      updated["referenceChoices"].as_a.map(&.["id"].as_s).should contain("contigs-only")
+
+      server_post("#{server.url}api/reference", server_origin(server.url), %({"id":"contigs-only"})).status_code.should eq(200)
+      server.update([] of D4Plot::TrackSource)
+      empty_again = JSON.parse(server_get("#{server.url}api/state").body)
+      empty_again["tracks"].as_a.should be_empty
+      empty_again["referenceChoices"].as_a.map(&.["id"].as_s).should_not contain("contigs-only")
+      empty_again["igvReference"]["genome"].as_s.should eq("hg38")
+    ensure
+      server.close
+      server.wait
+    end
+  end
+
   it "releases its bound listener and D4 worker when reference initialization fails" do
     directory = File.tempname("d4-plot-invalid-reference")
     Dir.mkdir(directory)
@@ -99,6 +127,46 @@ describe D4Plot::IGVWebServer do
     end
   end
 
+  it "returns bounded chromosome-wide bins for an unindexed D4 instead of a scan-limit error" do
+    path = File.tempname("d4-plot-wide-web", ".d4")
+    begin
+      size = D4Plot::DataSampler::DEFAULT_MAX_STREAMING_BASES + 1
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", size)],
+        dictionary: D4::Dictionary.new([0_i32, 1_i32])) do |writer|
+        writer.write_values("chr", 10_000_000, [1_i32])
+      end
+      source = D4Plot::TrackSource.load(path)
+      server = D4Plot::IGVWebServer.new(source)
+      server.start
+      begin
+        state = JSON.parse(server_get("#{server.url}api/state").body)
+        query = URI::Params.encode({
+          "track"        => state["tracks"].as_a.first["id"].as_s,
+          "chr"          => "chr",
+          "start"        => "0",
+          "end"          => size.to_s,
+          "bp_per_pixel" => "1",
+          "revision"     => state["revision"].as_s,
+          "client"       => "wide_browser",
+          "navigation"   => "1",
+        })
+        response = server_get("#{server.url}api/features?#{query}")
+        response.status_code.should eq(200)
+        payload = JSON.parse(response.body)
+        payload["aggregation"].as_s.should eq("sampled_mean")
+        features = payload["features"].as_a
+        features.size.should be <= 1_024
+        features.first["start"].as_i64.should eq(0_i64)
+        features.last["end"].as_i64.should eq(size)
+      ensure
+        server.close
+        server.wait
+      end
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
+
   it "requires a same-origin POST for control APIs and changes revision on a registered reference choice" do
     source = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
     server = D4Plot::IGVWebServer.new(source)
@@ -118,7 +186,8 @@ describe D4Plot::IGVWebServer do
       gene_track["name"].as_s.should eq("GENCODE v50 genes")
       state["desktopGotoAvailable"].as_bool.should be_false
       policy = state_response.headers["Content-Security-Policy"]
-      policy.should contain("connect-src 'self' https://hgdownload.soe.ucsc.edu")
+      policy.should contain("connect-src 'self' https: http: blob:")
+      policy.should contain("https://hgdownload.soe.ucsc.edu")
     ensure
       server.close
       server.wait

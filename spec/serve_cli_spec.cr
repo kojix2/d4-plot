@@ -27,6 +27,16 @@ describe D4Plot::ServeCLI do
     D4Plot::ServeCLI.parse(serve_arguments("--contigs-only", "sample.d4")).reference_mode.contigs_only?.should be_true
   end
 
+  it "allows a reference-only genome browser without D4 files" do
+    preset = D4Plot::ServeCLI.parse(serve_arguments("--genome", "hg38", "--open"))
+    preset.files.should be_empty
+    preset.reference_mode.preset?.should be_true
+
+    local = D4Plot::ServeCLI.parse(serve_arguments("--reference", "reference.fa"))
+    local.files.should be_empty
+    local.reference_mode.file?.should be_true
+  end
+
   it "rejects mutually exclusive and incomplete reference options" do
     expect_raises(D4Plot::ServeCLI::UsageError, /cannot be used together/) do
       D4Plot::ServeCLI.parse(serve_arguments("--genome", "hg38", "--reference", "reference.fa", "sample.d4"))
@@ -34,8 +44,11 @@ describe D4Plot::ServeCLI do
     expect_raises(D4Plot::ServeCLI::UsageError, /requires --reference/) do
       D4Plot::ServeCLI.parse(serve_arguments("--reference-index", "reference.fa.fai", "sample.d4"))
     end
-    expect_raises(D4Plot::ServeCLI::UsageError, /at least one/) do
+    expect_raises(D4Plot::ServeCLI::UsageError, /provide a .d4 file/) do
       D4Plot::ServeCLI.parse([] of String)
+    end
+    expect_raises(D4Plot::ServeCLI::UsageError, /provide a .d4 file/) do
+      D4Plot::ServeCLI.parse(serve_arguments("--contigs-only"))
     end
   end
 end

@@ -76,7 +76,7 @@ module D4Plot
   # Read-only loopback server used by the browser integration.  API routes are
   # capability URLs issued per server instance; no route accepts a local path.
   class IGVWebServer
-    MAX_FEATURE_BINS             = 8_192
+    MAX_FEATURE_BINS             = 1_024
     MAX_CONTROL_BODY_BYTES       = 4 * 1024
     MAX_QUERY_VALUE_BYTES        = 512
     MAX_GENERATED_RESOURCE_BYTES = 8_i64 * 1024 * 1024
@@ -104,7 +104,6 @@ module D4Plot
 
     def initialize(sources : Array(TrackSource), initial_region : Region? = nil, port : Int32 = 0,
                    reference : ReferenceSpec? = nil)
-      raise ArgumentError.new("At least one D4 track is required") if sources.empty?
       raise ArgumentError.new("Invalid web port") unless (0..65_535).includes?(port)
       @sources = sources.dup
       @initial_region = initial_region
@@ -117,7 +116,7 @@ module D4Plot
       @signal_query = SignalQuery.new
       snapshot = begin
         install_reference_options(@sources, reference)
-        @selected_reference_key = reference ? "configured" : "contigs-only"
+        @selected_reference_key = reference ? "configured" : (sources.empty? ? "hg38" : "contigs-only")
         @selected_reference = @reference_options[@selected_reference_key]
         reconcile_track_ids(@sources)
         build_snapshot(@sources, @initial_region, @selected_reference)
@@ -161,13 +160,13 @@ module D4Plot
     # browser tab must include its old revision and therefore receive 409
     # rather than being silently redirected to a different track position.
     def update(sources : Array(TrackSource), initial_region : Region? = nil) : Nil
-      raise ArgumentError.new("At least one D4 track is required") if sources.empty?
       @mutex.synchronize do
         raise "Web server is closed" if @closed
         @sources = sources.dup
         @initial_region = initial_region
         reconcile_track_ids(@sources)
         refresh_contigs_option(@sources)
+        @selected_reference_key = "hg38" if @selected_reference_key == "contigs-only" && @sources.empty?
         @selected_reference = @reference_options[@selected_reference_key]
         next_snapshot = build_snapshot(@sources, @initial_region, @selected_reference)
         @signal_query.activate_revision(next_snapshot.revision)
@@ -268,7 +267,9 @@ module D4Plot
 
     private def secure_headers(response : HTTP::Server::Response) : Nil
       reference = @mutex.synchronize { @snapshot.reference }
-      connect_sources = ["'self'"] + reference.browser_connect_origins
+      # Users can add tracks from arbitrary HTTP(S) origins. The browser still
+      # enforces each remote server's CORS policy; this page never proxies data.
+      connect_sources = ["'self'", "https:", "http:", "blob:"] + reference.browser_connect_origins
       response.headers["Cache-Control"] = "no-store"
       response.headers["X-Content-Type-Options"] = "nosniff"
       response.headers["X-Frame-Options"] = "DENY"
@@ -417,7 +418,7 @@ module D4Plot
           json.field "revision", snapshot.revision
           json.field "chr", chromosome
           json.field "coordinateSystem", "0-based-half-open"
-          json.field "aggregation", "mean"
+          json.field "aggregation", result.exact ? "mean" : "sampled_mean"
           json.field "binWidth", result.bin_width
           json.field "dataAvailable", true
           json.field "features" do
@@ -437,8 +438,6 @@ module D4Plot
       failure(context, 429, "QUERY_BUSY", ex.message || "D4 reader queue is full")
     rescue ex : SignalQueryCancelled
       failure(context, 409, "QUERY_CANCELLED", ex.message || "D4 query was superseded")
-    rescue ex : SignalQueryBudgetExceeded
-      failure(context, 422, "SCAN_BUDGET_EXCEEDED", ex.message || "D4 aggregation exceeds the streaming budget")
     rescue SignalQueryClosed
       failure(context, 503, "SERVER_STOPPING", "The D4 reader is stopping")
     rescue ex : ArgumentError
@@ -525,6 +524,11 @@ module D4Plot
 
     private def requested_initial_region(raw : String?, snapshot : IGVWebSession) : Region?
       return unless raw && raw.bytesize <= 1_024
+      if snapshot.reference.dictionary.nil? && snapshot.tracks.empty?
+        region = Region.parse(raw)
+        return region if region && region.valid?
+        return
+      end
       Region.resolve(raw, region_dictionary(snapshot))
     rescue ArgumentError
       nil
@@ -543,19 +547,22 @@ module D4Plot
     end
 
     private def install_reference_options(sources : Array(TrackSource), requested : ReferenceSpec?) : Nil
-      contigs = ReferenceSpec.contigs_only(TrackSource.reference_chromosomes(sources))
       @reference_options = {
-        "contigs-only" => contigs,
-        "hg38"         => ReferenceSpec.preset("hg38"),
-        "hg19"         => ReferenceSpec.preset("hg19"),
-        "hs1"          => ReferenceSpec.preset("hs1"),
-        "mm39"         => ReferenceSpec.preset("mm39"),
+        "hg38" => ReferenceSpec.preset("hg38"),
+        "hg19" => ReferenceSpec.preset("hg19"),
+        "hs1"  => ReferenceSpec.preset("hs1"),
+        "mm39" => ReferenceSpec.preset("mm39"),
       }
+      @reference_options["contigs-only"] = ReferenceSpec.contigs_only(TrackSource.reference_chromosomes(sources)) unless sources.empty?
       @reference_options["configured"] = requested if requested
     end
 
     private def refresh_contigs_option(sources : Array(TrackSource)) : Nil
-      @reference_options["contigs-only"] = ReferenceSpec.contigs_only(TrackSource.reference_chromosomes(sources))
+      if sources.empty?
+        @reference_options.delete("contigs-only")
+      else
+        @reference_options["contigs-only"] = ReferenceSpec.contigs_only(TrackSource.reference_chromosomes(sources))
+      end
     end
 
     private def reference_choice_label(key : String, selected_key : String, snapshot : IGVWebSession) : String
@@ -654,6 +661,7 @@ module D4Plot
           return bounded_region(chromosome[0], chromosome[1])
         end
       end
+      return Region.new("chr1", 1_u32, 100_000_u32) if reference.kind.preset?
       raise ArgumentError.new("No non-empty D4 chromosome is available")
     end
 
@@ -666,6 +674,7 @@ module D4Plot
         length = dictionary[initial.chromosome]
         return default_region(reference, tracks) unless length && initial.end1 <= length
       end
+      return initial if tracks.empty? && initial.valid?
       tracks.each do |track|
         next unless d4_name = track.d4_chromosome_for(initial.chromosome)
         next unless size = track.source.chromosomes[d4_name]?

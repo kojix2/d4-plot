@@ -23,7 +23,7 @@ ja:
     create_d4_from_alignment: "BAM / CRAM から D4 を作成…"
     export_bins: "選択したトラックのビンを書き出す…"
     igv_desktop: "IGV Desktop で領域を表示"
-    igv_web: "IGV.js で D4 トラックを開く…"
+    igv_web: "ゲノムブラウザ (IGV.js) を開く…"
     igv_error: "IGV 連携に失敗しました"
     igv_sent: "%{region} を IGV Desktop に送信しました。"
     igv_web_url: "IGV.js: %{url}"

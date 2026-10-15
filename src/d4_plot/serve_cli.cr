@@ -66,7 +66,15 @@ module D4Plot
 
       Translations.setup(configuration.locale)
       sources = configuration.files.flat_map { |path| TrackSource.load(path) }
-      initial_region = configuration.region.try { |text| Region.resolve(text, TrackSource.reference_chromosomes(sources)) }
+      initial_region = configuration.region.try do |text|
+        if sources.empty?
+          region = Region.parse(text)
+          raise UsageError.new("--region needs chr:start-end without a D4 file") unless region && region.valid?
+          region
+        else
+          Region.resolve(text, TrackSource.reference_chromosomes(sources))
+        end
+      end
       server = IGVWebServer.new(sources, initial_region, configuration.port, configuration.reference_for(sources))
 
       begin
@@ -130,7 +138,9 @@ module D4Plot
       return Configuration.new([] of String, port, region, locale, ReferenceMode::Auto, genome, reference_path,
         reference_index, open_browser, true) if show_help
 
-      raise UsageError.new("at least one .d4 file is required") if args.empty?
+      if args.empty? && !genome && !reference_path
+        raise UsageError.new("provide a .d4 file, --genome, or --reference")
+      end
       if genome && reference_path
         raise UsageError.new("--genome and --reference cannot be used together")
       end
@@ -157,7 +167,7 @@ module D4Plot
     end
 
     def self.usage : String
-      "Usage: d4-plot serve [options] file.d4 [file.d4 ...]"
+      "Usage: d4-plot serve [options] [file.d4 ...] (without D4, specify --genome or --reference)"
     end
 
     private def self.require_value!(value : String, option : String) : String

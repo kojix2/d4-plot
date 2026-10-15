@@ -78,4 +78,53 @@ describe D4Plot::DataSampler do
       File.delete(path) if File.exists?(path)
     end
   end
+
+  it "uses a sum index even when the chromosome ends in a short bin" do
+    path = File.tempname("d4-plot-indexed-tail", ".d4")
+    begin
+      size = 100_001_i64
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", size)],
+        dictionary: D4::Dictionary.new([0_i32, 1_i32]),
+        options: D4::WriteOptions.new(indexes: [D4::IndexKind::Sum])) do |writer|
+        writer.write_values("chr", 0, [1_i32, 1_i32])
+        writer.write_values("chr", 65_536, [1_i32])
+      end
+      D4.open(path) do |file|
+        track = file.default_track
+        track.has_index?(D4::IndexKind::Sum).should be_true
+        bins = [D4Plot::BinRange.new(0_i64, 65_536_i64), D4Plot::BinRange.new(65_536_i64, size)]
+        sampled = D4Plot::DataSampler.sample_bins(track, "chr", bins, max_streaming_bases: 1_i64)
+        sampled.map(&.value).should eq([2.0 / 65_536, 1.0 / (size - 65_536)])
+      end
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
+
+  it "shows bounded sampled means when exact unindexed aggregation exceeds the display budget" do
+    path = File.tempname("d4-plot-display-sampling", ".d4")
+    begin
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", 10)],
+        dictionary: D4::Dictionary.new([0_i32, 1_i32, 2_i32, 3_i32])) do |writer|
+        writer.write_values("chr", 0, [0_i32, 0_i32, 0_i32, 1_i32, 2_i32,
+                                       2_i32, 2_i32, 1_i32, 1_i32, 0_i32])
+      end
+      D4.open(path) do |file|
+        bins = [D4Plot::BinRange.new(0_i64, 10_i64)]
+        exact = D4Plot::DataSampler.display_bins(file.default_track, "chr", bins,
+          max_streaming_bases: 10_i64, max_sample_bases: 4_i64)
+        exact.exact.should be_true
+        exact.bins.first.value.should eq(0.9)
+
+        sampled = D4Plot::DataSampler.display_bins(file.default_track, "chr", bins,
+          max_streaming_bases: 5_i64, max_sample_bases: 4_i64)
+        sampled.exact.should be_false
+        sampled.bins.first.value.should eq(1.0)
+        sampled.bins.first.start0.should eq(0_i64)
+        sampled.bins.first.end0.should eq(10_i64)
+      end
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
 end

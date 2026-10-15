@@ -12,9 +12,6 @@ module D4Plot
   class SignalQueryClosed < Exception
   end
 
-  class SignalQueryBudgetExceeded < Exception
-  end
-
   # Fixed-grid layout for a browser viewport.  Its left edge is anchored at
   # chromosome coordinate zero, so adjacent requests can reuse the same bins.
   # The final bin is clipped to the chromosome length.
@@ -71,9 +68,9 @@ module D4Plot
     end
   end
 
-  record SignalResult, bins : Array(SampledBin), bin_width : Int64, cache_hit : Bool do
+  record SignalResult, bins : Array(SampledBin), bin_width : Int64, cache_hit : Bool, exact : Bool do
     def duplicate(cache_hit : Bool = self.cache_hit) : SignalResult
-      SignalResult.new(bins.dup, bin_width, cache_hit)
+      SignalResult.new(bins.dup, bin_width, cache_hit, exact)
     end
   end
 
@@ -101,12 +98,14 @@ module D4Plot
   private class SignalCacheEntry
     property last_used : Int64
 
-    def initialize(@path : String, @stamp : SignalFileStamp, @bins : Array(SampledBin), @bin_width : Int64, @bytes : Int64, @last_used : Int64); end
+    def initialize(@path : String, @stamp : SignalFileStamp, @bins : Array(SampledBin), @bin_width : Int64,
+                   @exact : Bool, @bytes : Int64, @last_used : Int64); end
 
     getter path : String
     getter stamp : SignalFileStamp
     getter bins : Array(SampledBin)
     getter bin_width : Int64
+    getter exact : Bool
     getter bytes : Int64
   end
 
@@ -244,7 +243,7 @@ module D4Plot
         if entry.stamp.same_source?(stamp)
           entry.last_used = tick
           raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
-          return SignalResult.new(entry.bins.dup, entry.bin_width, true)
+          return SignalResult.new(entry.bins.dup, entry.bin_width, true, entry.exact)
         end
         # The handle may have been evicted before an atomic same-size,
         # same-timestamp replacement. In that case file_for cannot observe
@@ -253,14 +252,12 @@ module D4Plot
       end
 
       cancelled = -> { stale?(request) }
-      bins = DataSampler.sample_bins(track, request.d4_chromosome, layout.bins, true, cancelled)
+      sampled = DataSampler.display_bins(track, request.d4_chromosome, layout.bins, cancelled)
       raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
-      cache_result(key, request.source.path, stamp, bins, layout.width)
-      SignalResult.new(bins.dup, layout.width, false)
+      cache_result(key, request.source.path, stamp, sampled.bins, layout.width, sampled.exact)
+      SignalResult.new(sampled.bins.dup, layout.width, false, sampled.exact)
     rescue ex : SamplingCancelled
       raise SignalQueryCancelled.new(ex.message || "D4 query was superseded")
-    rescue ex : SamplingBudgetExceeded
-      raise SignalQueryBudgetExceeded.new(ex.message || "D4 aggregation exceeds the streaming budget")
     end
 
     private def file_for(path : String, stamp : SignalFileStamp) : D4::File
@@ -301,14 +298,15 @@ module D4Plot
       path
     end
 
-    private def cache_result(key : String, path : String, stamp : SignalFileStamp, bins : Array(SampledBin), bin_width : Int64) : Nil
+    private def cache_result(key : String, path : String, stamp : SignalFileStamp, bins : Array(SampledBin),
+                             bin_width : Int64, exact : Bool) : Nil
       return if @max_cache_bytes == 0
       bytes = bins.size.to_i64 * 24
       return if bytes > @max_cache_bytes
       if previous = @cache[key]?
         @cache_bytes -= previous.bytes
       end
-      @cache[key] = SignalCacheEntry.new(path, stamp, bins.dup, bin_width, bytes, tick)
+      @cache[key] = SignalCacheEntry.new(path, stamp, bins.dup, bin_width, exact, bytes, tick)
       @cache_bytes += bytes
       evict_cache
     end

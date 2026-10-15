@@ -16,11 +16,14 @@ module D4Plot
   end
 
   record SampledBin, start0 : Int64, end0 : Int64, value : Float64
+  record DisplayBins, bins : Array(SampledBin), exact : Bool
 
   class DataSampler
     DEFAULT_POINT_COUNT         =        256
     MIN_INDEX_BIN_SIZE          = 65_536_i64
     DEFAULT_MAX_STREAMING_BASES = 64_i64 * 1024 * 1024
+    DISPLAY_SAMPLE_BASES        = 8_i64 * 1024 * 1024
+    DISPLAY_WINDOWS_PER_BIN     = 8
 
     # Older released d4.cr versions do not accept a cancellation callback.
     # The capability check keeps this shard buildable with them, while a
@@ -66,7 +69,11 @@ module D4Plot
       return [] of SampledBin if bins.empty?
       validate_bins!(track, chromosome, bins)
       raise ArgumentError.new("Streaming scan budget cannot be negative") if max_streaming_bases < 0
-      indexed = use_sum_index && track.has_index?(D4::IndexKind::Sum) && bins.all? { |bin| bin.length >= index_bin_size(track) }
+      # A chromosome-tail bin may be shorter than the index granularity. D4's
+      # sum method reads that short tail directly; it does not require a full
+      # index block. Rejecting the entire layout here made chromosome-wide
+      # indexed requests fall back to the scan budget.
+      indexed = use_sum_index && track.has_index?(D4::IndexKind::Sum) && bins.first.length >= index_bin_size(track)
       sampled = if indexed
                   begin
                     indexed_bins(track, chromosome, bins, cancelled)
@@ -74,6 +81,10 @@ module D4Plot
                     require_streaming_budget!(bins, max_streaming_bases)
                     streamed_bins(track, chromosome, bins, cancelled)
                   end
+                elsif track.metadata.dictionary.bit_width == 0
+                  # Constant primary tables can be summed from secondary
+                  # intervals without decoding every base, even without an index.
+                  summed_bins(track, chromosome, bins, cancelled, use_sum_index ? D4::IndexPolicy::Auto : D4::IndexPolicy::Scan)
                 else
                   require_streaming_budget!(bins, max_streaming_bases)
                   streamed_bins(track, chromosome, bins, cancelled)
@@ -84,6 +95,18 @@ module D4Plot
       sampled
     rescue ex : D4::CancelledError
       raise SamplingCancelled.new(ex.message || "D4 read was cancelled")
+    end
+
+    # Keep the exact API above available for exports and callers that require
+    # exact means. Browser display falls back to bounded spatial sampling when
+    # an unindexed range would exceed the interactive scan budget.
+    def self.display_bins(track : D4::Track, chromosome : String, bins : Array(BinRange),
+                          cancelled : Proc(Bool)? = nil, max_streaming_bases : Int64 = DEFAULT_MAX_STREAMING_BASES,
+                          max_sample_bases : Int64 = DISPLAY_SAMPLE_BASES) : DisplayBins
+      raise ArgumentError.new("Display sampling budget must be positive") if max_sample_bases <= 0
+      DisplayBins.new(sample_bins(track, chromosome, bins, true, cancelled, max_streaming_bases), true)
+    rescue SamplingBudgetExceeded
+      DisplayBins.new(stratified_bins(track, chromosome, bins, cancelled, max_sample_bases), false)
     end
 
     private def self.indexed_sample(d4 : D4::Track, chromosome : String, start0 : UInt32, end0_excl : UInt32, npoints : Int32, cancelled) : Array(PlotPoint)
@@ -106,6 +129,46 @@ module D4Plot
         result << SampledBin.new(bin.start0, bin.end0, sum.to_f64 / bin.length)
       end
       result
+    end
+
+    private def self.summed_bins(track : D4::Track, chromosome : String, bins : Array(BinRange),
+                                 cancelled, index : D4::IndexPolicy) : Array(SampledBin)
+      bins.map do |bin|
+        raise SamplingCancelled.new if cancelled.try(&.call)
+        sum = sum_with_cancellation(track, chromosome, bin.start0, bin.end0, index, cancelled)
+        SampledBin.new(bin.start0, bin.end0, sum.to_f64 / bin.length)
+      end
+    rescue ex : D4::CancelledError
+      raise SamplingCancelled.new(ex.message || "D4 read was cancelled")
+    end
+
+    private def self.stratified_bins(track : D4::Track, chromosome : String, bins : Array(BinRange),
+                                     cancelled : Proc(Bool)?, max_sample_bases : Int64) : Array(SampledBin)
+      bases_per_bin = Math.max(1_i64, max_sample_bases // bins.size)
+      scratch = Slice(Int32).new(65_536)
+      denominator = track.metadata.denominator
+      result = Array(SampledBin).new(bins.size)
+      bins.each do |bin|
+        raise SamplingCancelled.new if cancelled.try(&.call)
+        sampled_length = Math.min(bin.length, bases_per_bin)
+        windows = Math.min(DISPLAY_WINDOWS_PER_BIN.to_i64, sampled_length)
+        base = sampled_length // windows
+        extra = sampled_length % windows
+        sum = 0_i64
+        windows.times do |window|
+          span_start = bin.start0 + bin.length * window // windows
+          span_end = bin.start0 + bin.length * (window + 1) // windows
+          width = base + (window < extra ? 1 : 0)
+          start0 = span_start + (span_end - span_start - width) // 2
+          scan_with_cancellation(track, D4::Region.new(chromosome, start0, start0 + width), scratch, cancelled) do |_block_start, values, count|
+            count.times { |index| sum += values.unsafe_fetch(index) }
+          end
+        end
+        result << SampledBin.new(bin.start0, bin.end0, sum.to_f64 / sampled_length / denominator)
+      end
+      result
+    rescue ex : D4::CancelledError
+      raise SamplingCancelled.new(ex.message || "D4 read was cancelled")
     end
 
     private def self.streamed_bins(track : D4::Track, chromosome : String, bins : Array(BinRange), cancelled) : Array(SampledBin)

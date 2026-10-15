@@ -14,7 +14,7 @@
     h1 { font-size: 19px; font-weight: 650; margin: 0; }
     .sub { color: #667384; font-size: 12px; }
     .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    select, button { border: 1px solid #aeb6c1; background: #fff; border-radius: 6px; padding: 7px 12px;
+    select, button, input[type="file"], input[type="text"] { border: 1px solid #aeb6c1; background: #fff; border-radius: 6px; padding: 7px 12px;
       color: #26354a; }
     button { cursor: pointer; }
     button:hover { background: #eaf0f8; }
@@ -24,6 +24,13 @@
     #track-choices { display: grid; gap: 4px; max-height: 220px; overflow: auto; min-width: 250px;
       margin: 7px 0; padding: 7px; border: 1px solid #cfd4da; border-radius: 6px; background: #fff; }
     #track-choices label { display: block; overflow-wrap: anywhere; }
+    #add-track-picker > div { display: grid; gap: 12px; min-width: 280px; max-width: 380px; margin: 7px 0; }
+    #add-track-picker form { display: grid; gap: 7px; padding: 9px; border: 1px solid #cfd4da;
+      border-radius: 6px; background: #fff; }
+    #add-track-picker h2 { margin: 0; font-size: 13px; }
+    #add-track-picker label { display: grid; gap: 3px; }
+    #add-track-picker input { width: 100%; font-size: 12px; }
+    #add-track-picker .hint { margin: 0; color: #667384; }
     #status { margin: 0; color: #53677c; font-size: 12px; }
     #status.error { color: #ad2828; }
     main { margin: 20px auto; padding: 0 20px; max-width: 1650px; }
@@ -46,7 +53,29 @@
       <details id="track-picker">
         <summary>D4 tracks</summary>
         <div id="track-choices" aria-label="D4 tracks"></div>
-        <button id="load-tracks" type="button">Load selected tracks</button>
+        <button id="load-tracks" type="button">Apply D4 tracks</button>
+      </details>
+      <details id="add-track-picker">
+        <summary>Add tracks</summary>
+        <div>
+          <form id="local-track-form">
+            <h2>Local file</h2>
+            <label>Data file <input id="track-file" type="file" required></label>
+            <label>Index file (if needed) <input id="track-index-file" type="file"></label>
+            <label>Format override (optional) <input id="local-track-format" type="text" placeholder="e.g. gff3"></label>
+            <label>Track type override (optional) <input id="local-track-type" type="text" placeholder="e.g. annotation"></label>
+            <button type="submit" disabled>Add local track</button>
+          </form>
+          <form id="url-track-form">
+            <h2>Remote URL</h2>
+            <label>Data URL <input id="track-url" type="text" placeholder="https://…" required></label>
+            <label>Index URL (if needed) <input id="track-index-url" type="text"></label>
+            <label>Format override (optional) <input id="url-track-format" type="text" placeholder="e.g. gff3"></label>
+            <label>Track type override (optional) <input id="url-track-type" type="text" placeholder="e.g. annotation"></label>
+            <button type="submit" disabled>Add URL track</button>
+          </form>
+          <p class="hint">Supports IGV.js track formats, including BAM, CRAM, VCF, BED, GTF, GFF3, and BigWig. Select an index for indexed data.</p>
+        </div>
       </details>
       <button id="send-desktop" disabled>View locus in IGV Desktop</button>
       <button id="reload" title="Reload this browser session">Reload</button>
@@ -56,7 +85,7 @@
   <main>
     <section id="igv" aria-label="Interactive genome browser"></section>
     <p class="footer">D4 Plot verifies contig names and lengths when a local reference dictionary is available.
-      Matching names and lengths do not prove identical sequence assemblies. Coarse bins are means; zoom in to inspect narrow peaks.</p>
+      Matching names and lengths do not prove identical sequence assemblies. D4 bins use exact means when available; very wide regions without a usable sum index may use sampled means. Zoom in to inspect narrow peaks.</p>
   </main>
 </body>
 </html>

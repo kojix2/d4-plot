@@ -7,6 +7,16 @@
   const referenceSelect = document.getElementById("reference");
   const trackChoices = document.getElementById("track-choices");
   const loadTracksButton = document.getElementById("load-tracks");
+  const localTrackForm = document.getElementById("local-track-form");
+  const trackFileInput = document.getElementById("track-file");
+  const trackIndexFileInput = document.getElementById("track-index-file");
+  const localTrackFormatInput = document.getElementById("local-track-format");
+  const localTrackTypeInput = document.getElementById("local-track-type");
+  const urlTrackForm = document.getElementById("url-track-form");
+  const trackUrlInput = document.getElementById("track-url");
+  const trackIndexUrlInput = document.getElementById("track-index-url");
+  const urlTrackFormatInput = document.getElementById("url-track-format");
+  const urlTrackTypeInput = document.getElementById("url-track-type");
   const root = new URL("./", window.location.href);
   const apiUrl = (path) => new URL(`api/${path}`, root).toString();
   const MAX_DEFAULT_TRACKS = 12;
@@ -17,6 +27,25 @@
   let currentLocus;
   let activeFeatureRequests = 0;
   const featureWaiters = [];
+  let loadingLocalTrack = false;
+  let loadingUrlTrack = false;
+
+  const updateTrackButtons = () => {
+    localTrackForm.querySelector("button").disabled = !browser || loadingLocalTrack || !trackFileInput.files.length;
+    urlTrackForm.querySelector("button").disabled = !browser || loadingUrlTrack || !trackUrlInput.value.trim();
+  };
+
+  const addTrack = async (source, index, format, type) => {
+    const name = typeof source === "string"
+      ? source.split(/[?#]/)[0].split("/").pop() || source
+      : source.name;
+    const config = {name, url: source};
+    if (index) config.indexURL = index;
+    if (format) config.format = format.toLowerCase();
+    if (type) config.type = type.toLowerCase();
+    await browser.loadTrack(config);
+    show(`Added ${name}.`);
+  };
 
   const show = (message, error = false) => {
     status.textContent = message;
@@ -88,6 +117,7 @@
       this.clientId = `${randomId()}_${track.id}`;
       this.navigation = 0;
       this.controller = null;
+      this.approximationShown = false;
     }
 
     supportsWholeGenome() {
@@ -135,6 +165,10 @@
             window.setTimeout(() => window.location.reload(), 100);
             return [];
           }
+          if (payload.aggregation === "sampled_mean" && !this.approximationShown) {
+            this.approximationShown = true;
+            show(`${this.track.name}: broad D4 ranges without a usable sum index use sampled bin means; zoom in for exact values.`);
+          }
           return payload.features.map((feature) => ({
             chr: payload.chr,
             start: feature.start,
@@ -167,7 +201,8 @@
   const selectedTrackIds = () => {
     const defaults = new Set(state.tracks.slice(0, MAX_DEFAULT_TRACKS).map((track) => track.id));
     const value = new URL(window.location.href).searchParams.get("tracks");
-    if (!value) return defaults;
+    if (value === null) return defaults;
+    if (value === "") return new Set();
     const requested = new Set(value.split(",").filter((id) => state.tracks.some((track) => track.id === id)));
     // A server revision can retire a source. Do not strand a user on an empty
     // viewer because a bookmarked/old opaque id no longer exists.
@@ -224,12 +259,11 @@
     const selectedIds = selectedTrackIds();
     setTrackChoices(selectedIds);
     const selectedTracks = state.tracks.filter((track) => selectedIds.has(track.id));
-    if (selectedTracks.length === 0) throw new Error("Select at least one D4 track.");
-
-    const tracks = selectedTracks.map((track) => ({
+    const d4Sources = selectedTracks.map((track) => new D4FeatureSource(track));
+    const tracks = selectedTracks.map((track, index) => ({
       name: track.name,
       type: "wig",
-      featureSource: new D4FeatureSource(track),
+      featureSource: d4Sources[index],
       // The service already returns resolution-aware means.  Letting WigTrack
       // summarize those means again changes their numerical meaning.
       summarize: false,
@@ -251,22 +285,55 @@
     };
     browser = await window.igv.createBrowser(document.getElementById("igv"), config);
     browser.on("locuschange", setDesktopLocus);
+    updateTrackButtons();
 
     desktopButton.disabled = !state.desktopGotoAvailable;
     const omitted = state.tracks.length - tracks.length;
     const desktopNote = state.desktopGotoAvailable ? "" : "; IGV Desktop goto needs a reference with a verified contig dictionary";
-    show(`${tracks.length} D4 track${tracks.length === 1 ? "" : "s"} loaded${omitted > 0 ? ` (${omitted} not selected)` : ""}${desktopNote}`);
+    const sampledNote = d4Sources.some((source) => source.approximationShown)
+      ? "; broad D4 ranges without a usable sum index use sampled bin means" : "";
+    show(`${tracks.length} D4 track${tracks.length === 1 ? "" : "s"} loaded${omitted > 0 ? ` (${omitted} not selected)` : ""}${sampledNote}${desktopNote}`);
   } catch (error) {
     show(error.message || String(error), true);
   }
 
   reloadButton.addEventListener("click", () => window.location.reload());
+  trackFileInput.addEventListener("change", updateTrackButtons);
+  trackUrlInput.addEventListener("input", updateTrackButtons);
+  localTrackForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!browser || !trackFileInput.files.length) return;
+    loadingLocalTrack = true;
+    updateTrackButtons();
+    try {
+      await addTrack(trackFileInput.files[0], trackIndexFileInput.files[0],
+        localTrackFormatInput.value.trim(), localTrackTypeInput.value.trim());
+      localTrackForm.reset();
+    } catch (error) {
+      show(`Could not add track: ${error.message || String(error)}`, true);
+    } finally {
+      loadingLocalTrack = false;
+      updateTrackButtons();
+    }
+  });
+  urlTrackForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!browser || !trackUrlInput.value.trim()) return;
+    loadingUrlTrack = true;
+    updateTrackButtons();
+    try {
+      await addTrack(trackUrlInput.value.trim(), trackIndexUrlInput.value.trim(),
+        urlTrackFormatInput.value.trim(), urlTrackTypeInput.value.trim());
+      urlTrackForm.reset();
+    } catch (error) {
+      show(`Could not add track: ${error.message || String(error)}`, true);
+    } finally {
+      loadingUrlTrack = false;
+      updateTrackButtons();
+    }
+  });
   loadTracksButton.addEventListener("click", () => {
     const ids = selectedTrackChoiceIds();
-    if (ids.length === 0) {
-      show("Select at least one D4 track.", true);
-      return;
-    }
     const next = new URL(window.location.href);
     next.searchParams.set("tracks", ids.join(","));
     window.location.assign(next);

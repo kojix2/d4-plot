@@ -18,12 +18,13 @@ or follow the [source build guide](https://kojix2.github.io/d4-plot/books/guide_
 
 ## Browser viewer / headless server
 
-Serve D4 tracks to the bundled local IGV.js viewer without starting the native
-desktop UI:
+Open the bundled local IGV.js viewer with or without D4 tracks, without starting
+the native desktop UI:
 
 ```sh
 # Either entry point accepts the same options.
 d4-plot serve --genome hg38 --open sample.d4
+d4-plot-server --genome hg38 --open
 d4-plot-server --reference reference.fa --reference-index reference.fa.fai sample.d4
 d4-plot-server --contigs-only sample.d4
 ```
