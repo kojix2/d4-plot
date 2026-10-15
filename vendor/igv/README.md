@@ -13,11 +13,15 @@ node scripts/update-igv.mjs
 To move to an exact new release, pass `--version <semver>`. The update command
 uses `npm pack`, checks the npm tarball's SRI and SHA-1 metadata, extracts only
 the bundle and license, syntax-checks the JavaScript, and atomically updates
-the manifest hashes. Before compiling or releasing the web viewer, run:
+the manifest hashes. Node.js and npm are needed only for this explicit update
+operation. Before compiling or releasing the web viewer, run:
 
 ```sh
-node scripts/verify-igv.mjs
+crystal run scripts/verify_igv.cr
 ```
+
+The verifier uses only Crystal's standard library. Build and release workflows
+therefore do not install Node.js or npm.
 
 The bundle is intentionally not generated at application runtime. If it is
 missing, verification (and the web server) must fail with an instruction to
