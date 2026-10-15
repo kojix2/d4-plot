@@ -162,5 +162,31 @@ describe D4Plot::ReferenceSpec do
         "https://different.example/reference.chrom.sizes",
         ["https://allowed.example"])
     end
+    expect_raises(D4Plot::ReferenceValidationError, /not allowed/) do
+      D4Plot::PresetRegistry::BrowserDefinition.new(
+        "https://allowed.example/reference.2bit",
+        "https://allowed.example/reference.chrom.sizes",
+        ["https://allowed.example"],
+        gene_track_url: "https://different.example/genes.bb")
+    end
+  end
+
+  it "loads assembly-matched gene annotations only for public presets" do
+    expected = {
+      "hg38" => "gencodeV50.bb",
+      "hg19" => "gencodeV49lift37.bb",
+      "hs1"  => "ncbiRefSeq.bb",
+      "mm39" => "gencodeVM39.bb",
+    }
+    expected.each do |id, filename|
+      config = D4Plot::ReferenceSpec.preset(id).resolve.igv_browser_config
+      track = config["genomeList"].as_a.first["tracks"].as_a.first
+      track["type"].as_s.should eq("annotation")
+      track["format"].as_s.should eq("bigbed")
+      track["url"].as_s.should end_with(filename)
+    end
+    contigs = D4Plot::ReferenceSpec.contigs_only({"chr1" => 10_u32}).resolve
+    config = contigs.igv_browser_config({"chrom-sizes" => "/reference/chrom-sizes"})
+    config["reference"].as_h.has_key?("tracks").should be_false
   end
 end

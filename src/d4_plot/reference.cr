@@ -366,19 +366,20 @@ module D4Plot
   # remains Unverified until a real dictionary is supplied.
   class PresetRegistry
     # A deliberately small, auditable subset of an IGV public genome entry.
-    # We load no default annotation tracks: a D4 viewer needs sequence and
-    # contig sizes, while silently loading a large remote annotation is both
-    # slow and surprising. `connect_origins` is emitted into the local viewer's
-    # CSP, so it is validated independently from the resource URLs.
+    # `connect_origins` is emitted into the local viewer's CSP, so every remote
+    # resource is validated against it.
     class BrowserDefinition
       getter two_bit_url : String
       getter chrom_sizes_url : String
       getter? whole_genome_view : Bool
 
       @connect_origins : Array(String)
+      @gene_track_url : String?
+      @gene_track_name : String
 
       def initialize(@two_bit_url : String, @chrom_sizes_url : String, connect_origins : Array(String),
-                     @whole_genome_view : Bool = true)
+                     @whole_genome_view : Bool = true, @gene_track_url : String? = nil,
+                     @gene_track_name : String = "Genes")
         validate_https_url!(@two_bit_url, "twoBitURL")
         validate_https_url!(@chrom_sizes_url, "chromSizesURL")
         @connect_origins = connect_origins.uniq
@@ -386,6 +387,11 @@ module D4Plot
         @connect_origins.each { |origin| validate_origin!(origin) }
         validate_resource_origin!(@two_bit_url, "twoBitURL")
         validate_resource_origin!(@chrom_sizes_url, "chromSizesURL")
+        if url = @gene_track_url
+          validate_https_url!(url, "gene track URL")
+          validate_resource_origin!(url, "gene track URL")
+          raise ReferenceValidationError.new("Preset gene track name is empty") if @gene_track_name.strip.empty?
+        end
       end
 
       def connect_origins : Array(String)
@@ -399,6 +405,19 @@ module D4Plot
           json.field "twoBitURL", @two_bit_url
           json.field "chromSizesURL", @chrom_sizes_url
           json.field "wholeGenomeView", @whole_genome_view
+          if url = @gene_track_url
+            json.field "tracks" do
+              json.array do
+                json.object do
+                  json.field "name", @gene_track_name
+                  json.field "type", "annotation"
+                  json.field "format", "bigbed"
+                  json.field "url", url
+                  json.field "displayMode", "COLLAPSED"
+                end
+              end
+            end
+          end
         end
       end
 
@@ -465,16 +484,24 @@ module D4Plot
       new([
         Definition.new("hg38", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.2bit",
-          "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes", ucsc)),
+          "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes", ucsc,
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/hg38/gencode/gencodeV50.bb",
+          gene_track_name: "GENCODE v50 genes")),
         Definition.new("hg19", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.2bit",
-          "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes", ucsc)),
+          "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes", ucsc,
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/hg19/gencode/gencodeV49lift37.bb",
+          gene_track_name: "GENCODE v49lift37 genes")),
         Definition.new("hs1", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.2bit",
-          "https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.chrom.sizes.txt", ucsc)),
+          "https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.chrom.sizes.txt", ucsc,
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/hs1/bbi/ncbiRefSeq.bb",
+          gene_track_name: "NCBI RefSeq genes")),
         Definition.new("mm39", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/mm39.2bit",
-          "https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/mm39.chrom.sizes", ucsc)),
+          "https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/mm39.chrom.sizes", ucsc,
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/mm39/gencode/gencodeVM39.bb",
+          gene_track_name: "GENCODE VM39 genes")),
       ])
     end
   end

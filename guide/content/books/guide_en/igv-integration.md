@@ -35,6 +35,7 @@ local IGV.js viewer. These are separate features.
 | Initial locus | Uses the visible D4 Plot locus; falls back to a valid locus if it does not fit the selected reference. |
 | Tracks | Selects the first 12 tracks by default; choose others under **D4 tracks**. |
 | Reference | Starts with D4-derived **Contigs only**; the browser can switch to `hg38`, `hg19`, `hs1`, or `mm39`. |
+| Gene annotations | Public presets load an assembly-matched gene track automatically: GENCODE for `hg38`, `hg19`, and `mm39`; NCBI RefSeq for `hs1`. Contigs only and local references have no automatic gene track. |
 | D4 values | Displays means over resolution-dependent bins. Zoom in to inspect narrow peaks. |
 | Connection | Binds only to `127.0.0.1`. The URL contains a session token; do not publish it. |
 

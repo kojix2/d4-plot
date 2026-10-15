@@ -114,6 +114,8 @@ describe D4Plot::IGVWebServer do
       state = JSON.parse(state_response.body)
       state["revision"].as_s.should eq(new_revision)
       state["igvReference"]["genome"].as_s.should eq("hg38")
+      gene_track = state["igvReference"]["genomeList"].as_a.first["tracks"].as_a.first
+      gene_track["name"].as_s.should eq("GENCODE v50 genes")
       state["desktopGotoAvailable"].as_bool.should be_false
       policy = state_response.headers["Content-Security-Policy"]
       policy.should contain("connect-src 'self' https://hgdownload.soe.ucsc.edu")

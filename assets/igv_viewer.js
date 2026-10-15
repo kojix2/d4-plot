@@ -7,8 +7,6 @@
   const referenceSelect = document.getElementById("reference");
   const trackChoices = document.getElementById("track-choices");
   const loadTracksButton = document.getElementById("load-tracks");
-  const referenceSummary = document.getElementById("reference-summary");
-  const aggregationSummary = document.getElementById("aggregation-summary");
   const root = new URL("./", window.location.href);
   const apiUrl = (path) => new URL(`api/${path}`, root).toString();
   const MAX_DEFAULT_TRACKS = 12;
@@ -44,19 +42,6 @@
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  };
-
-  const setReferenceSummary = () => {
-    const info = state.referenceInfo;
-    const verification = info.dictionaryVerified
-      ? "contig names and lengths verified"
-      : "contig dictionary unverified; choose a local reference for verification";
-    referenceSummary.textContent = `Reference: ${info.name} (${info.kind}; ${verification})`;
-  };
-
-  const setAggregationSummary = (width) => {
-    if (!Number.isFinite(width) || width <= 0) return;
-    aggregationSummary.textContent = `D4 aggregation: mean in ${Math.round(width).toLocaleString()} bp bins`;
   };
 
   // IGV may ask several tracks for the same viewport at once. Keep only a
@@ -150,7 +135,6 @@
             window.setTimeout(() => window.location.reload(), 100);
             return [];
           }
-          setAggregationSummary(payload.binWidth);
           return payload.features.map((feature) => ({
             chr: payload.chr,
             start: feature.start,
@@ -236,7 +220,6 @@
     // immutable reference.  Use its normalized fallback rather than sending
     // an invalid raw query string directly to IGV.js.
     currentLocus = state.locus;
-    setReferenceSummary();
     setReferenceChoices();
     const selectedIds = selectedTrackIds();
     setTrackChoices(selectedIds);
