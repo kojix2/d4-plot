@@ -30,7 +30,6 @@ Use the mouse or toolbar to navigate:
 - double-click to zoom in;
 - right-double-click to zoom out;
 - click outside the highlighted chromosome-overview range to recenter the view;
-- drag the highlighted overview range to move it without reloading until release; and
 - use **Back** and **Forward** to revisit regions.
 
 When the plot has keyboard focus, Left and Right pan by half a view, `+` and

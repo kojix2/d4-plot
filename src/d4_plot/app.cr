@@ -63,7 +63,6 @@ module D4Plot
     @loading = false
     @closed = false
     @drag : Tuple(Float64, Region, Bool)?
-    @overview_drag : Tuple(Float64, Region)?
     @track_list : TrackList
     @track_panel = UIng::Box.new(:vertical, padded: true)
     @sidebar_toggle = UIng::Button.new(D4Plot.t("app.show_tracks"))
@@ -953,12 +952,8 @@ module D4Plot
       inspect_mouse(layer, region, fraction, inside)
       if event.down == 1 || event.down == 3
         handle_mouse_down(event, layer, index, stack, region, layout, fraction, inside)
-      elsif event.up == 1 && @overview_drag
-        finish_overview_drag
       elsif event.up == 1 || event.up == 3
         finish_drag(fraction, layout)
-      elsif overview_drag = @overview_drag
-        preview_overview_drag(overview_drag, fraction)
       elsif drag = @drag
         preview_drag(drag, fraction)
       end
@@ -968,7 +963,7 @@ module D4Plot
     private def inspect_mouse(layer : TrackLayer?, region : Region, fraction : Float64, inside : Bool)
       @renderer.hover_index = nil
       @renderer.hover_layer = nil
-      return unless inside && @drag.nil? && @overview_drag.nil?
+      return unless inside && @drag.nil?
       return unless layer
       return unless view = layer.view
       return unless view.region == region
@@ -1005,10 +1000,7 @@ module D4Plot
     private def start_mouse_action(event, region, layout, fraction, inside)
       if event.down == 1 && layout.overview_contains?(event.x, event.y)
         size = @chromosomes[region.chromosome]
-        if layout.overview_viewport_contains?(event.x, event.y, region, size)
-          @overview_drag = {fraction, region}
-          @renderer.overview_preview_region = region
-        else
+        unless layout.overview_viewport_contains?(event.x, event.y, region, size)
           target = region.centered_at_chromosome_fraction(fraction, size)
           request_view(target, overview_preview: target)
         end
@@ -1019,20 +1011,6 @@ module D4Plot
           @drag = {fraction, region, event.down == 3 || event.modifiers.shift?}
         end
       end
-    end
-
-    private def preview_overview_drag(drag : Tuple(Float64, Region), fraction : Float64)
-      start, region = drag
-      size = @chromosomes[region.chromosome]
-      @renderer.overview_preview_region = region.pan_by_chromosome_fraction(fraction - start, size)
-    end
-
-    private def finish_overview_drag
-      drag = @overview_drag
-      return unless drag
-      target = @renderer.overview_preview_region || drag[1]
-      clear_drag
-      request_view(target, overview_preview: target) unless target == drag[1]
     end
 
     private def finish_drag(fraction, layout)
@@ -1058,7 +1036,6 @@ module D4Plot
 
     private def clear_drag(preview_region : Region? = nil)
       @drag = nil
-      @overview_drag = nil
       @renderer.selection = nil
       @renderer.preview_region = preview_region
       @renderer.overview_preview_region = nil
@@ -1074,7 +1051,7 @@ module D4Plot
       when UIng::Area::ExtKey::Right then move(0.5)
       when UIng::Area::ExtKey::Home  then whole_chromosome
       when UIng::Area::ExtKey::Escape
-        @drag || @overview_drag ? clear_drag : cancel_loading
+        @drag ? clear_drag : cancel_loading
         @area.queue_redraw_all
       else
         case event.key

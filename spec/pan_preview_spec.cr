@@ -32,12 +32,6 @@ describe "Pan preview coordinates" do
     region.centered_at_chromosome_fraction(1.0, 1000_u32).to_s.should eq("chr1:901-1000")
   end
 
-  it "moves an overview viewport by chromosome distance" do
-    region = D4Plot::Region.new("chr1", 101_u32, 200_u32)
-    region.pan_by_chromosome_fraction(0.25, 1000_u32).to_s.should eq("chr1:351-450")
-    region.pan_by_chromosome_fraction(-0.5, 1000_u32).to_s.should eq("chr1:1-100")
-  end
-
   it "uses the rendered overview viewport for hit testing" do
     region = D4Plot::Region.new("chr1", 101_u32, 200_u32)
     layout = D4Plot::PlotGeometry.new(800.0, 500.0, 0.0)
