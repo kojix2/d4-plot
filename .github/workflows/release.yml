@@ -77,12 +77,12 @@ jobs:
       - run: |
           shards build d4-plot --release --no-debug
           shards build d4-plot-server --release --no-debug
-      - name: Package app bundle
+      - name: Package macOS DMG
         run: bash scripts/package-macos.sh "$GITHUB_REF_NAME" "${{ matrix.arch }}"
       - uses: actions/upload-artifact@v7
         with:
           name: d4-plot-macos-${{ matrix.arch }}
-          path: dist/*.zip
+          path: dist/*.dmg
 
   ubuntu:
     runs-on: ubuntu-latest

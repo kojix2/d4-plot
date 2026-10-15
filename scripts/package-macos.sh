@@ -5,7 +5,8 @@ usage() {
   cat <<'EOF'
 Usage: scripts/package-macos.sh [TAG [ARCH]]
 
-Package the already-built bin/d4-plot and bin/d4-plot-server executables.
+Package the already-built bin/d4-plot and bin/d4-plot-server executables
+in a macOS DMG.
 TAG defaults to v<version from shard.yml>.
 ARCH defaults to the current Mac's architecture (arm64 or x64).
 
@@ -51,7 +52,7 @@ version=${tag#v}
 bundle=dist/d4-plot.app
 executable=$bundle/Contents/MacOS/d4-plot
 server_executable=$bundle/Contents/MacOS/d4-plot-server
-archive="dist/d4-plot-${tag}-macos-${arch}.zip"
+disk_image="dist/d4-plot-${tag}-macos-${arch}.dmg"
 
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
 install -m 755 bin/d4-plot "$executable"
@@ -101,5 +102,10 @@ dylibbundler -ns -od -b -x "$executable" -x "$server_executable" \
   -p '@executable_path/../Frameworks/'
 
 codesign --force --deep --sign - "$bundle"
-ditto -c -k --sequesterRsrc --keepParent "$bundle" "$archive"
-echo "Created $archive"
+
+staging=$(mktemp -d "${TMPDIR:-/tmp}/d4-plot-dmg.XXXXXX")
+trap 'rm -R "$staging"' EXIT
+ditto "$bundle" "$staging/d4-plot.app"
+ln -s /Applications "$staging/Applications"
+hdiutil create -volname "D4 Plot" -srcfolder "$staging" -format UDZO -ov "$disk_image"
+echo "Created $disk_image"

@@ -32,7 +32,7 @@ The server binds only to `127.0.0.1` and prints a token-scoped viewer URL. Use
 `--open` to launch it automatically, or paste the printed URL into a browser.
 `--port 0` (the default) selects an available loopback port; stop the server
 with Ctrl-C. On Windows, run `d4-plot-server` from a terminal when you need to
-copy the printed URL. In the macOS ZIP, the standalone binary is inside the
+copy the printed URL. In the macOS DMG, the standalone binary is inside the
 application bundle at `d4-plot.app/Contents/MacOS/d4-plot-server` so it can
 share the bundle's packaged native libraries.
 
