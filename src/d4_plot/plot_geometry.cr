@@ -1,5 +1,12 @@
 module D4Plot
   struct PlotGeometry
+    OVERVIEW_HIT_TOP       = 34.0
+    OVERVIEW_HIT_BOTTOM    = 56.0
+    OVERVIEW_BAR_TOP       = 38.0
+    OVERVIEW_BAR_HEIGHT    = 14.0
+    OVERVIEW_WINDOW_TOP    = 36.0
+    OVERVIEW_WINDOW_HEIGHT = 18.0
+
     getter left : Float64, top : Float64, width : Float64, height : Float64, annotation_top : Float64
 
     def initialize(area_width : Float64, area_height : Float64, annotation_height : Float64, top : Float64 = 92.0)
@@ -16,6 +23,22 @@ module D4Plot
 
     def contains?(x : Float64, y : Float64) : Bool
       x >= @left && x <= @left + @width && y >= @top && y <= @top + @height
+    end
+
+    def overview_contains?(x : Float64, y : Float64) : Bool
+      x >= @left && x <= @left + @width && y >= OVERVIEW_HIT_TOP && y <= OVERVIEW_HIT_BOTTOM
+    end
+
+    def overview_viewport(region : Region, chromosome_size : UInt32) : Tuple(Float64, Float64)
+      width = Math.max(region.length.to_f64 / chromosome_size * @width, 2.0)
+      x = @left + region.start0.to_f64 / chromosome_size * @width
+      {Math.min(x, @left + @width - width), width}
+    end
+
+    def overview_viewport_contains?(x : Float64, y : Float64, region : Region, chromosome_size : UInt32) : Bool
+      return false unless overview_contains?(x, y)
+      viewport_x, viewport_width = overview_viewport(region, chromosome_size)
+      x >= viewport_x && x <= viewport_x + viewport_width
     end
 
     # Position is a 0-based boundary, shared by bins and annotation intervals.

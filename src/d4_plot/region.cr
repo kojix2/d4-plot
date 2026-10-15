@@ -66,5 +66,16 @@ module D4Plot
       delta = (fraction * length).round.to_i64
       Region.bounded(chromosome, start0.to_i64 + delta, length.to_i64, chromosome_size)
     end
+
+    def centered_at_chromosome_fraction(fraction : Float64, chromosome_size : UInt32) : Region
+      center = fraction.clamp(0.0, 1.0) * chromosome_size
+      left = (center - length / 2.0).round.to_i64
+      Region.bounded(chromosome, left, length.to_i64, chromosome_size)
+    end
+
+    def pan_by_chromosome_fraction(fraction : Float64, chromosome_size : UInt32) : Region
+      delta = (fraction * chromosome_size).round.to_i64
+      Region.bounded(chromosome, start0.to_i64 + delta, length.to_i64, chromosome_size)
+    end
   end
 end

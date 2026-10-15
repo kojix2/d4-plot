@@ -11,6 +11,7 @@ module D4Plot
     property hover_index : Int32? = nil
     property selection : Tuple(Float64, Float64)? = nil
     property preview_region : Region? = nil
+    property overview_preview_region : Region? = nil
 
     def initialize
       @annotation_renderer = AnnotationRenderer.new
@@ -33,7 +34,7 @@ module D4Plot
       label(ctx, D4Plot.t("plot.region_header", chromosome: region.chromosome,
         start: DisplayFormat.position(region.start1), end: DisplayFormat.position(region.end1),
         bases: DisplayFormat.position(region.length)), layout.left, 8.0, layout.width, :left, 13.0)
-      draw_overview(ctx, layout, region, chromosomes)
+      draw_overview(ctx, layout, @overview_preview_region || region, chromosomes)
       shared_range = shared_range_for(layers, completed_region, settings, shared_y)
       layers.each_with_index do |layer, index|
         next unless stack.visible?(index, params.clip_y, params.clip_height)
@@ -91,12 +92,14 @@ module D4Plot
     private def draw_overview(ctx, layout, region, chromosomes)
       return unless size = chromosomes[region.chromosome]?
       return if size == 0
-      y = 38.0
-      ctx.fill_path(brush(0.89, 0.91, 0.94)) { |path| path.add_rectangle(layout.left, y, layout.width, 14) }
-      x = layout.left + region.start0.to_f / size * layout.width
-      width = Math.max(region.length.to_f / size * layout.width, 2.0)
-      x = Math.min(x, layout.left + layout.width - width)
-      ctx.fill_path(brush(0.12, 0.4, 0.68, 0.8)) { |path| path.add_rectangle(x, y - 2, width, 18) }
+      y = PlotGeometry::OVERVIEW_BAR_TOP
+      ctx.fill_path(brush(0.89, 0.91, 0.94)) do |path|
+        path.add_rectangle(layout.left, y, layout.width, PlotGeometry::OVERVIEW_BAR_HEIGHT)
+      end
+      x, width = layout.overview_viewport(region, size)
+      ctx.fill_path(brush(0.12, 0.4, 0.68, 0.8)) do |path|
+        path.add_rectangle(x, PlotGeometry::OVERVIEW_WINDOW_TOP, width, PlotGeometry::OVERVIEW_WINDOW_HEIGHT)
+      end
       label(ctx, "1", layout.left, y + 18, 80.0)
       label(ctx, D4Plot.t("plot.bases", number: DisplayFormat.position(size)), layout.left + layout.width - 130, y + 18, 130.0, :right)
     end

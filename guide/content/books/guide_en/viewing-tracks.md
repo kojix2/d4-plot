@@ -26,10 +26,11 @@ The region field accepts:
 Use the mouse or toolbar to navigate:
 
 - drag to pan;
-- Shift-drag to select a range;
+- Shift-drag or right-drag to select a range;
 - double-click to zoom in;
-- right-click to zoom out;
-- click the chromosome overview to jump; and
+- right-double-click to zoom out;
+- click outside the highlighted chromosome-overview range to recenter the view;
+- drag the highlighted overview range to move it without reloading until release; and
 - use **Back** and **Forward** to revisit regions.
 
 When the plot has keyboard focus, Left and Right pan by half a view, `+` and
