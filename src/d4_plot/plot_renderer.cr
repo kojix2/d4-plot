@@ -94,14 +94,28 @@ module D4Plot
       return if size == 0
       y = PlotGeometry::OVERVIEW_BAR_TOP
       ctx.fill_path(brush(0.89, 0.91, 0.94)) do |path|
-        path.add_rectangle(layout.left, y, layout.width, PlotGeometry::OVERVIEW_BAR_HEIGHT)
+        add_rounded_rectangle(path, layout.left, y, layout.width, PlotGeometry::OVERVIEW_BAR_HEIGHT, 5.0)
       end
       x, width = layout.overview_viewport(region, size)
       ctx.fill_path(brush(0.12, 0.4, 0.68, 0.8)) do |path|
         path.add_rectangle(x, PlotGeometry::OVERVIEW_WINDOW_TOP, width, PlotGeometry::OVERVIEW_WINDOW_HEIGHT)
       end
-      label(ctx, "1", layout.left, y + 18, 80.0)
+      label(ctx, D4Plot.t("plot.bases", number: "1"), layout.left, y + 18, 80.0)
       label(ctx, D4Plot.t("plot.bases", number: DisplayFormat.position(size)), layout.left + layout.width - 130, y + 18, 130.0, :right)
+    end
+
+    private def add_rounded_rectangle(path : UIng::Area::Draw::Path, x : Float64, y : Float64, width : Float64, height : Float64, radius : Float64)
+      radius = Math.min(radius, Math.min(width, height) / 2.0)
+      path.new_figure(x + radius, y)
+      path.line_to(x + width - radius, y)
+      path.arc_to(x + width - radius, y + radius, radius, Math::PI * 1.5, Math::PI / 2.0, false)
+      path.line_to(x + width, y + height - radius)
+      path.arc_to(x + width - radius, y + height - radius, radius, 0.0, Math::PI / 2.0, false)
+      path.line_to(x + radius, y + height)
+      path.arc_to(x + radius, y + height - radius, radius, Math::PI / 2.0, Math::PI / 2.0, false)
+      path.line_to(x, y + radius)
+      path.arc_to(x + radius, y + radius, radius, Math::PI, Math::PI / 2.0, false)
+      path.close_figure
     end
 
     private def draw_grid(ctx, layout, range)
@@ -188,6 +202,10 @@ module D4Plot
       end
       positions.each do |position|
         x = layout.left + (position - region.start0 - 0.5) / region.length * layout.width
+        ctx.stroke_path(brush(0.52, 0.56, 0.60), thickness: 1.0) do |path|
+          path.new_figure(x, layout.top + layout.height)
+          path.line_to(x, layout.top + layout.height + 4.0)
+        end
         label(ctx, DisplayFormat.position(position), x - 60, layout.top + layout.height + 8, 120.0, :center)
       end
     end

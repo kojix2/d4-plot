@@ -51,8 +51,9 @@ module D4Plot
       form.append(D4Plot.t("settings.language"), @language)
       root = UIng::Box.new(:vertical)
       root.padded = true
-      root.append(form, true)
+      root.append(form, false)
       root.append(UIng::Label.new(D4Plot.t("settings.hint")), false)
+      root.append(UIng::Box.new(:vertical), true)
       buttons = UIng::Box.new(:horizontal)
       buttons.padded = true
       apply = UIng::Button.new(D4Plot.t("settings.apply"))
