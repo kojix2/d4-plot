@@ -5,6 +5,10 @@ id:
     region_option: "    -r REGION, --region REGION       Wilayah awal (berbasis 1, inklusif)"
     help_option: "    -h, --help                         Tampilkan bantuan"
   app:
+    image_exists: "%{name} sudah ada. Pilih nama lain."
+    save_image: "Simpan plot sebagai SVG…"
+    image_saved: "Plot disimpan ke %{name}."
+    could_not_save_image: "Gambar plot tidak dapat disimpan"
     status_ready: "Siap"
     inspection_short: "Arahkan penunjuk untuk memeriksa · Seret untuk menggeser"
     view_summary: "%{bases} bp · %{tracks} trek"

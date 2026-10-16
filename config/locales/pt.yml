@@ -5,6 +5,10 @@ pt:
     region_option: "    -r REGION, --region REGION       Região inicial (baseada em 1, inclusiva)"
     help_option: "    -h, --help                         Mostrar ajuda"
   app:
+    image_exists: "%{name} já existe. Escolha outro nome."
+    save_image: "Salvar gráfico como SVG…"
+    image_saved: "Gráfico salvo em %{name}."
+    could_not_save_image: "Não foi possível salvar a imagem do gráfico"
     status_ready: "Pronto"
     inspection_short: "Passe o cursor para inspecionar · Arraste para mover"
     view_summary: "%{bases} bp · %{tracks} faixas"

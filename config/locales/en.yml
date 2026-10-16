@@ -5,6 +5,10 @@ en:
     region_option: "    -r REGION, --region REGION       Initial region (1-based, inclusive)"
     help_option: "    -h, --help                         Show usage"
   app:
+    image_exists: "%{name} already exists. Choose another name."
+    save_image: "Save plot as SVG…"
+    image_saved: "Saved plot to %{name}."
+    could_not_save_image: "Could not save plot image"
     status_ready: "Ready"
     inspection_short: "Hover to inspect · Drag to pan"
     view_summary: "%{bases} bp · %{tracks} tracks"

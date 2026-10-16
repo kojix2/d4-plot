@@ -5,6 +5,10 @@ ar:
     region_option: "    -r REGION, --region REGION       المنطقة الابتدائية (ترقيم يبدأ من 1، شامل)"
     help_option: "    -h, --help                         عرض المساعدة"
   app:
+    image_exists: "%{name} موجود بالفعل. اختر اسمًا آخر."
+    save_image: "حفظ الرسم كصورة SVG…"
+    image_saved: "تم حفظ الرسم في %{name}."
+    could_not_save_image: "تعذر حفظ صورة الرسم"
     status_ready: "جاهز"
     inspection_short: "مرّر المؤشر لفحص القيم · اسحب للتحريك"
     view_summary: "%{bases} bp · %{tracks} مسارات"

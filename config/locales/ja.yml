@@ -5,6 +5,10 @@ ja:
     region_option: "    -r REGION, --region REGION       初期領域（1 始まり・両端を含む）"
     help_option: "    -h, --help                         使用法を表示"
   app:
+    image_exists: "%{name} は既に存在します。別の名前を選んでください。"
+    save_image: "プロットを SVG 画像として保存…"
+    image_saved: "プロットを %{name} に保存しました。"
+    could_not_save_image: "プロット画像を保存できませんでした"
     status_ready: "準備完了"
     inspection_short: "ポインタで値を確認 · ドラッグで移動"
     view_summary: "%{bases} bp · %{tracks} トラック"

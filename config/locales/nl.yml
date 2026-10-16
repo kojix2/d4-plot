@@ -5,6 +5,10 @@ nl:
     region_option: "    -r REGION, --region REGION       Beginregio (1-gebaseerd, inclusief)"
     help_option: "    -h, --help                         Hulp weergeven"
   app:
+    image_exists: "%{name} bestaat al. Kies een andere naam."
+    save_image: "Grafiek opslaan als SVG…"
+    image_saved: "Grafiek opgeslagen in %{name}."
+    could_not_save_image: "Grafiekafbeelding kon niet worden opgeslagen"
     status_ready: "Gereed"
     inspection_short: "Aanwijzen om te inspecteren · Slepen om te verschuiven"
     view_summary: "%{bases} bp · %{tracks} sporen"

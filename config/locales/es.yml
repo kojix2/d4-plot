@@ -5,6 +5,10 @@ es:
     region_option: "    -r REGION, --region REGION       Región inicial (basada en 1, inclusiva)"
     help_option: "    -h, --help                         Mostrar ayuda"
   app:
+    image_exists: "%{name} ya existe. Elija otro nombre."
+    save_image: "Guardar gráfico como SVG…"
+    image_saved: "Gráfico guardado en %{name}."
+    could_not_save_image: "No se pudo guardar la imagen del gráfico"
     status_ready: "Listo"
     inspection_short: "Pasar el cursor para inspeccionar · Arrastrar para desplazar"
     view_summary: "%{bases} bp · %{tracks} pistas"

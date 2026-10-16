@@ -13,6 +13,7 @@ require "./toolbar"
 require "./conversion_window"
 require "./ui_runtime"
 require "./bedgraph_export"
+require "./svg_export"
 require "./igv_web_server"
 
 module D4Plot
@@ -89,12 +90,14 @@ module D4Plot
     @retired_igv_web_servers = [] of IGVWebServer
     @igv_desktop_menu_item : UIng::MenuItem
     @igv_web_menu_item : UIng::MenuItem
+    @save_image_menu_item : UIng::MenuItem
 
     def self.create_menu_bar
       file = UIng::Menu.new(D4Plot.t("app.file"))
       open = file.append_item(D4Plot.t("app.open_d4"))
       create = file.append_item(D4Plot.t("app.create_d4_from_alignment"))
       export = file.append_item(D4Plot.t("app.export_bins"))
+      save_image = file.append_item(D4Plot.t("app.save_image"))
       settings = file.append_preferences_item
       file.append_quit_item
       igv = UIng::Menu.new("IGV")
@@ -103,7 +106,7 @@ module D4Plot
       help = UIng::Menu.new(D4Plot.t("app.help"))
       guide = help.append_item(D4Plot.t("app.navigation_help"))
       about = help.append_about_item
-      {open: open, create: create, export: export, settings: settings, guide: guide, about: about,
+      {open: open, create: create, export: export, save_image: save_image, settings: settings, guide: guide, about: about,
        igv_desktop: igv_desktop, igv_web: igv_web}
     end
 
@@ -112,6 +115,7 @@ module D4Plot
       @area = UIng::Area.new(@handler, @canvas_width, 400)
       @igv_desktop_menu_item = menu_items[:igv_desktop]
       @igv_web_menu_item = menu_items[:igv_web]
+      @save_image_menu_item = menu_items[:save_image]
       @track_list = TrackList.new(
         ->(index : Int32) { select_layer(index); nil },
         ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil },
@@ -125,6 +129,7 @@ module D4Plot
       menu_items[:open].on_clicked { open_file_dialog }
       menu_items[:create].on_clicked { open_conversion }
       menu_items[:export].on_clicked { export_view }
+      @save_image_menu_item.on_clicked { save_image }
       @igv_desktop_menu_item.on_clicked { view_in_igv_desktop }
       @igv_web_menu_item.on_clicked { open_igv_web }
       menu_items[:settings].on_clicked { open_settings }
@@ -837,6 +842,25 @@ module D4Plot
       show_error(D4Plot.t("app.could_not_export"), ex)
     end
 
+    private def save_image(destination : String? = nil)
+      return if @loading || @file_load_id
+      return unless region = @completed_region
+      return unless destination = destination || @window.save_file
+      path = SvgExport.destination(destination)
+      sources = @layers.map(&.source.path) + [@annotation_path].compact
+      export = SvgExport.new(path, sources, region, visible_layers, @annotation, @settings,
+        @chromosomes[region.chromosome]?, @canvas_width, @row_height, @shared_y.checked?, selected_layer.try(&.source.key))
+      @background_io.submit(-> { export.write }, operation: "plot.svg_export") do |error|
+        if error
+          show_error(D4Plot.t("app.could_not_save_image"), error)
+        else
+          show_status(D4Plot.t("app.image_saved", name: File.basename(path)))
+        end
+      end
+    rescue ex
+      show_error(D4Plot.t("app.could_not_save_image"), ex)
+    end
+
     # Both IGV integrations use an immutable region snapshot.  The desktop
     # listener can block while connecting, so it always runs outside the
     # native UI event loop.
@@ -927,6 +951,7 @@ module D4Plot
       igv_ready = has_layers && @file_load_id.nil? && !@closed
       set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
       set_enabled(@igv_web_menu_item, @file_load_id.nil? && !@closed)
+      set_enabled(@save_image_menu_item, view_summary_ready?)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end

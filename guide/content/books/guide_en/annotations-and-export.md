@@ -24,3 +24,10 @@ The output contains the source path and track name in comments. Intervals are
 0-based and half-open, while coordinates shown in the application are 1-based
 and inclusive. D4 Plot refuses to use an input D4 or the current annotation as
 the export destination.
+
+## Saving a plot image
+
+Choose **Save plot as SVG** from the File menu to save the current region as an
+SVG image. The image includes every visible track and its annotations, even
+rows outside the scrolled viewport. SVG remains sharp when enlarged. The
+`.svg` extension is added when omitted.

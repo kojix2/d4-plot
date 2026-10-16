@@ -5,6 +5,10 @@ vi:
     region_option: "    -r REGION, --region REGION       Vùng ban đầu (đánh số từ 1, gồm cả hai đầu)"
     help_option: "    -h, --help                         Hiển thị trợ giúp"
   app:
+    image_exists: "%{name} đã tồn tại. Hãy chọn tên khác."
+    save_image: "Lưu biểu đồ dưới dạng SVG…"
+    image_saved: "Đã lưu biểu đồ vào %{name}."
+    could_not_save_image: "Không thể lưu ảnh biểu đồ"
     status_ready: "Sẵn sàng"
     inspection_short: "Di chuột để xem giá trị · Kéo để di chuyển"
     view_summary: "%{bases} bp · %{tracks} track"

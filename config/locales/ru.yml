@@ -5,6 +5,10 @@ ru:
     region_option: "    -r REGION, --region REGION       Начальный регион (нумерация с 1, включительно)"
     help_option: "    -h, --help                         Показать справку"
   app:
+    image_exists: "%{name} уже существует. Выберите другое имя."
+    save_image: "Сохранить график как SVG…"
+    image_saved: "График сохранён в %{name}."
+    could_not_save_image: "Не удалось сохранить изображение графика"
     status_ready: "Готово"
     inspection_short: "Наведение — значения · Перетаскивание — сдвиг"
     view_summary: "%{bases} bp · треков: %{tracks}"

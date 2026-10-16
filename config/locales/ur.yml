@@ -5,6 +5,10 @@ ur:
     region_option: "    -r REGION, --region REGION       ابتدائی خطہ (1 پر مبنی، شامل)"
     help_option: "    -h, --help                         مدد دکھائیں"
   app:
+    image_exists: "%{name} پہلے سے موجود ہے۔ دوسرا نام منتخب کریں۔"
+    save_image: "گراف کو SVG کے طور پر محفوظ کریں…"
+    image_saved: "گراف %{name} میں محفوظ ہو گیا۔"
+    could_not_save_image: "گراف کی تصویر محفوظ نہیں ہو سکی"
     status_ready: "تیار"
     inspection_short: "قدر دیکھنے کے لیے پوائنٹر رکھیں · منتقل کرنے کے لیے گھسیٹیں"
     view_summary: "%{bases} bp · %{tracks} ٹریک"

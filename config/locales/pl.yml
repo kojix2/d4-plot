@@ -5,6 +5,10 @@ pl:
     region_option: "    -r REGION, --region REGION       Początkowy region (liczony od 1, włącznie)"
     help_option: "    -h, --help                         Pokaż pomoc"
   app:
+    image_exists: "%{name} już istnieje. Wybierz inną nazwę."
+    save_image: "Zapisz wykres jako SVG…"
+    image_saved: "Zapisano wykres w %{name}."
+    could_not_save_image: "Nie można zapisać obrazu wykresu"
     status_ready: "Gotowe"
     inspection_short: "Najedź, aby sprawdzić · Przeciągnij, aby przesunąć"
     view_summary: "%{bases} bp · %{tracks} ścieżek"

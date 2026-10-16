@@ -3,6 +3,7 @@
 # Screenshots are optional, macOS-only, and captured by this process's NSWindow
 # ID. The desktop and other applications are never captured, even temporarily.
 require "../src/d4_plot/app"
+require "xml"
 
 {% if flag?(:darwin) %}
   @[Link("objc")]
@@ -182,7 +183,7 @@ class D4Plot::App
     end
     unless @smoke_io_pending
       @smoke_io_pending = true
-      @background_io.submit(work) do |failure|
+      @background_io.submit(work, operation: "ui_smoke.io") do |failure|
         @smoke_io_error = failure
         @smoke_io_pending = false
         @smoke_io_done = true
@@ -317,8 +318,8 @@ class D4Plot::App
 
   private def smoke_track_settings_step(step, directory, fixtures)
     case step
-    when 11 then smoke_opened_tracks_step(directory)
-    when 12 then smoke_track_preferences_step(directory)
+    when 11 then smoke_opened_tracks_step(directory, fixtures)
+    when 12 then smoke_track_preferences_step(directory, fixtures)
     when 13 then smoke_saved_settings_step(directory, fixtures)
     else         true
     end
@@ -333,12 +334,13 @@ class D4Plot::App
     end
   end
 
-  private def smoke_opened_tracks_step(directory)
+  private def smoke_opened_tracks_step(directory, fixtures)
     return false if @loading || @file_load_id
     UiSmoke.check(@layers.size == 2 && @annotation_path.nil?, "Batch opening did not replace the workspace")
     UiSmoke.check(@track_list.native.selection.rows == [0], "Initial track selection was lost")
     UiSmoke.check(@navigation.visible? && @inspection.visible? && !@status.visible? && @view_summary.visible?, "Idle status bar did not show inspection and summary")
     UiSmoke.capture(@window, directory, "09-track-list")
+    save_image(File.join(fixtures, "plot-export"))
     select_layer(1)
     toggle_layer(0, false)
     select_layer(1)
@@ -346,8 +348,16 @@ class D4Plot::App
     true
   end
 
-  private def smoke_track_preferences_step(directory)
+  private def smoke_track_preferences_step(directory, fixtures)
     return false if @loading
+    image_path = File.join(fixtures, "plot-export.svg")
+    return false unless File.exists?(image_path)
+    contents = File.read(image_path)
+    return false unless contents.ends_with?("</svg>\n")
+    image = XML.parse(contents)
+    expected_height = StackGeometry.new(@canvas_width.to_f64, @row_height, 2).height(0.0).to_s
+    UiSmoke.check(image.root.try(&.["height"]) == expected_height, "Plot export did not include the full Area height")
+    UiSmoke.check(image.to_s.includes?("output.d4") && image.to_s.includes?("retry.d4"), "Plot export lost a track after the display changed")
     UiSmoke.check(@layers.first.source.path.ends_with?("retry.d4"), "Track order was not updated")
     UiSmoke.check(!@layers.last.visible?, "Hidden track state was lost")
     UiSmoke.check(@track_list.native.selection.rows == [0], "Track selection did not follow reordering")

@@ -5,6 +5,10 @@ tr:
     region_option: "    -r REGION, --region REGION       Başlangıç bölgesi (1 tabanlı, dahil)"
     help_option: "    -h, --help                         Yardımı göster"
   app:
+    image_exists: "%{name} zaten var. Başka bir ad seçin."
+    save_image: "Grafiği SVG olarak kaydet…"
+    image_saved: "Grafik %{name} dosyasına kaydedildi."
+    could_not_save_image: "Grafik görüntüsü kaydedilemedi"
     status_ready: "Hazır"
     inspection_short: "İncelemek için üzerine gelin · Kaydırmak için sürükleyin"
     view_summary: "%{bases} bp · %{tracks} iz"

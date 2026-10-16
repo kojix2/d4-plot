@@ -5,6 +5,10 @@ ko:
     region_option: "    -r REGION, --region REGION       초기 영역(1부터 시작, 양 끝 포함)"
     help_option: "    -h, --help                         사용법 표시"
   app:
+    image_exists: "%{name} 파일이 이미 있습니다. 다른 이름을 선택하세요."
+    save_image: "플롯을 SVG로 저장…"
+    image_saved: "플롯을 %{name}에 저장했습니다."
+    could_not_save_image: "플롯 이미지를 저장할 수 없습니다"
     status_ready: "준비 완료"
     inspection_short: "포인터로 값 확인 · 드래그로 이동"
     view_summary: "%{bases} bp · 트랙 %{tracks}개"

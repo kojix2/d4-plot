@@ -5,6 +5,10 @@ fr:
     region_option: "    -r REGION, --region REGION       Région initiale (indexée à 1, bornes incluses)"
     help_option: "    -h, --help                         Afficher l’aide"
   app:
+    image_exists: "%{name} existe déjà. Choisissez un autre nom."
+    save_image: "Enregistrer le graphique en SVG…"
+    image_saved: "Graphique enregistré dans %{name}."
+    could_not_save_image: "Impossible d’enregistrer l’image du graphique"
     status_ready: "Prêt"
     inspection_short: "Survoler pour inspecter · Glisser pour déplacer"
     view_summary: "%{bases} bp · %{tracks} pistes"

@@ -5,6 +5,10 @@ he:
     region_option: "    -r REGION, --region REGION       אזור התחלתי (מבוסס 1, כולל הקצוות)"
     help_option: "    -h, --help                         הצגת עזרה"
   app:
+    image_exists: "%{name} כבר קיים. יש לבחור שם אחר."
+    save_image: "שמירת התרשים כ-SVG…"
+    image_saved: "התרשים נשמר בקובץ %{name}."
+    could_not_save_image: "לא ניתן לשמור את תמונת התרשים"
     status_ready: "מוכן"
     inspection_short: "ריחוף לבדיקת ערכים · גרירה להזזה"
     view_summary: "%{bases} bp · %{tracks} רצועות"

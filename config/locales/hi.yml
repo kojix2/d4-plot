@@ -5,6 +5,10 @@ hi:
     region_option: "    -r REGION, --region REGION       प्रारंभिक क्षेत्र (1-आधारित, समावेशी)"
     help_option: "    -h, --help                         सहायता दिखाएँ"
   app:
+    image_exists: "%{name} पहले से मौजूद है। दूसरा नाम चुनें।"
+    save_image: "प्लॉट को SVG के रूप में सहेजें…"
+    image_saved: "प्लॉट %{name} में सहेजा गया।"
+    could_not_save_image: "प्लॉट की छवि सहेजी नहीं जा सकी"
     status_ready: "तैयार"
     inspection_short: "मान देखने के लिए पॉइंटर रखें · खिसकाने के लिए खींचें"
     view_summary: "%{bases} bp · %{tracks} ट्रैक"

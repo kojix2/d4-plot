@@ -5,6 +5,10 @@ de:
     region_option: "    -r REGION, --region REGION       Anfangsregion (1-basiert, einschließlich Grenzen)"
     help_option: "    -h, --help                         Hilfe anzeigen"
   app:
+    image_exists: "%{name} existiert bereits. Wählen Sie einen anderen Namen."
+    save_image: "Diagramm als SVG speichern…"
+    image_saved: "Diagramm in %{name} gespeichert."
+    could_not_save_image: "Diagrammbild konnte nicht gespeichert werden"
     status_ready: "Bereit"
     inspection_short: "Zeigen zum Prüfen · Ziehen zum Verschieben"
     view_summary: "%{bases} bp · %{tracks} Spuren"

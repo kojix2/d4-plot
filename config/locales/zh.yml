@@ -5,6 +5,10 @@ zh:
     region_option: "    -r REGION, --region REGION       初始区域（从 1 开始，包含两端）"
     help_option: "    -h, --help                         显示用法"
   app:
+    image_exists: "%{name} 已存在。请选择其他名称。"
+    save_image: "将图表保存为 SVG…"
+    image_saved: "图表已保存到 %{name}。"
+    could_not_save_image: "无法保存图表图像"
     status_ready: "就绪"
     inspection_short: "悬停查看数值 · 拖动平移"
     view_summary: "%{bases} bp · %{tracks} 个轨道"

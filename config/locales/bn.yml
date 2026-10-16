@@ -5,6 +5,10 @@ bn:
     region_option: "    -r REGION, --region REGION       প্রারম্ভিক অঞ্চল (১-ভিত্তিক, উভয় প্রান্তসহ)"
     help_option: "    -h, --help                         সহায়তা দেখান"
   app:
+    image_exists: "%{name} ইতিমধ্যে আছে। অন্য নাম বেছে নিন।"
+    save_image: "প্লট SVG ছবি হিসেবে সংরক্ষণ করুন…"
+    image_saved: "প্লট %{name} ফাইলে সংরক্ষিত হয়েছে।"
+    could_not_save_image: "প্লটের ছবি সংরক্ষণ করা যায়নি"
     status_ready: "প্রস্তুত"
     inspection_short: "মান দেখতে পয়েন্টার রাখুন · সরাতে টেনে আনুন"
     view_summary: "%{bases} bp · %{tracks} ট্র্যাক"
