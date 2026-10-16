@@ -5,6 +5,7 @@ require "./preferences"
 require "./view_loader"
 require "./file_loader"
 require "./track_list"
+require "./natural_sort"
 require "./plot_renderer"
 require "./settings_window"
 require "./log"
@@ -41,6 +42,7 @@ module D4Plot
     @history = ViewHistory.new
     @layers = [] of TrackLayer
     @selected = 0
+    @track_sort_ascending : Bool?
     @completed_region : Region?
     @chromosomes = {} of String => UInt32
     @chromosome_names = [] of String
@@ -110,7 +112,10 @@ module D4Plot
       @area = UIng::Area.new(@handler, @canvas_width, 400)
       @igv_desktop_menu_item = menu_items[:igv_desktop]
       @igv_web_menu_item = menu_items[:igv_web]
-      @track_list = TrackList.new(->(index : Int32) { select_layer(index); nil }, ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil })
+      @track_list = TrackList.new(
+        ->(index : Int32) { select_layer(index); nil },
+        ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil },
+        ->(ascending : Bool) { sort_layers(ascending); nil })
       @settings = @preferences.settings
       @row_height = {160.0, 220.0, 300.0}[@preferences.height_index]
       @tools.native.display_mode = @settings.toolbar_display_mode
@@ -465,9 +470,19 @@ module D4Plot
         show_error(D4Plot.t("app.could_not_open"), Exception.new(error))
         return
       end
+      selected = append ? selected_layer : nil
       existing = append ? @layers.to_h { |layer| {layer.source.key, layer} } : {} of Tuple(String, String) => TrackLayer
       @layers = result.sources.map { |source| existing[source.key]? || TrackLayer.new(source) }
-      unless append
+      apply_track_sort
+      restore_layer_state_after_load(append, selected)
+      rebuild_layers(region_text)
+      done.try(&.call(true))
+    end
+
+    private def restore_layer_state_after_load(append : Bool, selected : TrackLayer?)
+      if append
+        @selected = selected.try { |layer| @layers.index(layer) } || @selected
+      else
         @history.clear
         @completed_region = nil
         @annotation = nil
@@ -477,8 +492,6 @@ module D4Plot
         @selected = 0
         @area.scroll_to(0, 0, 1, 1)
       end
-      rebuild_layers(region_text)
-      done.try(&.call(true))
     end
 
     private def rebuild_layers(region_text : String? = nil)
@@ -547,12 +560,38 @@ module D4Plot
       target = @selected + delta
       return unless 0 <= target < @layers.size
       # Ordering does not affect data identity or require a new read.
+      @track_sort_ascending = nil
+      @track_list.clear_sort
       @layers.swap(@selected, target)
       @selected = target
       @updating = true
       @track_list.replace(@layers, @selected)
       @updating = false
       select_layer(target)
+    end
+
+    private def sort_layers(ascending : Bool)
+      return if @file_load_id
+      selected = selected_layer
+      @track_sort_ascending = ascending
+      apply_track_sort
+      @selected = selected ? (@layers.index(selected) || 0) : 0
+      @updating = true
+      @track_list.replace(@layers, @selected)
+      @updating = false
+      clear_drag
+      select_layer(@selected)
+    end
+
+    private def apply_track_sort
+      ascending = @track_sort_ascending
+      return if ascending.nil?
+      @layers.sort! do |left, right|
+        comparison = NaturalSort.compare(left.source.label, right.source.label)
+        comparison = NaturalSort.compare(left.source.path, right.source.path) if comparison == 0
+        comparison = NaturalSort.compare(left.source.name, right.source.name) if comparison == 0
+        ascending ? comparison : -comparison
+      end
     end
 
     private def toggle_layer(index : Int32, visible : Bool)

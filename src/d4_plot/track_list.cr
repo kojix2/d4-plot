@@ -9,7 +9,7 @@ module D4Plot
     @rows = [] of TrackLayer
     @updating = false
 
-    def initialize(on_select : Proc(Int32, Nil), on_toggle : Proc(Int32, Bool, Nil))
+    def initialize(on_select : Proc(Int32, Nil), on_toggle : Proc(Int32, Bool, Nil), on_sort : Proc(Bool, Nil))
       handler = UIng::Table::Model::Handler.new
       handler.num_columns { 2 }
       handler.column_type { |column| column == 0 ? UIng::Table::Value::Type::Int : UIng::Table::Value::Type::String }
@@ -33,6 +33,12 @@ module D4Plot
         if !@updating && (index = selection.rows.first?)
           on_select.call(index)
         end
+      end
+      @native.on_header_clicked do |column|
+        next if column != 1 || @updating
+        ascending = !@native.header_sort_indicator(column).ascending?
+        show_sort(ascending)
+        on_sort.call(ascending)
       end
     end
 
@@ -61,6 +67,15 @@ module D4Plot
 
     def changed(index : Int32)
       @model.row_changed(index)
+    end
+
+    def show_sort(ascending : Bool)
+      indicator = ascending ? UIng::Table::SortIndicator::Ascending : UIng::Table::SortIndicator::Descending
+      @native.header_set_sort_indicator(1, indicator)
+    end
+
+    def clear_sort
+      @native.header_set_sort_indicator(1, UIng::Table::SortIndicator::None)
     end
 
     def free
