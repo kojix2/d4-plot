@@ -6,14 +6,14 @@
 require "digest/sha256"
 require "json"
 
-ROOT = File.expand_path("..", __DIR__)
+ROOT             = File.expand_path("..", __DIR__)
 VENDOR_DIRECTORY = File.join(ROOT, "vendor", "igv")
-MANIFEST_PATH = File.join(VENDOR_DIRECTORY, "manifest.json")
+MANIFEST_PATH    = File.join(VENDOR_DIRECTORY, "manifest.json")
 
 EXACT_VERSION = /\A(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z/
-SHA1 = /\A[a-f0-9]{40}\z/
-SHA256 = /\A[a-f0-9]{64}\z/
-SRI = /\Asha(?:256|384|512)-[A-Za-z0-9+\/=]+\z/
+SHA1          = /\A[a-f0-9]{40}\z/
+SHA256        = /\A[a-f0-9]{64}\z/
+SRI           = /\Asha(?:256|384|512)-[A-Za-z0-9+\/=]+\z/
 
 def fail(message : String) : NoReturn
   raise message
@@ -32,12 +32,12 @@ def string(value : JSON::Any, description : String) : String
 end
 
 def nullable_string(value : JSON::Any, description : String) : String?
-  return nil if value.raw.nil?
+  return if value.raw.nil?
   value.as_s? || fail("#{description} must be a string or null")
 end
 
 def nullable_non_negative_integer(value : JSON::Any, description : String) : Int32?
-  return nil if value.raw.nil?
+  return if value.raw.nil?
   integer = value.as_i? || fail("#{description} must be a non-negative integer or null")
   integer >= 0 || fail("#{description} must be a non-negative integer or null")
   integer
