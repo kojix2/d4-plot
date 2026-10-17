@@ -154,10 +154,11 @@ module D4Plot
           Dir.mkdir(staging)
           begin
             staged = File.join(staging, "result.d4")
-            writer = D4::Writer.new(staged,
-              D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames, D4::IndexKind::Sum]), d4_control)
+            writer = D4.create(staged,
+              chromosomes: reader.targets.map { |target| D4::Chromosome.new(target.name, target.length) },
+              options: D4::WriteOptions.new(overwrite: true, indexes: [D4::IndexKind::SecondaryFrames, D4::IndexKind::Sum]),
+              control: d4_control)
             begin
-              writer.set_chromosomes(reader.targets.map { |target| {target.name, target.length.to_u32} })
               convert_targets(reader, writer, request.options, mopdepth_control, control, emit)
               control.check!
               writer.close
