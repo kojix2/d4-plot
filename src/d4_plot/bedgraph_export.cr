@@ -41,14 +41,12 @@ module D4Plot
     # than truncated by an in-place write.
     private def write_atomically(destination : String) : Nil
       File.tempfile(".d4-plot-bedgraph-", ".tmp", dir: File.dirname(destination)) do |file|
-        begin
-          file.print(@contents)
-          file.close
-          File.rename(file.path, destination)
-        ensure
-          file.close unless file.closed?
-          File.delete?(file.path)
-        end
+        file.print(@contents)
+        file.close
+        File.rename(file.path, destination)
+      ensure
+        file.close unless file.closed?
+        File.delete?(file.path)
       end
     end
   end

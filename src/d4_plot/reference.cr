@@ -328,19 +328,28 @@ module D4Plot
       next_offset = last + 1_i64
       return if next_offset == size
 
-      case fasta_byte_at!(fasta, next_offset, name)
+      next_offset = consume_line_terminator!(fasta, next_offset, size, name)
+      return if next_offset == size
+      validate_blank_lines_before_next_header!(fasta, next_offset, size, name)
+    end
+
+    private def consume_line_terminator!(fasta : File, offset : Int64, size : Int64, name : String) : Int64
+      case fasta_byte_at!(fasta, offset, name)
       when '\n'.ord
-        next_offset += 1_i64
+        offset + 1_i64
       when '\r'.ord
-        next_offset += 1_i64
+        next_offset = offset + 1_i64
         if next_offset < size && fasta_byte_at!(fasta, next_offset, name) == '\n'.ord
-          next_offset += 1_i64
+          next_offset + 1_i64
+        else
+          next_offset
         end
       else
         raise ReferenceValidationError.new("FAI entry #{name.inspect} does not end at a FASTA sequence boundary")
       end
+    end
 
-      return if next_offset == size
+    private def validate_blank_lines_before_next_header!(fasta : File, next_offset : Int64, size : Int64, name : String) : Nil
       blank_bytes = 0_i64
       loop do
         following = fasta_byte_at!(fasta, next_offset, name)
