@@ -17,10 +17,10 @@ dependencies:
     branch: main
   d4:
     github: bio-cr/d4.cr
-    branch: main
+    version: 0.0.0
   mopdepth:
     github: kojix2/mopdepth
-    branch: main
+    version: 0.0.7
 
 development_dependencies:
   ameba:

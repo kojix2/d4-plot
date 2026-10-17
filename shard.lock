@@ -6,11 +6,11 @@ shards:
 
   d4:
     git: https://github.com/bio-cr/d4.cr.git
-    version: 0.1.0+git.commit.5fadf1a0274090ad0a0d14f12bb377d60d7d14b8
+    version: 0.0.0
 
   hts:
     git: https://github.com/bio-cr/hts.cr.git
-    version: 0.4.0+git.commit.6c798c0b8538ac4b17de2101bbe5ad5fb32f4c71
+    version: 0.4.0+git.commit.f2efb5da9b8b08a65d69464071a42bd159639fee
 
   i18n:
     git: https://github.com/crystal-i18n/i18n.git
@@ -18,9 +18,9 @@ shards:
 
   mopdepth:
     git: https://github.com/kojix2/mopdepth.git
-    version: 0.0.6+git.commit.66d73b6c3d65c1b0b4be7004032510becd4ab41f
+    version: 0.0.7
 
   uing:
     git: https://github.com/kojix2/uing.git
-    version: 0.5.1+git.commit.c06b4a4ba38d8f112eae0db7c11caa40029eabb9
+    version: 0.5.1+git.commit.6e6f3e5030cf372936aed3aea4b0649c2aa781e4
 
