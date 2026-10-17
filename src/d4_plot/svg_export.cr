@@ -143,7 +143,7 @@ module D4Plot
     private def draw_grid(io : IO, layout : PlotGeometry, range : Tuple(Float64, Float64)) : Nil
       low, high = range
       5.times do |index|
-        value = low + (high - low) * (index / 4.0)
+        value = PlotSettings.interpolate(low, high, index / 4.0)
         y = y_for(value, layout, range)
         line(io, layout.left, y, layout.left + layout.width, y, "#e0e5eb")
         label(io, "%.3g" % value, 2.0, y - 8, layout.left - 12, :right)
@@ -215,7 +215,7 @@ module D4Plot
     end
 
     private def y_for(value : Float64, layout : PlotGeometry, range : Tuple(Float64, Float64)) : Float64
-      layout.top + layout.height * (1.0 - (value - range[0]) / (range[1] - range[0]))
+      layout.top + layout.height * (1.0 - PlotSettings.normalized_position(value, range[0], range[1]))
     end
 
     private def rect(io : IO, x : Number, y : Number, width : Number, height : Number,

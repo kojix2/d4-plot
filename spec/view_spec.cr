@@ -48,6 +48,13 @@ describe D4Plot::SampledView do
     view.bin_at(1.0).should eq(0)
     view.resolution.should eq("1 bp / bin")
   end
+
+  it "rejects non-finite sample values before rendering or export" do
+    region = D4Plot::Region.new("chr", 1_u32, 1_u32)
+    expect_raises(ArgumentError, /finite/) do
+      D4Plot::SampledView.new(region, [{1_u32, Float64::INFINITY}])
+    end
+  end
 end
 
 describe D4Plot::PlotSettings do
@@ -72,6 +79,15 @@ describe D4Plot::PlotSettings do
     restored.y_max = 1e308
     low, high = restored.y_range(0.0, 10.0)
     (high - low).finite?.should be_true
+  end
+
+  it "keeps automatic ranges finite for opposite-signed Float64 extremes" do
+    low, high = D4Plot::PlotSettings.new.y_range(-1.0e308, 1.0e308)
+    low.finite?.should be_true
+    high.finite?.should be_true
+    low.should be < high
+    D4Plot::PlotSettings.normalized_position(0.0, low, high).finite?.should be_true
+    D4Plot::PlotSettings.interpolate(low, high, 0.5).finite?.should be_true
   end
 end
 

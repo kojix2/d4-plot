@@ -38,6 +38,31 @@ describe D4Plot::DataSampler do
     end
   end
 
+  it "rejects a denominator that would make sampled values non-finite" do
+    path = File.tempname("d4-plot-overflowing-scale", ".d4")
+    begin
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", 2)], denominator: 5.0e-324) do |writer|
+        writer.write_values("chr", 0, [1_i32, 2_i32])
+      end
+      D4.open(path) do |file|
+        track = file.default_track
+        bins = [D4Plot::BinRange.new(0_i64, 2_i64)]
+        expect_raises(ArgumentError, /numeric range/) do
+          D4Plot::DataSampler.downsample(file, "chr", 0_u32, 2_u32, 1)
+        end
+        expect_raises(ArgumentError, /numeric range/) do
+          D4Plot::DataSampler.sample_bins(track, "chr", bins)
+        end
+        expect_raises(ArgumentError, /numeric range/) do
+          D4Plot::DataSampler.display_bins(track, "chr", bins,
+            max_streaming_bases: 0_i64, max_sample_bases: 1_i64)
+        end
+      end
+    ensure
+      File.delete(path) if File.exists?(path)
+    end
+  end
+
   it "samples a selected track from a multi-track file" do
     D4.open(File.join(__DIR__, "fixtures/rust-multitrack.d4")) do |file|
       file.track_names.each do |name|

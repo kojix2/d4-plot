@@ -20,6 +20,7 @@ module D4Plot
 
     def initialize(@region : Region, @points : Array(PlotPoint))
       raise ArgumentError.new(D4Plot.t("errors.no_samples")) if points.empty?
+      raise ArgumentError.new("Sample values must be finite") unless points.all?(&.[1].finite?)
       @minimum = points.min_of(&.[1])
       @maximum = points.max_of(&.[1])
       @mean = weighted_mean
@@ -46,7 +47,20 @@ module D4Plot
         left, right = bin_edges(index)
         total += point[1] * (right - left)
       end
-      total / @region.length
+      mean = total / @region.length
+      return mean if mean.finite?
+
+      # The weighted mean is bounded by the sample extrema, but multiplying a
+      # finite scaled sample by its bin length can overflow before division.
+      # Normalize first when that happens.
+      scale = @points.max_of(&.[1].abs)
+      return 0.0 if scale == 0.0
+      normalized = 0.0
+      @points.each_with_index do |point, index|
+        left, right = bin_edges(index)
+        normalized += point[1] / scale * (right - left).to_f64 / @region.length
+      end
+      normalized.clamp(-1.0, 1.0) * scale
     end
 
     def resolution : String

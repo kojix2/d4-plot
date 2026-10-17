@@ -46,6 +46,23 @@ describe D4Plot::SvgExport do
     end
   end
 
+  it "keeps SVG geometry finite for extreme but finite scaled signals" do
+    File.tempfile("d4-plot-extreme", ".svg") do |file|
+      file.close
+      region = D4Plot::Region.new("chr", 1_u32, 2_u32)
+      layer = D4Plot::TrackLayer.new(D4Plot::TrackSource.new("/tmp/extreme.d4", "signal", {"chr" => 2_u32}, 1.0))
+      view = D4Plot::SampledView.new(region, [{1_u32, -1.0e308}, {2_u32, 1.0e308}])
+      layer.view = view
+      D4Plot::SvgExport.new(file.path, [] of String, region, [layer], nil,
+        D4Plot::PlotSettings.new, 2_u32, 800, 220.0, false, nil).write
+
+      contents = File.read(file.path).downcase
+      contents.should_not contain("nan")
+      contents.should_not contain("inf")
+      view.mean.finite?.should be_true
+    end
+  end
+
   it "refuses to overwrite an input file through a hard link" do
     File.tempfile("d4-plot-svg-source") do |file|
       file.puts("keep source")

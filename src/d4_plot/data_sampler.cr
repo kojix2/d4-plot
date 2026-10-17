@@ -56,7 +56,7 @@ module D4Plot
                end
       denominator = track.metadata.denominator
       if denominator != 1.0
-        points.map! { |pos, value| {pos, value / denominator} }
+        points.map! { |pos, value| {pos, scale_value!(value, denominator)} }
       end
       points
     rescue ex : D4::CancelledError
@@ -95,7 +95,7 @@ module D4Plot
                 end
       denominator = track.metadata.denominator
       return sampled if denominator == 1.0
-      sampled.map! { |bin| SampledBin.new(bin.start0, bin.end0, bin.value / denominator) }
+      sampled.map! { |bin| SampledBin.new(bin.start0, bin.end0, scale_value!(bin.value, denominator)) }
       sampled
     rescue ex : D4::CancelledError
       raise SamplingCancelled.new(ex.message || "D4 read was cancelled")
@@ -169,7 +169,7 @@ module D4Plot
             count.times { |index| sum += values.unsafe_fetch(index) }
           end
         end
-        result << SampledBin.new(bin.start0, bin.end0, sum.to_f64 / sampled_length / denominator)
+        result << SampledBin.new(bin.start0, bin.end0, scale_value!(sum.to_f64 / sampled_length, denominator))
       end
       result
     rescue ex : D4::CancelledError
@@ -206,6 +206,12 @@ module D4Plot
       end
       raise "D4 scan ended before the requested bins" unless result.size == bins.size
       result
+    end
+
+    private def self.scale_value!(value : Float64, denominator : Float64) : Float64
+      scaled = value / denominator
+      raise ArgumentError.new("Scaled D4 signal is outside the supported numeric range") unless scaled.finite?
+      scaled
     end
 
     private def self.validate_bins!(track : D4::Track, chromosome : String, bins : Array(BinRange)) : Nil

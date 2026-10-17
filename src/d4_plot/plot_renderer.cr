@@ -121,7 +121,7 @@ module D4Plot
     private def draw_grid(ctx, layout, range)
       low, high = range
       5.times do |index|
-        value = low + (high - low) * (index / 4.0)
+        value = PlotSettings.interpolate(low, high, index / 4.0)
         y = y_for(value, layout, range)
         ctx.stroke_path(brush(0.88, 0.9, 0.92), thickness: 1.0) do |path|
           path.new_figure(layout.left, y)
@@ -211,7 +211,7 @@ module D4Plot
     end
 
     private def y_for(value, layout, range)
-      layout.top + layout.height * (1.0 - (value - range[0]) / (range[1] - range[0]))
+      layout.top + layout.height * (1.0 - PlotSettings.normalized_position(value, range[0], range[1]))
     end
 
     private def brush(red, green, blue, alpha = 1.0)
