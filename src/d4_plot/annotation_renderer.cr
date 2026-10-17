@@ -115,7 +115,7 @@ module D4Plot
       ctx.stroke_path(brush, thickness: 1.0) do |path|
         path.new_figure(x1, y)
         path.line_to(x2, y)
-        if strand && x2 - x1 > 12
+        if (strand == "+" || strand == "-") && x2 - x1 > 12
           direction = strand == "+" ? 1.0 : -1.0
           tip = strand == "+" ? x2 - 2 : x1 + 2
           path.new_figure(tip - 4 * direction, y - 3)

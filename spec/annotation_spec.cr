@@ -8,6 +8,8 @@ describe D4Plot::AnnotationIndex do
     {bed.start1, bed.end1, bed.strand}.should eq({1_u32, 1_u32, "-"})
     gtf = D4Plot::AnnotationIndex.parse_line("chr1\tref\texon\t1\t1\t.\t+\t.\tgene_name \"A\";").as(D4Plot::AnnotationFeature)
     {gtf.start1, gtf.end1, gtf.name}.should eq({1_u32, 1_u32, "A"})
+    unknown_strand = D4Plot::AnnotationIndex.parse_line("chr1\tref\tgene\t1\t10\t.\t?\t.\tID=A").as(D4Plot::AnnotationFeature)
+    unknown_strand.strand.should be_nil
     D4Plot::AnnotationIndex.parse_line("chr1\t1\t1").should be_nil
     D4Plot::AnnotationIndex.parse_line("chr1\tref\tgene\t0\t10\t.\t+\t.\tID=A").should be_nil
   end

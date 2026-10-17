@@ -208,6 +208,8 @@ module D4Plot
       start1 = fields[3].to_u32?
       end1 = fields[4].to_u32?
       return unless start1 && end1 && start1 > 0 && end1 >= start1
+      strand = fields[6]
+      strand = nil unless strand == "+" || strand == "-"
 
       AnnotationFeature.new(
         fields[0],
@@ -215,7 +217,7 @@ module D4Plot
         end1,
         kind,
         feature_name(parse_attributes(fields[8])),
-        fields[6] == "." ? nil : fields[6]
+        strand
       )
     end
 

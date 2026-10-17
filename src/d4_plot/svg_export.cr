@@ -199,7 +199,7 @@ module D4Plot
       else
         line(io, x1, y, x2, y, "#2e4757")
         if strand = feature.strand
-          if x2 - x1 > 12
+          if (strand == "+" || strand == "-") && x2 - x1 > 12
             direction = strand == "+" ? 1.0 : -1.0
             tip = strand == "+" ? x2 - 2 : x1 + 2
             io << %(<path d="M#{num(tip - 4 * direction)} #{num(y - 3)} L#{num(tip)} #{num(y)} L#{num(tip - 4 * direction)} #{num(y + 3)}" fill="none" stroke="#2e4757"/>\n)
