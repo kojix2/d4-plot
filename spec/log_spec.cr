@@ -64,6 +64,26 @@ private class BrokenLogIO < IO
 end
 
 describe D4Plot::Logging do
+  {% unless flag?(:win32) || flag?(:darwin) %}
+    it "ignores empty and relative XDG state directories" do
+      previous = ENV["XDG_STATE_HOME"]?
+      fallback = File.join(Path.home, ".local", "state", "d4-plot", "logs", "d4-plot-#{Process.pid}.log")
+      begin
+        ENV["XDG_STATE_HOME"] = ""
+        D4Plot::Logging.default_file_path.should eq(fallback)
+
+        ENV["XDG_STATE_HOME"] = "relative-state"
+        D4Plot::Logging.default_file_path.should eq(fallback)
+      ensure
+        if previous
+          ENV["XDG_STATE_HOME"] = previous
+        else
+          ENV.delete("XDG_STATE_HOME")
+        end
+      end
+    end
+  {% end %}
+
   it "uses standard filtering and keeps exception details out of INFO" do
     builder = Log::Builder.new
     backend = Log::MemoryBackend.new

@@ -69,14 +69,25 @@ module D4Plot
 
     def self.default_file_path : String
       {% if flag?(:win32) %}
-        base = ENV["LOCALAPPDATA"]? || ENV["APPDATA"]? || Path.home.to_s
+        base = absolute_environment_directory("LOCALAPPDATA", "APPDATA") || Path.home.to_s
         File.join(base, "D4 Plot", "logs", "d4-plot-#{Process.pid}.log")
       {% elsif flag?(:darwin) %}
         File.join(Path.home, "Library", "Logs", "D4 Plot", "d4-plot-#{Process.pid}.log")
       {% else %}
-        base = ENV["XDG_STATE_HOME"]? || File.join(Path.home, ".local", "state")
+        base = absolute_environment_directory("XDG_STATE_HOME") || File.join(Path.home, ".local", "state")
         File.join(base, "d4-plot", "logs", "d4-plot-#{Process.pid}.log")
       {% end %}
+    end
+
+    # State-directory variables must be absolute. An empty or relative value
+    # would otherwise place diagnostic logs under the process working directory.
+    private def self.absolute_environment_directory(*names : String) : String?
+      names.each do |name|
+        if value = ENV[name]?
+          return value if !value.empty? && Path.new(value).absolute?
+        end
+      end
+      nil
     end
 
     # Configure once during entry-point startup, before application workers
