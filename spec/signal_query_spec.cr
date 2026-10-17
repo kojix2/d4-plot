@@ -33,6 +33,31 @@ describe D4Plot::BinLayout do
       D4Plot::BinRange.new(24_i64, 30_i64),
     ])
   end
+
+  it "handles Int64 coordinate limits without arithmetic overflow" do
+    full = D4Plot::BinLayout.for_viewport(0_i64, Int64::MAX, 1.0, Int64::MAX, 8_192)
+    full.bins.size.should be <= 8_192
+    full.bins.first.start0.should eq(0_i64)
+    full.bins.last.end0.should eq(Int64::MAX)
+
+    tail = D4Plot::BinLayout.for_viewport(Int64::MAX - 10_i64, Int64::MAX, 1.0, Int64::MAX)
+    tail.bins.first.start0.should eq(Int64::MAX - 10_i64)
+    tail.bins.last.end0.should eq(Int64::MAX)
+
+    expect_raises(ArgumentError, /alignment/) do
+      D4Plot::BinLayout.for_viewport(0_i64, Int64::MAX, 7.0e18, Int64::MAX,
+        alignment: 5_000_000_000_000_000_000_i64)
+    end
+  end
+
+  it "uses one origin-anchored bin when requested" do
+    one = D4Plot::BinLayout.for_viewport(1_i64, 3_i64, 5.0e-324, 3_i64, 1)
+    one.width.should eq(3_i64)
+    one.bins.should eq([D4Plot::BinRange.new(0_i64, 3_i64)])
+
+    tail = D4Plot::BinLayout.for_viewport(Int64::MAX - 10_i64, Int64::MAX, 1.0, Int64::MAX, 1)
+    tail.bins.should eq([D4Plot::BinRange.new(0_i64, Int64::MAX)])
+  end
 end
 
 describe D4Plot::SignalQuery do

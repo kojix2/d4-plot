@@ -42,29 +42,48 @@ module D4Plot
       # Alignment can add at most one bin.  This width guarantees the complete
       # fixed grid stays within max_bins without trial-and-error growth.
       capped_width = if max_bins == 1
-                       range
+                       # A fixed grid starts at chromosome coordinate zero.
+                       # A viewport away from the origin may otherwise span
+                       # two range-wide bins despite a one-bin limit.
+                       end0
                      else
-                       (range + max_bins - 2) // (max_bins - 1)
+                       ceil_div(range, max_bins.to_i64 - 1)
                      end
       width = Math.max(1_i64, Math.max(requested_width, capped_width))
       if alignment
         raise ArgumentError.new("Invalid bin alignment") if alignment <= 0
         remainder = width % alignment
-        width += alignment - remainder unless remainder == 0
+        unless remainder == 0
+          increment = alignment - remainder
+          raise ArgumentError.new("Bin alignment exceeds Int64 coordinate range") if width > Int64::MAX - increment
+          width += increment
+        end
       end
       aligned_start = start0 // width * width
-      aligned_end = ((end0 - 1) // width + 1) * width
-      aligned_end = Math.min(aligned_end, chromosome_size)
+      last_bin_start = (end0 - 1) // width * width
+      aligned_end = advance_to_limit(last_bin_start, width, chromosome_size)
 
       bins = [] of BinRange
       cursor = aligned_start
       while cursor < aligned_end
-        right = Math.min(cursor + width, chromosome_size)
+        right = advance_to_limit(cursor, width, chromosome_size)
         bins << BinRange.new(cursor, right)
         cursor = right
       end
       raise ArgumentError.new("Viewport produces too many bins") if bins.size > max_bins
       new(bins, width)
+    end
+
+    private def self.ceil_div(value : Int64, divisor : Int64) : Int64
+      quotient = value // divisor
+      value % divisor == 0 ? quotient : quotient + 1
+    end
+
+    # Adding a bin width can overflow even when the clipped result belongs in
+    # the chromosome. Compare against the remaining distance before adding.
+    private def self.advance_to_limit(start0 : Int64, width : Int64, limit : Int64) : Int64
+      remaining = limit - start0
+      width >= remaining ? limit : start0 + width
     end
   end
 
