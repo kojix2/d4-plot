@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "file_utils"
 require "xml"
 require "../src/d4_plot/svg_export"
 
@@ -97,6 +98,41 @@ describe D4Plot::SvgExport do
       ensure
         File.delete?(source)
       end
+    end
+  end
+
+  it "publishes through a same-directory temporary file without leaving it behind" do
+    directory = File.tempname("d4-plot-svg-atomic")
+    Dir.mkdir(directory)
+    begin
+      destination = File.join(directory, "plot.svg")
+      region = D4Plot::Region.new("chr1", 1_u32, 10_u32)
+      export = D4Plot::SvgExport.new(destination, [] of String, region, [] of D4Plot::TrackLayer,
+        nil, D4Plot::PlotSettings.new, 10_u32, 800, 220.0, false, nil)
+
+      export.write
+
+      Dir.children(directory).should eq(["plot.svg"])
+      File.read(destination).should contain("<svg")
+    ensure
+      FileUtils.rm_rf(directory)
+    end
+  end
+
+  it "removes its temporary file when publication fails" do
+    directory = File.tempname("d4-plot-svg-atomic-failure")
+    Dir.mkdir(directory)
+    begin
+      destination = File.join(directory, "occupied")
+      Dir.mkdir(destination)
+      region = D4Plot::Region.new("chr1", 1_u32, 10_u32)
+      export = D4Plot::SvgExport.new(destination, [] of String, region, [] of D4Plot::TrackLayer,
+        nil, D4Plot::PlotSettings.new, 10_u32, 800, 220.0, false, nil)
+
+      expect_raises(File::Error) { export.write }
+      Dir.children(directory).should eq(["occupied"])
+    ensure
+      FileUtils.rm_rf(directory)
     end
   end
 end

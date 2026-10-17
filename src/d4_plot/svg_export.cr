@@ -30,12 +30,13 @@ module D4Plot
     end
 
     def write : Nil
+      destination = File.expand_path(@path)
       @sources.each do |source|
-        if File.expand_path(@path) == File.expand_path(source) || same_existing_file?(@path, source)
+        if destination == File.expand_path(source) || same_existing_file?(destination, source)
           raise D4Plot.t("app.export_conflict")
         end
       end
-      File.write(@path, @contents)
+      write_atomically(destination)
     end
 
     private def same_existing_file?(first : String, second : String) : Bool
@@ -43,6 +44,22 @@ module D4Plot
       File.same?(first, second)
     rescue File::NotFoundError
       false
+    end
+
+    # Staging beside the destination keeps rename atomic. In particular, a
+    # source hard link introduced after the checks above is replaced rather
+    # than truncated by an in-place write.
+    private def write_atomically(destination : String) : Nil
+      File.tempfile(".d4-plot-svg-", ".tmp", dir: File.dirname(destination)) do |file|
+        begin
+          file.print(@contents)
+          file.close
+          File.rename(file.path, destination)
+        ensure
+          file.close unless file.closed?
+          File.delete?(file.path)
+        end
+      end
     end
 
     private def render(io : IO) : Nil

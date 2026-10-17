@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "file_utils"
 require "../src/d4_plot/bedgraph_export"
 
 describe D4Plot::BedgraphExport do
@@ -63,6 +64,38 @@ describe D4Plot::BedgraphExport do
       ensure
         File.delete?(source)
       end
+    end
+  end
+
+  it "publishes through a same-directory temporary file without leaving it behind" do
+    directory = File.tempname("d4-export-atomic")
+    Dir.mkdir(directory)
+    begin
+      destination = File.join(directory, "coverage.bedgraph")
+      view = D4Plot::SampledView.new(D4Plot::Region.new("chr1", 1_u32, 10_u32), [{1_u32, 3.0}])
+
+      D4Plot::BedgraphExport.new(destination, [] of String, "input.d4", "track", view).write
+
+      Dir.children(directory).should eq(["coverage.bedgraph"])
+      File.read(destination).should contain("chr1\t0\t10\t3")
+    ensure
+      FileUtils.rm_rf(directory)
+    end
+  end
+
+  it "removes its temporary file when publication fails" do
+    directory = File.tempname("d4-export-atomic-failure")
+    Dir.mkdir(directory)
+    begin
+      destination = File.join(directory, "occupied")
+      Dir.mkdir(destination)
+      view = D4Plot::SampledView.new(D4Plot::Region.new("chr1", 1_u32, 10_u32), [{1_u32, 3.0}])
+      export = D4Plot::BedgraphExport.new(destination, [] of String, "input.d4", "track", view)
+
+      expect_raises(File::Error) { export.write }
+      Dir.children(directory).should eq(["occupied"])
+    ensure
+      FileUtils.rm_rf(directory)
     end
   end
 end
