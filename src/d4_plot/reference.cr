@@ -122,7 +122,8 @@ module D4Plot
   # Parsed FAI metadata.  This performs inexpensive structural checks without
   # scanning the entire FASTA, which matters for multi-gigabyte references.
   class FaiIndex
-    MAX_LINE_BYTES = 16 * 1024
+    MAX_LINE_BYTES         = 16 * 1024
+    MAX_FASTA_HEADER_BYTES = MAX_LINE_BYTES
 
     getter entries : Array(FaiEntry)
     getter dictionary : ContigDictionary
@@ -166,9 +167,9 @@ module D4Plot
       raise ReferenceValidationError.new("Could not read FAI #{path}: #{ex.message || ex.class.name}")
     end
 
-    # Validate offsets and line geometry with two small reads per contig.  It
-    # detects an FAI paired with the wrong FASTA without turning validation into
-    # a full FASTA scan.
+    # Validate the header identity, offsets, and representative line geometry
+    # with bounded reads per contig. This detects an FAI paired with the wrong
+    # FASTA without turning validation into a full FASTA scan.
     def validate_for_fasta!(fasta_path : String) : Nil
       size = File.size(fasta_path).to_i64
       raise ReferenceValidationError.new("FASTA is empty: #{fasta_path}") if size <= 0
@@ -179,7 +180,9 @@ module D4Plot
           if first < 0 || first >= size || last < first || last >= size
             raise ReferenceValidationError.new("FAI entry #{entry.contig.name.inspect} points outside FASTA #{fasta_path}")
           end
+          validate_header!(fasta, entry)
           validate_sequence_byte!(fasta, first, entry.contig.name)
+          validate_line_geometry!(fasta, entry)
           validate_sequence_byte!(fasta, last, entry.contig.name)
         end
       end
@@ -200,12 +203,127 @@ module D4Plot
       entry.offset + rows * entry.bytes_per_line + column
     end
 
+    # An FAI offset must name the first byte after the matching FASTA header,
+    # rather than merely an arbitrary printable byte somewhere in the file.
+    # Limit the header look-back so a malicious unterminated header cannot make
+    # reference validation scan a large FASTA.
+    private def validate_header!(fasta : File, entry : FaiEntry) : Nil
+      name = entry.contig.name
+      header_end = header_end_before!(fasta, entry.offset, name)
+      header, header_start = header_before!(fasta, header_end, name)
+      validate_header_name!(header, header_start, name)
+    end
+
+    private def header_end_before!(fasta : File, offset : Int64, name : String) : Int64
+      raise ReferenceValidationError.new("FAI entry #{name.inspect} does not follow a FASTA header") if offset <= 0
+
+      terminator_size = line_terminator_size_before!(fasta, offset, name)
+      header_end = offset - terminator_size
+      raise ReferenceValidationError.new("FAI entry #{name.inspect} does not follow a FASTA header") if header_end <= 0
+      header_end
+    end
+
+    private def line_terminator_size_before!(fasta : File, offset : Int64, name : String) : Int64
+      case fasta_byte_at!(fasta, offset - 1_i64, name)
+      when '\n'.ord
+        offset >= 2_i64 && fasta_byte_at!(fasta, offset - 2_i64, name) == '\r'.ord ? 2_i64 : 1_i64
+      when '\r'.ord
+        1_i64
+      else
+        raise ReferenceValidationError.new("FAI entry #{name.inspect} does not follow a FASTA header")
+      end
+    end
+
+    private def header_before!(fasta : File, header_end : Int64, name : String) : Tuple(Bytes, Int32)
+      window_start = header_end > MAX_FASTA_HEADER_BYTES ? header_end - MAX_FASTA_HEADER_BYTES : 0_i64
+      header = Bytes.new((header_end - window_start).to_i)
+      fasta.seek(window_start, IO::Seek::Set)
+      fasta.read_fully(header)
+
+      header_start = header_start_in(header)
+      if header_start.nil? && window_start != 0_i64
+        raise ReferenceValidationError.new("FASTA header for FAI entry #{name.inspect} is too long to validate")
+      end
+      {header, header_start || 0}
+    end
+
+    private def header_start_in(header : Bytes) : Int32?
+      index = header.size
+      while index > 0
+        index -= 1
+        return index + 1 if header[index] == '\n'.ord || header[index] == '\r'.ord
+      end
+    end
+
+    private def validate_header_name!(header : Bytes, header_start : Int32, name : String) : Nil
+      unless header_start < header.size && header[header_start] == '>'.ord
+        raise ReferenceValidationError.new("FAI entry #{name.inspect} does not match its FASTA header")
+      end
+
+      name_bytes = name.to_slice
+      cursor = header_start + 1
+      name_bytes.each do |byte|
+        if cursor >= header.size || header[cursor] != byte
+          raise ReferenceValidationError.new("FAI entry #{name.inspect} does not match its FASTA header")
+        end
+        cursor += 1
+      end
+      if cursor < header.size && !header_token_separator?(header[cursor])
+        raise ReferenceValidationError.new("FAI entry #{name.inspect} does not match its FASTA header")
+      end
+    end
+
+    # A multi-line sequence needs a fixed-width separator between each full
+    # line. Sampling the first and last such boundary catches mismatched FAI
+    # line widths while keeping validation constant in the sequence length.
+    private def validate_line_geometry!(fasta : File, entry : FaiEntry) : Nil
+      return unless entry.contig.length > entry.bases_per_line
+
+      last_row = (entry.contig.length - 1_i64) // entry.bases_per_line
+      validate_line_break_after_row!(fasta, entry, 0_i64)
+      validate_line_break_after_row!(fasta, entry, last_row - 1_i64) if last_row > 1_i64
+
+      last_row_start = entry.offset + last_row * entry.bytes_per_line
+      validate_sequence_byte!(fasta, last_row_start, entry.contig.name)
+    end
+
+    private def validate_line_break_after_row!(fasta : File, entry : FaiEntry, row : Int64) : Nil
+      name = entry.contig.name
+      row_start = entry.offset + row * entry.bytes_per_line
+      row_end = row_start + entry.bases_per_line
+      validate_sequence_byte!(fasta, row_end - 1_i64, name)
+
+      separator_size = entry.bytes_per_line - entry.bases_per_line
+      case separator_size
+      when 1_i64
+        byte = fasta_byte_at!(fasta, row_end, name)
+        unless byte == '\n'.ord || byte == '\r'.ord
+          raise ReferenceValidationError.new("FAI entry #{name.inspect} has invalid FASTA line geometry")
+        end
+      when 2_i64
+        unless fasta_byte_at!(fasta, row_end, name) == '\r'.ord && fasta_byte_at!(fasta, row_end + 1_i64, name) == '\n'.ord
+          raise ReferenceValidationError.new("FAI entry #{name.inspect} has invalid FASTA line geometry")
+        end
+      else
+        raise ReferenceValidationError.new("FAI entry #{name.inspect} has invalid FASTA line geometry")
+      end
+      validate_sequence_byte!(fasta, row_start + entry.bytes_per_line, name)
+    end
+
     private def validate_sequence_byte!(fasta : File, offset : Int64, name : String) : Nil
-      fasta.seek(offset, IO::Seek::Set)
-      byte = fasta.read_byte
-      if byte.nil? || byte == '\n'.ord || byte == '\r'.ord || byte == '>'.ord || byte < 33
+      byte = fasta_byte_at!(fasta, offset, name)
+      if byte == '\n'.ord || byte == '\r'.ord || byte == '>'.ord || byte < 33
         raise ReferenceValidationError.new("FAI entry #{name.inspect} does not point to FASTA sequence data")
       end
+    end
+
+    private def fasta_byte_at!(fasta : File, offset : Int64, name : String) : UInt8
+      fasta.seek(offset, IO::Seek::Set)
+      fasta.read_byte || raise ReferenceValidationError.new("FAI entry #{name.inspect} points outside FASTA sequence data")
+    end
+
+    private def header_token_separator?(byte : UInt8) : Bool
+      byte <= 32_u8
     end
   end
 

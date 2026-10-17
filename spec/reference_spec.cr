@@ -73,6 +73,45 @@ describe D4Plot::ReferenceSpec do
     end
   end
 
+  it "validates FAI header identity and fixed line geometry with bounded reads" do
+    with_reference_fixture do |directory|
+      fasta = File.join(directory, "geometry.fa")
+
+      # A description after the contig name, a short final row, and a
+      # single-row contig are all valid LF FASTA/FAI combinations.
+      File.write(fasta, ">chr description\nAAAA\nAA\n>single\nT\n")
+      File.write("#{fasta}.fai", "chr\t6\t17\t4\t5\nsingle\t1\t33\t1\t2\n")
+      D4Plot::ReferenceSpec.fasta(fasta).resolve.dictionary.try(&.["chr"]).should eq(6_i64)
+
+      # CRLF has a two-byte line separator in the FAI.
+      File.write(fasta, ">crlf\r\nAAAA\r\nAA\r\n")
+      File.write("#{fasta}.fai", "crlf\t6\t7\t4\t6\n")
+      D4Plot::ReferenceSpec.fasta(fasta).resolve.dictionary.try(&.["crlf"]).should eq(6_i64)
+
+      # The old first/last-byte check accepted this malformed width because
+      # its calculated last byte happened to be a nucleotide.
+      File.write(fasta, ">chr\nAAAA\nAAAA\n")
+      File.write("#{fasta}.fai", "chr\t8\t5\t4\t4\n")
+      expect_raises(D4Plot::ReferenceValidationError, /line geometry/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
+
+      # Offsets must begin after the named header, not inside a header or at a
+      # valid sequence row belonging to a different contig.
+      File.write(fasta, ">chr\nAAAA\n")
+      File.write("#{fasta}.fai", "chr\t3\t1\t3\t4\n")
+      expect_raises(D4Plot::ReferenceValidationError, /FASTA header/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
+
+      File.write(fasta, ">first\nAAAA\n>chr\nTTTT\n")
+      File.write("#{fasta}.fai", "chr\t4\t7\t4\t5\n")
+      expect_raises(D4Plot::ReferenceValidationError, /does not match its FASTA header/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
+    end
+  end
+
   it "reads a constrained IGV JSON with local relative resources and aliases" do
     with_reference_fixture do |directory|
       fasta = write_small_fasta(directory, "genome.fa")
