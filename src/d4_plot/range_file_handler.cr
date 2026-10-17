@@ -33,15 +33,15 @@ module D4Plot
       getter content_type : String
       getter identity : File::Info
       getter size : Int64
-      getter modified_ms : Int64
+      getter modified_ns : Int128
 
       def initialize(@canonical_path : String, @content_type : String, @identity : File::Info)
         @size = @identity.size
-        @modified_ms = @identity.modification_time.to_unix_ms
+        @modified_ns = @identity.modification_time.to_unix_ns
       end
 
       def unchanged?(info : File::Info) : Bool
-        info.same_file?(@identity) && info.size == @size && info.modification_time.to_unix_ms == @modified_ms
+        info.same_file?(@identity) && info.size == @size && info.modification_time.to_unix_ns == @modified_ns
       end
     end
 

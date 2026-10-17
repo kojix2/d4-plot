@@ -80,16 +80,16 @@ module D4Plot
   # an old file descriptor and cached bins for the new pathname.
   private struct SignalFileStamp
     getter size : Int64
-    getter modified_ms : Int64
+    getter modified_ns : Int128
     getter identity : File::Info
 
     def initialize(@identity : File::Info)
       @size = @identity.size
-      @modified_ms = @identity.modification_time.to_unix_ms
+      @modified_ns = @identity.modification_time.to_unix_ns
     end
 
     def same_source?(other : SignalFileStamp) : Bool
-      @identity.same_file?(other.identity) && @size == other.size && @modified_ms == other.modified_ms
+      @identity.same_file?(other.identity) && @size == other.size && @modified_ns == other.modified_ns
     end
   end
 
@@ -105,7 +105,7 @@ module D4Plot
     getter stamp : SignalFileStamp
     getter bins : Array(SampledBin)
     getter bin_width : Int64
-    getter exact : Bool
+    getter? exact : Bool
     getter bytes : Int64
   end
 
@@ -250,8 +250,8 @@ module D4Plot
           entry.last_used = tick
           raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
           Log.debug &.emit("query.completed", request_id: request.request_id, cache_hit: true,
-            exact: entry.exact, bins: entry.bins.size, elapsed_ms: Logging.elapsed_ms(started))
-          return SignalResult.new(entry.bins.dup, entry.bin_width, true, entry.exact)
+            exact: entry.exact?, bins: entry.bins.size, elapsed_ms: Logging.elapsed_ms(started))
+          return SignalResult.new(entry.bins.dup, entry.bin_width, true, entry.exact?)
         end
         # The handle may have been evicted before an atomic same-size,
         # same-timestamp replacement. In that case file_for cannot observe
@@ -357,7 +357,7 @@ module D4Plot
       first = layout.bins.first
       last = layout.bins.last
       String.build do |io|
-        io << request.source.path << '\0' << stamp.size << '\0' << stamp.modified_ms << '\0'
+        io << request.source.path << '\0' << stamp.size << '\0' << stamp.modified_ns << '\0'
         io << request.source.name << '\0' << request.d4_chromosome << '\0'
         io << first.start0 << '\0' << last.end0 << '\0' << layout.width << '\0' << layout.bins.size
       end

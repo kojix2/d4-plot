@@ -9,6 +9,25 @@ module D4Plot
   record ViewResult, request : ViewRequest, layers : Array(LayerSample), annotation_track : AnnotationTrack?,
     elapsed_ms : Float64, error : String?, annotation_error : String? = nil
 
+  # Reusing a descriptor solely by pathname makes an atomic replacement of a
+  # D4 or annotation file invisible to the viewer. Keep both the file
+  # identity and the observable contents stamp so a same-path replacement
+  # reopens/reloads it on the next request.
+  private struct ViewFileStamp
+    getter size : Int64
+    getter modified_ns : Int128
+    getter identity : File::Info
+
+    def initialize(@identity : File::Info)
+      @size = @identity.size
+      @modified_ns = @identity.modification_time.to_unix_ns
+    end
+
+    def same_source?(other : ViewFileStamp) : Bool
+      @identity.same_file?(other.identity) && @size == other.size && @modified_ns == other.modified_ns
+    end
+  end
+
   # One worker owns its file handles. Only the latest pending request/result is
   # retained, so rapid navigation cannot accumulate work or large allocations.
   class ViewLoader
@@ -24,7 +43,9 @@ module D4Plot
     @worker : Fiber::ExecutionContext::Isolated
     @file : D4::File?
     @file_path : String?
+    @file_stamp : ViewFileStamp?
     @annotation_index : AnnotationIndex?
+    @annotation_stamp : ViewFileStamp?
 
     def initialize
       @worker = Fiber::ExecutionContext::Isolated.new("d4-plot-reader") { work }
@@ -137,19 +158,24 @@ module D4Plot
     end
 
     private def file_for(path : String) : D4::File
+      stamp = file_stamp(path)
       if file = @file
-        return file if @file_path == path
+        if @file_path == path && (previous = @file_stamp) && previous.same_source?(stamp)
+          return file
+        end
       end
       opened = D4.open(path)
       @file.try(&.close)
       @file = opened
       @file_path = path
+      @file_stamp = stamp
       opened
     end
 
     private def annotation_for(request : ViewRequest, cancelled : Proc(Bool)) : Tuple(AnnotationTrack?, String?)
       unless path = request.annotation_path
         @annotation_index = nil
+        @annotation_stamp = nil
         return {nil, nil}
       end
       {read_annotation(path, request, cancelled), nil}
@@ -174,11 +200,20 @@ module D4Plot
     end
 
     private def read_annotation(path, request, cancelled)
+      stamp = file_stamp(path)
       index = @annotation_index
-      index = AnnotationIndex.load(path, cancelled) unless index && index.path == path
-      track = index.track_for(request.region, 5_000_000_u32, request.annotation_limit)
+      if index && index.path == path && (previous = @annotation_stamp) && previous.same_source?(stamp)
+        return index.track_for(request.region, 5_000_000_u32, request.annotation_limit)
+      end
+
+      index = AnnotationIndex.load(path, cancelled)
       @annotation_index = index
-      track
+      @annotation_stamp = stamp
+      index.track_for(request.region, 5_000_000_u32, request.annotation_limit)
+    end
+
+    private def file_stamp(path : String) : ViewFileStamp
+      ViewFileStamp.new(File.info(path))
     end
   end
 end

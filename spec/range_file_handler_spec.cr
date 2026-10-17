@@ -189,6 +189,30 @@ describe D4Plot::RangeFileHandler do
     end
   end
 
+  it "rejects an equal-size in-place rewrite with a changed sub-millisecond timestamp" do
+    with_range_file("registered") do |path|
+      handler = D4Plot::RangeFileHandler.new
+      id = handler.register(path, "text/plain")
+      original = File.info(path)
+      original_ns = original.modification_time.to_unix_ns
+      sub_millisecond = original_ns % 1_000_000_i128
+      replacement_ns = original_ns + (sub_millisecond < 500_000_i128 ? 500_000_i128 : -500_000_i128)
+
+      File.write(path, "changed!!!")
+      time = Time.unix_ns(replacement_ns)
+      File.utime(time, time, path)
+      rewritten = File.info(path)
+      rewritten.same_file?(original).should be_true
+      rewritten.size.should eq(original.size)
+      rewritten.modification_time.to_unix_ms.should eq(original.modification_time.to_unix_ms)
+      rewritten.modification_time.to_unix_ns.should_not eq(original_ns)
+
+      response = invoke_range_handler(handler, id)
+      response.status.should eq(404)
+      response.body.should be_empty
+    end
+  end
+
   {% unless flag?(:win32) %}
     it "rejects a symlink substituted after registration" do
       with_range_file("registered") do |path|

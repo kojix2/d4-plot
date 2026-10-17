@@ -89,4 +89,99 @@ describe D4Plot::ViewLoader do
       loader.wait
     end
   end
+
+  {% unless flag?(:win32) %}
+    it "reopens a D4 file after an atomic same-path replacement" do
+      path = File.tempname("d4-plot-replaced-view", ".d4")
+      replacement = "#{path}.replacement"
+      timestamp = Time.utc(2020, 1, 1)
+      loader = D4Plot::ViewLoader.new
+      begin
+        D4.create(path, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+          writer.write_values("chr", 0, [1_i32, 1_i32, 1_i32, 1_i32])
+        end
+        File.utime(timestamp, timestamp, path)
+        sources = D4Plot::TrackSource.load(path)
+        region = D4Plot::Region.new("chr", 1_u32, 4_u32)
+        first = await_view(loader, loader.submit(sources, region, 4, true, nil, 100))
+        first.layers.first.view.not_nil!.points.first[1].should eq(1.0)
+
+        D4.create(replacement, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+          writer.write_values("chr", 0, [9_i32, 9_i32, 9_i32, 9_i32])
+        end
+        File.size(replacement).should eq(File.size(path))
+        File.utime(timestamp, timestamp, replacement)
+        File.rename(replacement, path)
+
+        second = await_view(loader, loader.submit(sources, region, 4, true, nil, 100))
+        second.layers.first.view.not_nil!.points.first[1].should eq(9.0)
+      ensure
+        loader.close
+        loader.wait
+        File.delete?(replacement)
+        File.delete?(path)
+      end
+    end
+
+    it "reloads an annotation after an atomic same-path replacement" do
+      path = File.tempname("d4-plot-replaced-annotation", ".bed")
+      replacement = "#{path}.replacement"
+      timestamp = Time.utc(2020, 1, 1)
+      loader = D4Plot::ViewLoader.new
+      begin
+        File.write(path, "chr\t0\t2\tfirst\n")
+        File.utime(timestamp, timestamp, path)
+        sources = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+        region = D4Plot::Region.new("chr", 1_u32, 2_u32)
+        first = await_view(loader, loader.submit(sources, region, 4, true, path, 100))
+        first.annotation_track.not_nil!.features.first.name.should eq("first")
+
+        File.write(replacement, "chr\t0\t2\tother\n")
+        File.size(replacement).should eq(File.size(path))
+        File.utime(timestamp, timestamp, replacement)
+        File.rename(replacement, path)
+
+        second = await_view(loader, loader.submit(sources, region, 4, true, path, 100))
+        second.annotation_track.not_nil!.features.first.name.should eq("other")
+      ensure
+        loader.close
+        loader.wait
+        File.delete?(replacement)
+        File.delete?(path)
+      end
+    end
+
+    it "reloads an annotation after an in-place same-millisecond update" do
+      path = File.tempname("d4-plot-updated-annotation", ".bed")
+      initial_time = Time.unix_ns(1_600_000_000_000_100_000_i128)
+      updated_time = Time.unix_ns(1_600_000_000_000_900_000_i128)
+      loader = D4Plot::ViewLoader.new
+      begin
+        File.write(path, "chr\t0\t2\tfirst\n")
+        File.utime(initial_time, initial_time, path)
+        initial_info = File.info(path)
+        sources = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+        region = D4Plot::Region.new("chr", 1_u32, 2_u32)
+        first = await_view(loader, loader.submit(sources, region, 4, true, path, 100))
+        first.annotation_track.not_nil!.features.first.name.should eq("first")
+
+        # Writing an existing file preserves its inode. The contents and
+        # timestamp differ only below millisecond precision.
+        File.write(path, "chr\t0\t2\tother\n")
+        File.utime(updated_time, updated_time, path)
+        updated_info = File.info(path)
+        initial_info.same_file?(updated_info).should be_true
+        initial_info.size.should eq(updated_info.size)
+        initial_info.modification_time.to_unix_ms.should eq(updated_info.modification_time.to_unix_ms)
+        initial_info.modification_time.to_unix_ns.should_not eq(updated_info.modification_time.to_unix_ns)
+
+        second = await_view(loader, loader.submit(sources, region, 4, true, path, 100))
+        second.annotation_track.not_nil!.features.first.name.should eq("other")
+      ensure
+        loader.close
+        loader.wait
+        File.delete?(path)
+      end
+    end
+  {% end %}
 end

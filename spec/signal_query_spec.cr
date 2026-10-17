@@ -141,5 +141,51 @@ describe D4Plot::SignalQuery do
         Dir.delete?(directory)
       end
     end
+
+    it "invalidates a same-inode cache entry after a submillisecond update" do
+      directory = File.tempname("d4-plot-signal-in-place-update")
+      Dir.mkdir(directory)
+      path = File.join(directory, "source.d4")
+      replacement = File.join(directory, "replacement.d4")
+      initial_time = Time.unix_ns(1_600_000_000_000_100_000_i128)
+      updated_time = Time.unix_ns(1_600_000_000_000_900_000_i128)
+      D4.create(path, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+        writer.write_values("chr", 0, [1_i32, 1_i32, 1_i32, 1_i32])
+      end
+      D4.create(replacement, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+        writer.write_values("chr", 0, [9_i32, 9_i32, 9_i32, 9_i32])
+      end
+      File.size(replacement).should eq(File.size(path))
+      File.utime(initial_time, initial_time, path)
+      source = D4Plot::TrackSource.load(path).first
+      layout = D4Plot::BinLayout.for_viewport(0_i64, 4_i64, 1.0, 4_i64)
+      query = D4Plot::SignalQuery.new
+      begin
+        first = query.query(source, "chr", layout, "reference-r1", "browser-a", 1_i64)
+        first.cache_hit.should be_false
+        first.bins.map(&.value).should eq([1.0, 1.0, 1.0, 1.0])
+        initial_info = File.info(path)
+
+        File.open(replacement) do |input|
+          File.open(path, "w") { |output| IO.copy(input, output) }
+        end
+        File.utime(updated_time, updated_time, path)
+        updated_info = File.info(path)
+        initial_info.same_file?(updated_info).should be_true
+        initial_info.size.should eq(updated_info.size)
+        initial_info.modification_time.to_unix_ms.should eq(updated_info.modification_time.to_unix_ms)
+        initial_info.modification_time.to_unix_ns.should_not eq(updated_info.modification_time.to_unix_ns)
+
+        second = query.query(source, "chr", layout, "reference-r1", "browser-a", 2_i64)
+        second.cache_hit.should be_false
+        second.bins.map(&.value).should eq([9.0, 9.0, 9.0, 9.0])
+      ensure
+        query.close
+        query.wait
+        File.delete?(replacement)
+        File.delete?(path)
+        Dir.delete?(directory)
+      end
+    end
   {% end %}
 end
