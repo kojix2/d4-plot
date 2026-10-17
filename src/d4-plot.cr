@@ -37,15 +37,15 @@ begin
     puts D4Plot.t("cli.locale_option")
     puts D4Plot.t("cli.region_option")
     puts D4Plot.t("cli.help_option")
-    exit
+  else
+    D4Plot::UIRuntime.check_thread!
+    UIng.on_error do |error, context|
+      D4Plot::Logging.report_exception(D4Plot::Log, "ui.callback_failed", error, callback: context)
+    end
+    UIng.init
+    menu_items = D4Plot::App.create_menu_bar
+    D4Plot::App.new(menu_items, preferences).run(ARGV, region)
   end
-  D4Plot::UIRuntime.check_thread!
-  UIng.on_error do |error, context|
-    D4Plot::Logging.report_exception(D4Plot::Log, "ui.callback_failed", error, callback: context)
-  end
-  UIng.init
-  menu_items = D4Plot::App.create_menu_bar
-  D4Plot::App.new(menu_items, preferences).run(ARGV, region)
 rescue ex
   D4Plot::Logging.report_fatal(D4Plot::Log, "app.failed", ex)
   raise ex
