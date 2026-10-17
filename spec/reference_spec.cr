@@ -34,6 +34,8 @@ describe D4Plot::ReferenceSpec do
       dictionary["chrM"].should eq(3_i64)
       resolved.resources.map(&.id).should eq(["fasta", "fai"])
       resolved.resources.map(&.path).should contain(File.realpath(fasta))
+      resolved.resources.find!(&.kind.fasta?).max_full_response_bytes.should eq(0_i64)
+      resolved.resources.find!(&.kind.fai?).max_full_response_bytes.should eq(D4Plot::ReferenceResource::MAX_FAI_FULL_RESPONSE_BYTES)
 
       config = JSON.parse(resolved.igv_browser_config_json({
         "fasta" => "/reference/fasta",
@@ -88,6 +90,17 @@ describe D4Plot::ReferenceSpec do
       File.write("#{fasta}.fai", "crlf\t6\t7\t4\t6\n")
       D4Plot::ReferenceSpec.fasta(fasta).resolve.dictionary.try(&.["crlf"]).should eq(6_i64)
 
+      # A final sequence row may validly omit its trailing line terminator.
+      File.write(fasta, ">final\nACGT")
+      File.write("#{fasta}.fai", "final\t4\t7\t4\t4\n")
+      D4Plot::ReferenceSpec.fasta(fasta).resolve.dictionary.try(&.["final"]).should eq(4_i64)
+
+      # htslib permits blank rows between FASTA records; they do not extend
+      # the preceding contig.
+      File.write(fasta, ">blank\nACGT\n\n>next\nAA\n")
+      File.write("#{fasta}.fai", "blank\t4\t7\t4\t5\nnext\t2\t19\t2\t3\n")
+      D4Plot::ReferenceSpec.fasta(fasta).resolve.dictionary.try(&.["blank"]).should eq(4_i64)
+
       # The old first/last-byte check accepted this malformed width because
       # its calculated last byte happened to be a nucleotide.
       File.write(fasta, ">chr\nAAAA\nAAAA\n")
@@ -109,6 +122,32 @@ describe D4Plot::ReferenceSpec do
       expect_raises(D4Plot::ReferenceValidationError, /does not match its FASTA header/) do
         D4Plot::ReferenceSpec.fasta(fasta).resolve
       end
+
+      # A claimed final base must be followed by the end of its FASTA row. A
+      # short FAI entry used to pass when the first and claimed last bases were
+      # both nucleotides, leaving IGV with a truncated reference contig.
+      File.write(fasta, ">chr\nAAAAAA\n")
+      File.write("#{fasta}.fai", "chr\t4\t5\t4\t7\n")
+      expect_raises(D4Plot::ReferenceValidationError, /sequence boundary/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
+
+      # The same error can hide after a correctly terminated full row when a
+      # following sequence row is omitted from the declared length.
+      File.write(fasta, ">chr\nAAAA\nAA\n")
+      File.write("#{fasta}.fai", "chr\t4\t5\t4\t5\n")
+      expect_raises(D4Plot::ReferenceValidationError, /sequence boundary/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
+
+      # A blank row followed by sequence data is not a record boundary. This
+      # previously bypassed the short-contig check while a blank row before a
+      # new header remained valid.
+      File.write(fasta, ">chr\nAAAA\n\nAA\n")
+      File.write("#{fasta}.fai", "chr\t4\t5\t4\t5\n")
+      expect_raises(D4Plot::ReferenceValidationError, /sequence boundary/) do
+        D4Plot::ReferenceSpec.fasta(fasta).resolve
+      end
     end
   end
 
@@ -125,6 +164,8 @@ describe D4Plot::ReferenceSpec do
       resolved = D4Plot::ReferenceSpec.igv_json(json).resolve
       resolved.aliases.canonical_for("NC_000001.1").should eq("chr1")
       resolved.resources.map(&.id).should eq(["fasta", "fai", "aliases", "chrom-sizes"])
+      resolved.resources.find!(&.kind.alias?).max_full_response_bytes.should eq(D4Plot::ReferenceResource::MAX_ALIAS_FULL_RESPONSE_BYTES)
+      resolved.resources.find!(&.kind.chrom_sizes?).max_full_response_bytes.should eq(D4Plot::ReferenceResource::MAX_CHROM_SIZES_FULL_RESPONSE_BYTES)
 
       descriptor = resolved.resources.find! { |resource| resource.id == "fasta" }.to_json
       descriptor.should_not contain(File.realpath(fasta))
@@ -139,6 +180,12 @@ describe D4Plot::ReferenceSpec do
 
       File.write(json, %({"fastaURL":"genome.fa","unsupported":"value"}))
       expect_raises(D4Plot::ReferenceValidationError, /Unsupported IGV genome JSON key/) do
+        D4Plot::ReferenceSpec.igv_json(json).resolve
+      end
+
+      # UNC names are network locations on Windows, not local reference paths.
+      File.write(json, {fastaURL: "\\\\server\\share\\reference.fa"}.to_json)
+      expect_raises(D4Plot::ReferenceValidationError, /must be a local path/) do
         D4Plot::ReferenceSpec.igv_json(json).resolve
       end
     end

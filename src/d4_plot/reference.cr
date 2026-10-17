@@ -184,6 +184,7 @@ module D4Plot
           validate_sequence_byte!(fasta, first, entry.contig.name)
           validate_line_geometry!(fasta, entry)
           validate_sequence_byte!(fasta, last, entry.contig.name)
+          validate_sequence_end!(fasta, last, size, entry.contig.name)
         end
       end
     rescue ex : ReferenceValidationError
@@ -317,6 +318,53 @@ module D4Plot
       end
     end
 
+    # The declared final base must end its FASTA record. Without this check an
+    # FAI can claim a shorter contig whose first and calculated last bytes
+    # happen to be nucleotides, causing the browser to silently truncate the
+    # reference. A final row may omit its line terminator, so EOF is valid too.
+    # htslib also permits blank lines between records; consume only a bounded
+    # amount of those separators before requiring the next header or EOF.
+    private def validate_sequence_end!(fasta : File, last : Int64, size : Int64, name : String) : Nil
+      next_offset = last + 1_i64
+      return if next_offset == size
+
+      case fasta_byte_at!(fasta, next_offset, name)
+      when '\n'.ord
+        next_offset += 1_i64
+      when '\r'.ord
+        next_offset += 1_i64
+        if next_offset < size && fasta_byte_at!(fasta, next_offset, name) == '\n'.ord
+          next_offset += 1_i64
+        end
+      else
+        raise ReferenceValidationError.new("FAI entry #{name.inspect} does not end at a FASTA sequence boundary")
+      end
+
+      return if next_offset == size
+      blank_bytes = 0_i64
+      loop do
+        following = fasta_byte_at!(fasta, next_offset, name)
+        return if following == '>'.ord
+
+        # Empty rows are valid between records, but bases after one would mean
+        # this FAI entry omitted part of its own sequence. Keep this bounded so
+        # a hostile file cannot turn per-entry validation into a long scan.
+        unless following == '\n'.ord || following == '\r'.ord
+          raise ReferenceValidationError.new("FAI entry #{name.inspect} does not end at a FASTA sequence boundary")
+        end
+        separator_start = next_offset
+        next_offset += 1_i64
+        if following == '\r'.ord && next_offset < size && fasta_byte_at!(fasta, next_offset, name) == '\n'.ord
+          next_offset += 1_i64
+        end
+        blank_bytes += next_offset - separator_start
+        if blank_bytes > MAX_LINE_BYTES || next_offset == size
+          return if next_offset == size
+          raise ReferenceValidationError.new("FAI entry #{name.inspect} has too many blank lines before the next FASTA header")
+        end
+      end
+    end
+
     private def fasta_byte_at!(fasta : File, offset : Int64, name : String) : UInt8
       fasta.seek(offset, IO::Seek::Set)
       fasta.read_byte || raise ReferenceValidationError.new("FAI entry #{name.inspect} points outside FASTA sequence data")
@@ -428,6 +476,14 @@ module D4Plot
   # Servers use those accessors to register an allow-listed route; API clients
   # only receive `id`, kind and range requirements through #to_json.
   class ReferenceResource
+    # IGV.js loads each of these auxiliary files as a complete response. Keep
+    # those responses bounded, while allowing fragmented assemblies whose FAI
+    # legitimately exceeds the generic 8 MiB file-response limit.
+    MAX_FAI_FULL_RESPONSE_BYTES         = 64_i64 * 1024 * 1024
+    MAX_ALIAS_FULL_RESPONSE_BYTES       = 16_i64 * 1024 * 1024
+    MAX_CYTOBAND_FULL_RESPONSE_BYTES    = 32_i64 * 1024 * 1024
+    MAX_CHROM_SIZES_FULL_RESPONSE_BYTES = 32_i64 * 1024 * 1024
+
     getter id : String
     getter kind : ReferenceResourceKind
     getter path : String?
@@ -456,6 +512,23 @@ module D4Plot
       when .alias?       then "text/plain; charset=utf-8"
       when .cytoband?    then "text/plain; charset=utf-8"
       when .chrom_sizes? then "text/plain; charset=utf-8"
+      else
+        raise ReferenceValidationError.new("Unsupported reference resource kind")
+      end
+    end
+
+    # IGV reads FASTA sequence data by byte range, but its FAI, alias,
+    # cytoband, and chrom.sizes loaders fetch complete files. This explicit
+    # per-kind limit is passed to RangeFileHandler when the resource is served.
+    def max_full_response_bytes : Int64
+      return 0_i64 if @range_required
+
+      case @kind
+      when .fasta?       then 0_i64
+      when .fai?         then MAX_FAI_FULL_RESPONSE_BYTES
+      when .alias?       then MAX_ALIAS_FULL_RESPONSE_BYTES
+      when .cytoband?    then MAX_CYTOBAND_FULL_RESPONSE_BYTES
+      when .chrom_sizes? then MAX_CHROM_SIZES_FULL_RESPONSE_BYTES
       else
         raise ReferenceValidationError.new("Unsupported reference resource kind")
       end
@@ -1148,7 +1221,7 @@ module D4Plot
     # URLs.  A future URL fetcher can be added here with its own Range/CORS and
     # origin policy rather than accidentally making JSON parsing a network API.
     def self.resolve_json_path(value : String, json_path : String, key : String) : String
-      if (!windows_drive_path?(value) && /\A[A-Za-z][A-Za-z0-9+.-]*:/.matches?(value)) || value.starts_with?("//")
+      if windows_unc_path?(value) || (!windows_drive_path?(value) && /\A[A-Za-z][A-Za-z0-9+.-]*:/.matches?(value)) || value.starts_with?("//")
         raise ReferenceValidationError.new("IGV genome JSON #{key} must be a local path, not a URL")
       end
       base = File.dirname(json_path)
@@ -1163,6 +1236,13 @@ module D4Plot
       {% else %}
         false
       {% end %}
+    end
+
+    # A UNC path is a network location on Windows. Reject it on every platform
+    # so a genome JSON remains strictly local even if it is later shared with a
+    # Windows installation.
+    private def self.windows_unc_path?(value : String) : Bool
+      value.starts_with?("\\\\")
     end
 
     def self.require_same_dictionary!(left : ContigDictionary, right : ContigDictionary, left_name : String, right_name : String) : Nil
