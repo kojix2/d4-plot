@@ -154,7 +154,7 @@ module D4Plot
     def initialize(sources : Array(TrackSource), initial_region : Region? = nil, port : Int32 = 0,
                    reference : ReferenceSpec? = nil)
       raise ArgumentError.new("Invalid web port") unless (0..65_535).includes?(port)
-      @sources = sources.dup
+      @sources = unique_sources(sources)
       @initial_region = initial_region
       @reference_options = {} of String => ReferenceSpec
       @selected_reference_key = ""
@@ -213,7 +213,7 @@ module D4Plot
     def update(sources : Array(TrackSource), initial_region : Region? = nil) : Nil
       @mutex.synchronize do
         raise "Web server is closed" if @closed
-        @sources = sources.dup
+        @sources = unique_sources(sources)
         @initial_region = initial_region
         reconcile_track_ids(@sources)
         refresh_contigs_option(@sources)
@@ -222,7 +222,7 @@ module D4Plot
         next_snapshot = build_snapshot(@sources, @initial_region, @selected_reference)
         @signal_query.activate_revision(next_snapshot.revision)
         @snapshot = next_snapshot
-        Log.info &.emit("web.session_updated", tracks: sources.size, revision: next_snapshot.revision)
+        Log.info &.emit("web.session_updated", tracks: @sources.size, revision: next_snapshot.revision)
       end
     end
 
@@ -289,6 +289,18 @@ module D4Plot
       prefix = "/#{@token}"
       response = context.response
       return failure(context, 404, "NOT_FOUND", "Not found") unless path == prefix || path.starts_with?("#{prefix}/")
+
+      # Relative asset and API URLs in the viewer require a directory base.
+      # A capability URL is normally issued with this slash, but users can
+      # paste it without one (especially before its query string). Redirect
+      # that spelling rather than serving HTML whose `./` URLs resolve outside
+      # the token-scoped route. Keep browser state such as `locus` and
+      # selected tracks intact while canonicalizing the path.
+      if path == prefix && context.request.method == "GET"
+        redirect_to_browser_root(context, prefix)
+        return
+      end
+
       suffix = path.byte_slice(prefix.bytesize, path.bytesize - prefix.bytesize)
       suffix = "/" if suffix.empty?
 
@@ -315,6 +327,16 @@ module D4Plot
       else
         serve_reference_or_not_found(context, suffix)
       end
+    end
+
+    private def redirect_to_browser_root(context : HTTP::Server::Context, prefix : String) : Nil
+      location = "#{prefix}/"
+      if query = context.request.query
+        location += "?#{query}"
+      end
+      context.response.status = HTTP::Status::PERMANENT_REDIRECT
+      context.response.headers["Location"] = location
+      context.response.content_length = 0_i64
     end
 
     private def serve_reference_or_not_found(context : HTTP::Server::Context, suffix : String) : Nil
@@ -702,6 +724,22 @@ module D4Plot
       @track_ids.keys.each do |key|
         @track_ids.delete(key) unless active.has_key?(key)
       end
+    end
+
+    # GUI loading already removes duplicate source/track pairs, but the
+    # headless CLI and this public server constructor can receive them
+    # directly. One source key must correspond to exactly one browser track:
+    # otherwise duplicate descriptors share an opaque id and confuse the
+    # browser's selection and cancellation contracts.
+    private def unique_sources(sources : Array(TrackSource)) : Array(TrackSource)
+      result = [] of TrackSource
+      seen = {} of Tuple(String, String) => Bool
+      sources.each do |source|
+        next if seen.has_key?(source.key)
+        seen[source.key] = true
+        result << source
+      end
+      result
     end
 
     private def default_region(reference : ResolvedReference, tracks : Array(IGVWebTrack)) : Region

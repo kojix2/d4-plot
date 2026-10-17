@@ -27,6 +27,29 @@ private def available_loopback_port : Int32
 end
 
 describe D4Plot::IGVWebServer do
+  it "redirects a bare capability root to its slash form without losing viewer state" do
+    server = D4Plot::IGVWebServer.new([] of D4Plot::TrackSource)
+    server.start
+    begin
+      bare_url = server.url.rchop('/')
+      response = server_get("#{bare_url}?locus=chr2%3A10-20&tracks=remembered")
+      response.status_code.should eq(308)
+      response.headers["Location"].should eq("#{URI.parse(server.url).path}?locus=chr2%3A10-20&tracks=remembered")
+
+      # The canonical URL serves the viewer rather than redirecting again.
+      canonical = server_get("#{server.url}?locus=chr2%3A10-20&tracks=remembered")
+      canonical.status_code.should eq(200)
+      canonical.body.should contain("igv.min.js")
+
+      # Canonicalization remains inside the capability scope; a path that
+      # merely resembles a traversal cannot become a valid viewer route.
+      server_get("#{bare_url}/../api/state").status_code.should eq(404)
+    ensure
+      server.close
+      server.wait
+    end
+  end
+
   it "interrupts an accepted request during shutdown" do
     server = D4Plot::IGVWebServer.new([] of D4Plot::TrackSource)
     server.start
@@ -244,6 +267,30 @@ describe D4Plot::IGVWebServer do
       second = JSON.parse(server_get("#{server.url}api/state").body)
       second["revision"].as_s.should_not eq(first["revision"].as_s)
       second["tracks"].as_a.first["id"].as_s.should eq(first_id)
+    ensure
+      server.close
+      server.wait
+    end
+  end
+
+  it "coalesces duplicate source-track pairs at the headless server boundary" do
+    source = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4")).first
+    # Track names are not globally unique: a matching name from another D4
+    # file remains a distinct browser track.
+    other = D4Plot::TrackSource.new("other.d4", source.name, source.chromosomes, source.denominator)
+    server = D4Plot::IGVWebServer.new([source, source, other])
+    server.start
+    begin
+      initial = JSON.parse(server_get("#{server.url}api/state").body)
+      tracks = initial["tracks"].as_a
+      tracks.size.should eq(2)
+      id = tracks.first["id"].as_s
+      tracks.map(&.["id"].as_s).uniq!.size.should eq(2)
+
+      server.update([source, source, other])
+      refreshed = JSON.parse(server_get("#{server.url}api/state").body)["tracks"].as_a
+      refreshed.size.should eq(2)
+      refreshed.first["id"].as_s.should eq(id)
     ensure
       server.close
       server.wait
