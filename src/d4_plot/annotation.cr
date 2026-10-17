@@ -43,6 +43,10 @@ module D4Plot
     FEATURE_TYPES          = {"gene", "transcript", "mrna", "exon"}
     MAX_IN_MEMORY_BYTES    = 32 * 1024 * 1024
     MAX_IN_MEMORY_FEATURES = 100_000
+    # Annotation records are normally short. Bound one record independently
+    # from the total input budget: IO#each_line otherwise allocates the whole
+    # record before the aggregate memory check can reject a malformed file.
+    MAX_IN_MEMORY_LINE_BYTES = 64 * 1024
 
     getter path : String
     getter size : Int32
@@ -164,7 +168,7 @@ module D4Plot
     end
 
     private def self.tabix_indexed?(path)
-      path.ends_with?(".gz") && (File.exists?("#{path}.tbi") || File.exists?("#{path}.csi"))
+      compressed_annotation?(path) && (File.exists?("#{path}.tbi") || File.exists?("#{path}.csi"))
     end
 
     private def self.validate_in_memory_size(path)
@@ -176,13 +180,27 @@ module D4Plot
 
     private def self.each_line(path, &)
       File.open(path) do |file|
-        if path.ends_with?(".gz")
+        if compressed_annotation?(path)
           Compress::Gzip::Reader.open(file) do |gzip|
-            gzip.each_line { |line| yield line }
+            each_bounded_line(gzip) { |line| yield line }
           end
         else
-          file.each_line { |line| yield line }
+          each_bounded_line(file) { |line| yield line }
         end
+      end
+    end
+
+    # BGZF uses the gzip container format, and commonly uses these suffixes.
+    # Keep this in sync for both indexed and in-memory annotation loading.
+    private def self.compressed_annotation?(path : String) : Bool
+      normalized = path.downcase
+      normalized.ends_with?(".gz") || normalized.ends_with?(".bgz") || normalized.ends_with?(".bgzf") || normalized.ends_with?(".bgzip")
+    end
+
+    private def self.each_bounded_line(io : IO, &) : Nil
+      while line = io.gets(MAX_IN_MEMORY_LINE_BYTES + 1, chomp: true)
+        raise D4Plot.t("annotation.memory_limit") if line.bytesize > MAX_IN_MEMORY_LINE_BYTES
+        yield line
       end
     end
 
