@@ -80,4 +80,23 @@ describe D4Plot::SvgExport do
       end
     end
   end
+
+  it "writes a snapshot after a source file has been removed" do
+    File.tempfile("d4-plot-svg") do |file|
+      destination = file.path
+      file.close
+      source = File.tempname("d4-plot-removed-source")
+      begin
+        File.write(source, "removed source")
+        File.delete(source)
+        region = D4Plot::Region.new("chr1", 1_u32, 10_u32)
+
+        D4Plot::SvgExport.new(destination, [source], region, [] of D4Plot::TrackLayer,
+          nil, D4Plot::PlotSettings.new, 10_u32, 800, 220.0, false, nil).write
+        File.read(destination).should contain("<svg")
+      ensure
+        File.delete?(source)
+      end
+    end
+  end
 end

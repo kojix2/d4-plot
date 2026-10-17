@@ -31,11 +31,18 @@ module D4Plot
 
     def write : Nil
       @sources.each do |source|
-        if File.expand_path(@path) == File.expand_path(source) || (File.exists?(@path) && File.same?(@path, source))
+        if File.expand_path(@path) == File.expand_path(source) || same_existing_file?(@path, source)
           raise D4Plot.t("app.export_conflict")
         end
       end
       File.write(@path, @contents)
+    end
+
+    private def same_existing_file?(first : String, second : String) : Bool
+      return false unless File.exists?(first) && File.exists?(second)
+      File.same?(first, second)
+    rescue File::NotFoundError
+      false
     end
 
     private def render(io : IO) : Nil
