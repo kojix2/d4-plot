@@ -1,5 +1,17 @@
 # インストール
 
+## おすすめ：リリースパッケージを使う
+
+多くの研究者は、[GitHub Releases](https://github.com/kojix2/d4-plot/releases)から
+パッケージをダウンロードしてください。リリースパッケージを使うだけなら、Crystal、Shards、
+コンパイラを用意する必要はありません。WindowsとmacOSのパッケージには必要なライブラリが
+同梱されています。Ubuntu向けのDebianパッケージでは、インストール時にHTSlibなどの
+ランタイム依存パッケージも導入されます。
+
+使用するOSに合うパッケージを選び、通常の方法でインストールして、アプリケーションメニューから
+**D4 Plot**を起動するか、実行ファイルを開きます。組織でソフトウェアのインストールが管理されて
+いる場合は、リリースページを情報システム担当者に渡してください。
+
 ## リリースパッケージ
 
 [GitHub Releases](https://github.com/kojix2/d4-plot/releases)では、リリースworkflowが
@@ -9,7 +21,7 @@
 - Apple SiliconおよびIntel macOS用のアプリケーションバンドル
 - Ubuntuおよび互換システム向けのAMD64 Debianパッケージ
 
-## ソースからのビルド
+## ソースからのビルド（開発者・管理された環境向け）
 
 D4 PlotにはCrystal 1.21以降、Shards、Git、
 [UIngのネイティブ依存関係](https://kojix2.github.io/uing/books/guide_ja/installation.html)、
@@ -46,6 +58,9 @@ bash scripts/build-windows.sh
 ```
 
 ## アプリケーションの起動
+
+インストール後は[まずここから](quick-start.md)を参照してください。以下のコマンドは、主に
+ソースビルドや、ターミナルからファイルを開く場合に使用します。
 
 1個以上のD4ファイルに加え、初期領域やインターフェース言語を指定できます。
 

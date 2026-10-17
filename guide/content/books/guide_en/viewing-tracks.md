@@ -15,6 +15,37 @@ D4 metadata does not establish which reference assembly produced a file.
 Matching chromosome names and lengths are therefore not proof that tracks use
 the same assembly; verify their provenance before comparison.
 
+## Before comparing tracks
+
+Before comparing two samples, check these three things:
+
+1. They were aligned to the same reference assembly, such as hg38 or GRCh38.
+2. They use comparable filtering and normalization. D4 Plot does not
+   automatically normalize tracks just because they are displayed together.
+3. Their chromosome names use the same convention, for example `chr1` versus
+   `1`.
+
+If you are unsure, keep the sample information or the command used to create
+each D4 file with the file. This information is more reliable than the D4
+metadata alone.
+
+## Reading the signal
+
+D4 Plot summarizes the signal in display bins. At a wide view, one visual
+column can represent many bases; after zooming in, the bins become smaller.
+For a coverage D4, the value is the mean coverage in the bin, not necessarily
+the number of reads at one particular base. A narrow peak can therefore look
+lower or wider when you change the zoom level.
+
+Use **Shared Y** when the height of one sample should be directly compared with
+another. Use separate automatic scales when you are looking for the shape of
+each sample rather than its absolute height. A fixed Y scale is useful when you
+want the same limits across several regions or exported figures.
+
+![Closer view of two synthetic D4 tracks and their display bins](../../screenshots/en/inspect.png)
+
+The closer view shows the same synthetic samples after narrowing the region.
+
 ## Regions and navigation
 
 The region field accepts:

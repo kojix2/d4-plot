@@ -1,5 +1,18 @@
 # Installation
 
+## Recommended: install a release package
+
+Most researchers should download a package from [GitHub
+Releases](https://github.com/kojix2/d4-plot/releases). You do not need
+Crystal, Shards, or a compiler to use a release package. Windows and macOS
+packages include their native libraries; the Ubuntu Debian package declares
+runtime dependencies, including HTSlib, for installation by the package manager.
+
+Choose the package for your operating system, install it in the usual way,
+and start **D4 Plot** from the application menu or by opening the executable.
+If your institution manages software installation, give the release page to
+your local IT administrator.
+
 ## Release packages
 
 [GitHub Releases](https://github.com/kojix2/d4-plot/releases) provides the
@@ -9,7 +22,7 @@ packages produced by the release workflow:
 - application bundles for Apple Silicon and Intel macOS; and
 - an AMD64 Debian package for Ubuntu and compatible systems.
 
-## Build from source
+## Build from source (for developers or managed environments)
 
 D4 Plot requires Crystal 1.21 or later, Shards, Git,
 [UIng's native dependencies](https://kojix2.github.io/uing/books/guide_en/installation.html),
@@ -47,6 +60,10 @@ bash scripts/build-windows.sh
 ```
 
 ## Starting the application
+
+After installation, begin with [Start here](quick-start.md). The commands
+below are mainly useful for a source build or for opening a file from a
+terminal.
 
 Pass one or more D4 files, and optionally an initial region or interface
 language:

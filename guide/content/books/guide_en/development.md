@@ -1,5 +1,9 @@
 # Development
 
+Most researchers can skip this page. It is for developers, package maintainers,
+and IT staff who build D4 Plot from source or investigate a problem. For normal
+use, install a release package and start with [Start here](quick-start.md).
+
 Install the native dependencies described in [Installation](installation.md),
 then run the checks used during development:
 
@@ -21,6 +25,24 @@ To change the application icon, replace `assets/d4-plot.png` with a square PNG
 that has a transparent background, then run `bash scripts/refresh-icons.sh`
 with ImageMagick installed. The macOS icon is generated while packaging the app
 bundle.
+
+## Guide screenshots
+
+On macOS, build the Nicolino site first, then generate the synthetic guide
+images from the native application in the repository root:
+
+```sh
+mkdir -p guide/output/screenshots
+crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
+crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
+```
+
+The two language directories must not already exist. Rebuild the site before
+rerunning these commands because Nicolino may replace its output directory.
+The script captures the
+application windows directly and creates its own synthetic D4, BED, and BAM
+fixtures. The documentation workflow generates both sets on a macOS runner,
+then adds them to the Pages build.
 
 ## Diagnostic logs
 

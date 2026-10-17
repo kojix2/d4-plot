@@ -3,6 +3,19 @@
 D4 Plot can send the current locus to IGV Desktop or display D4 and other genome
 tracks in its local IGV.js viewer. These are separate features.
 
+## Which viewer should I use?
+
+| If you want to… | Start with… |
+| --- | --- |
+| Inspect and compare D4 signals or make a quick figure | **D4 Plot** |
+| See BAM/CRAM, VCF, BED, GTF, BigWig, and D4 together in a browser | **IGV.js** |
+| Continue working in an existing IGV Desktop session | **View region in IGV Desktop** |
+
+The IGV.js viewer runs locally, but a public reference preset or remote track
+may require network access. For local reference access, use a local FASTA and
+index; do not add remote tracks when data access must stay on the laboratory
+computer.
+
 | Action | What it does | Requirement |
 | --- | --- | --- |
 | **IGV → View region in IGV Desktop** | Moves an already-running IGV Desktop to the current locus | IGV Desktop must accept external control on `127.0.0.1:60151` |
@@ -69,29 +82,9 @@ for them. It sends only the locus; it does not change IGV Desktop's assembly.
 
 ## Run without the native GUI
 
-`d4-plot serve` and `d4-plot-server` accept the same options:
-
-```sh
-d4-plot serve --genome hg38 --open sample.d4
-d4-plot-server --genome hg38 --open
-d4-plot-server --reference reference.fa --reference-index reference.fa.fai sample.d4
-d4-plot-server --contigs-only sample.d4
-```
-
-| Option | Purpose |
-| --- | --- |
-| `--genome ID` | Select a public preset. |
-| `--reference PATH` | Select a local FASTA or IGV genome JSON. A FASTA needs an existing FAI. |
-| `--reference-index PATH` | Name a FAI at a non-default path. |
-| `--contigs-only` | Use D4 contig names and lengths. This is the default when D4 is supplied without another reference. |
-| `--region REGION` | Set the initial locus, for example `chr1:100-200`. |
-| `--open` | Open a browser automatically; the server remains running if launching the browser fails. |
-| `--port PORT` | Set the loopback port. The default `0` chooses an available port. |
-
-- `--genome`, `--reference`, and `--contigs-only` are mutually exclusive.
-- Without a D4 file, specify `--genome` or `--reference`.
-- Open the printed URL in a browser on the **same computer**.
-- Stop the server with Ctrl-C.
+If you need the same browser viewer on a workstation without the desktop app,
+see [Command-line usage](command-line.md). It explains how to choose a public
+or local reference and start the local server.
 
 ## Troubleshooting
 
@@ -101,5 +94,5 @@ d4-plot-server --contigs-only sample.d4
 | No tracks in the browser | Check the **D4 tracks** selection and whether D4 contig names and lengths match the selected reference. |
 | An added track does not display | Check its format, index, and reference contig names. For a URL, also check CORS and HTTP Range support. |
 | A public preset does not load | Check network access, or start the server with a local FASTA/FAI. |
-| An older browser tab stops working | After changing D4 Plot tracks, reopen it with **IGV → Open D4 tracks in IGV.js…**. |
-| `HTTP::Client::Response#body_io cannot be nil` | An older build mishandles a bodyless IGV Desktop response. Update to a build containing the fix, or rerun `shards build d4-plot` for a source build. |
+| An older browser tab stops working | After changing D4 Plot tracks, reopen it with **IGV → Open genome browser (IGV.js)…**. |
+| An older build shows an internal error when sending a locus to IGV Desktop | Update D4 Plot. If you build from source, rebuild it after updating. |

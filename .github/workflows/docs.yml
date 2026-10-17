@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - "guide/**"
+      - "src/**"
+      - "config/locales/**"
+      - "scripts/guide-screenshots.cr"
+      - "shard.yml"
+      - "shard.lock"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -18,7 +23,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  screenshots:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+
+      - name: Install native dependencies
+        run: brew install htslib pkg-config
+
+      - name: Install locked shards
+        run: shards install --frozen
+
+      - name: Capture English and Japanese guide screenshots
+        run: |
+          mkdir -p "$RUNNER_TEMP/d4-plot-guide-shots"
+          crystal run scripts/guide-screenshots.cr -- "$RUNNER_TEMP/d4-plot-guide-shots/en" en
+          crystal run scripts/guide-screenshots.cr -- "$RUNNER_TEMP/d4-plot-guide-shots/ja" ja
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        with:
+          name: guide-screenshots
+          path: ${{ runner.temp }}/d4-plot-guide-shots/
+          if-no-files-found: error
+
   build:
+    needs: screenshots
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,6 +71,12 @@ jobs:
         run: |
           nicolino validate
           nicolino build -B -p
+
+      - name: Add captured screenshots to the site
+        uses: actions/download-artifact@v8
+        with:
+          name: guide-screenshots
+          path: guide/output/screenshots
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

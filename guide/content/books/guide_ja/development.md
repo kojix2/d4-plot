@@ -1,5 +1,9 @@
 # 開発
 
+このページは、ほとんどの研究者は読む必要がありません。ソースからD4 Plotをビルドする
+開発者・パッケージ管理者や、問題を調査するIT担当者向けです。通常の利用ではリリース
+パッケージをインストールし、[まずここから](quick-start.md)始めてください。
+
 [インストール](installation.md)に記載したネイティブ依存関係を導入し、次のチェックを実行します。
 
 ```sh
@@ -19,6 +23,23 @@ crystal run scripts/ui-smoke.cr
 アプリケーションアイコンを変更するには、`assets/d4-plot.png`を透明背景の正方形PNGで
 置き換え、ImageMagickを導入した環境で`bash scripts/refresh-icons.sh`を実行します。
 macOSアイコンはアプリケーションバンドルのパッケージ時に生成されます。
+
+## ガイドのスクリーンショット
+
+macOSでは、まずNicolinoでサイトをビルドし、その後リポジトリのルートで次を実行すると、
+ネイティブアプリケーションから合成データの画像を生成できます。
+
+```sh
+mkdir -p guide/output/screenshots
+crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
+crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
+```
+
+言語別の出力ディレクトリは、実行前に存在しない必要があります。Nicolinoの再ビルドで
+出力ディレクトリが置き換わる場合があるため、再撮影時も先にサイトをビルドしてください。
+スクリプトはアプリの
+ウィンドウだけを撮影し、合成D4・BED・BAMを自分で生成します。ドキュメントの
+GitHub ActionsではmacOSランナーで日英両方を撮影し、Pagesのビルドに追加します。
 
 ## 診断ログ
 
