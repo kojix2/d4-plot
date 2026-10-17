@@ -13,6 +13,20 @@ private def await_files(loader, id)
 end
 
 describe D4Plot::FileLoader do
+  it "coalesces duplicate existing source-track pairs without dropping another file's matching track name" do
+    first = D4Plot::TrackSource.new("first.d4", "depth", {"chr" => 10_u32}, 1.0)
+    second = D4Plot::TrackSource.new("second.d4", "depth", {"chr" => 10_u32}, 1.0)
+    loader = D4Plot::FileLoader.new
+    begin
+      result = await_files(loader, loader.submit([] of String, [first, first, second]))
+      result.error.should be_nil
+      result.sources.should eq([first, second])
+    ensure
+      loader.close
+      loader.wait
+    end
+  end
+
   it "loads multiple files atomically and deduplicates existing tracks" do
     first = File.join(__DIR__, "fixtures/rust-input-10nt.d4")
     second = File.tempname("d4-file-loader", ".d4")

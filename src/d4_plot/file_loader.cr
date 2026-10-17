@@ -84,8 +84,11 @@ module D4Plot
       while request = next_request
         started = Time.instant
         Log.info &.emit("files.started", request_id: request.id, files: request.paths.size, existing_tracks: request.existing.size)
-        sources = request.existing.dup
-        keys = sources.map(&.key).to_set
+        sources = [] of TrackSource
+        keys = Set(Tuple(String, String)).new
+        request.existing.each do |source|
+          sources << source if keys.add?(source.key)
+        end
         path = ""
         begin
           request.paths.each_with_index do |file, index|
