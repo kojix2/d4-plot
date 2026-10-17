@@ -212,5 +212,52 @@ describe D4Plot::SignalQuery do
         Dir.delete?(directory)
       end
     end
+
+    it "removes stale cached versions after their file handle was evicted" do
+      directory = File.tempname("d4-plot-stale-signal-cache")
+      Dir.mkdir(directory)
+      first_path = File.join(directory, "first.d4")
+      second_path = File.join(directory, "second.d4")
+      third_path = File.join(directory, "third.d4")
+      replacement_path = File.join(directory, "replacement.d4")
+      paths_and_values = {first_path => 1_i32, second_path => 2_i32, third_path => 3_i32}
+      paths_and_values.each do |path, value|
+        D4.create(path, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+          writer.write_values("chr", 0, [value, value, value, value])
+        end
+      end
+      first = D4Plot::TrackSource.load(first_path).first
+      second = D4Plot::TrackSource.load(second_path).first
+      third = D4Plot::TrackSource.load(third_path).first
+      layout = D4Plot::BinLayout.for_viewport(0_i64, 4_i64, 1.0, 4_i64)
+      # Five four-bin results fit. Without stale-version cleanup, successive
+      # replacements of first_path evict third_path's still-valid result.
+      query = D4Plot::SignalQuery.new(max_open_files: 1, max_cache_bytes: 480_i64)
+      begin
+        query.query(first, "chr", layout, "reference-r1", "first", 1_i64)
+        query.query(second, "chr", layout, "reference-r1", "second", 1_i64)
+        query.query(third, "chr", layout, "reference-r1", "third", 1_i64)
+        1.upto(4) do |version|
+          value = (9 + version).to_i32
+          D4.create(replacement_path, chromosomes: [D4::Chromosome.new("chr", 4)]) do |writer|
+            writer.write_values("chr", 0, [value, value, value, value])
+          end
+          timestamp = Time.unix_ns(1_600_000_000_000_000_000_i128 + version)
+          File.utime(timestamp, timestamp, replacement_path)
+          File.rename(replacement_path, first_path)
+          query.query(first, "chr", layout, "reference-r1", "first", (version + 1).to_i64)
+          query.query(second, "chr", layout, "reference-r1", "second", (version + 1).to_i64)
+        end
+        query.query(third, "chr", layout, "reference-r1", "third", 2_i64).cache_hit.should be_true
+      ensure
+        query.close
+        query.wait
+        File.delete?(replacement_path)
+        File.delete?(third_path)
+        File.delete?(second_path)
+        File.delete?(first_path)
+        Dir.delete?(directory)
+      end
+    end
   {% end %}
 end

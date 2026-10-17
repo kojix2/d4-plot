@@ -182,6 +182,11 @@ module D4Plot
     @active_revision = nil.as(String?)
     @files = {} of String => SignalFileHandle
     @cache = {} of String => SignalCacheEntry
+    # A path has one current cache version. Keep its stamp and entry count so
+    # ordinary cache hits need not scan every cached response to find stale
+    # versions after an open-file LRU eviction.
+    @cache_stamps = {} of String => SignalFileStamp
+    @cache_path_counts = {} of String => Int32
     @clock = 0_i64
     @cache_bytes = 0_i64
 
@@ -261,6 +266,13 @@ module D4Plot
         revision: request.reference_revision, bins: request.layout.bins.size)
       raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
       stamp = file_stamp(request.source.path)
+      # A descriptor can have been evicted since this path was last read. In
+      # that case file_for has no prior stamp to compare, so discard cached
+      # results only when their recorded source version differs. The path
+      # index keeps this check constant-time for ordinary cache hits.
+      if cached_stamp = @cache_stamps[request.source.path]?
+        discard_cached_path(request.source.path) unless cached_stamp.same_source?(stamp)
+      end
       track = file_for(request.source.path, stamp).track(request.source.name)
       layout = index_aligned_layout(request.layout, track, request.source.chromosomes[request.d4_chromosome].to_i64)
       key = cache_key(request, stamp, layout)
@@ -336,8 +348,11 @@ module D4Plot
       return if bytes > @max_cache_bytes
       if previous = @cache[key]?
         @cache_bytes -= previous.bytes
+      else
+        @cache_path_counts[path] = (@cache_path_counts[path]? || 0) + 1
       end
       @cache[key] = SignalCacheEntry.new(path, stamp, bins.dup, bin_width, exact, bytes, tick)
+      @cache_stamps[path] = stamp
       @cache_bytes += bytes
       evict_cache
     end
@@ -345,9 +360,7 @@ module D4Plot
     private def evict_cache : Nil
       while @cache_bytes > @max_cache_bytes
         key = oldest_cache_key || break
-        if entry = @cache.delete(key)
-          @cache_bytes -= entry.bytes
-        end
+        remove_cache_entry(key)
       end
     end
 
@@ -364,11 +377,21 @@ module D4Plot
     end
 
     private def discard_cached_path(path : String) : Nil
-      doomed = @cache.select { |_key, entry| entry.path == path }.keys
-      doomed.each do |key|
-        if entry = @cache.delete(key)
-          @cache_bytes -= entry.bytes
-        end
+      @cache.select { |_key, entry| entry.path == path }.keys.each do |key|
+        remove_cache_entry(key)
+      end
+    end
+
+    private def remove_cache_entry(key : String) : Nil
+      return unless entry = @cache.delete(key)
+
+      @cache_bytes -= entry.bytes
+      remaining = (@cache_path_counts[entry.path]? || 1) - 1
+      if remaining == 0
+        @cache_path_counts.delete(entry.path)
+        @cache_stamps.delete(entry.path)
+      else
+        @cache_path_counts[entry.path] = remaining
       end
     end
 
