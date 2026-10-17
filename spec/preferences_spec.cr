@@ -12,6 +12,26 @@ private def with_preferences_path(&)
 end
 
 describe D4Plot::Preferences do
+  {% unless flag?(:win32) || flag?(:darwin) %}
+    it "ignores empty and relative XDG config directories" do
+      previous = ENV["XDG_CONFIG_HOME"]?
+      fallback = File.join(Path.home, ".config", "d4-plot", "settings.json")
+      begin
+        ENV["XDG_CONFIG_HOME"] = ""
+        D4Plot::Preferences.default_path.should eq(fallback)
+
+        ENV["XDG_CONFIG_HOME"] = "relative-config"
+        D4Plot::Preferences.default_path.should eq(fallback)
+      ensure
+        if previous
+          ENV["XDG_CONFIG_HOME"] = previous
+        else
+          ENV.delete("XDG_CONFIG_HOME")
+        end
+      end
+    end
+  {% end %}
+
   it "persists an explicit locale" do
     with_preferences_path do |path|
       preferences = D4Plot::Preferences.new(path, "ja")

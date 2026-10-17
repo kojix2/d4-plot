@@ -77,14 +77,26 @@ module D4Plot
 
     def self.default_path : String
       {% if flag?(:win32) %}
-        base = ENV["APPDATA"]? || ENV["LOCALAPPDATA"]? || Path.home.to_s
+        base = absolute_environment_directory("APPDATA", "LOCALAPPDATA") || Path.home.to_s
         File.join(base, "D4 Plot", "settings.json")
       {% elsif flag?(:darwin) %}
         File.join(Path.home, "Library", "Application Support", "D4 Plot", "settings.json")
       {% else %}
-        base = ENV["XDG_CONFIG_HOME"]? || File.join(Path.home, ".config")
+        base = absolute_environment_directory("XDG_CONFIG_HOME") || File.join(Path.home, ".config")
         File.join(base, "d4-plot", "settings.json")
       {% end %}
+    end
+
+    # XDG and Windows application-data variables name directories. Empty or
+    # relative values would otherwise make preferences appear in the process
+    # working directory, so fall back to the platform default instead.
+    private def self.absolute_environment_directory(*names : String) : String?
+      names.each do |name|
+        if value = ENV[name]?
+          return value if !value.empty? && Path.new(value).absolute?
+        end
+      end
+      nil
     end
   end
 end
