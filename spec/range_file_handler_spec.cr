@@ -144,6 +144,26 @@ describe D4Plot::RangeFileHandler do
     end
   end
 
+  it "uses a bounded per-resource full-response limit" do
+    with_range_file("0123456789") do |path|
+      handler = D4Plot::RangeFileHandler.new(max_full_response_bytes: 4_i64)
+      default_id = handler.register(path, "text/plain")
+      permitted_id = handler.register(path, "text/plain", max_full_response_bytes: 10_i64)
+      range_only_id = handler.register(path, "text/plain", max_full_response_bytes: 0_i64)
+
+      invoke_range_handler(handler, default_id).status.should eq(413)
+      permitted = invoke_range_handler(handler, permitted_id)
+      permitted.status.should eq(200)
+      permitted.body.should eq("0123456789")
+      invoke_range_handler(handler, range_only_id).status.should eq(413)
+      invoke_range_handler(handler, range_only_id, range: "bytes=0-0").status.should eq(206)
+
+      expect_raises(D4Plot::RangeFileHandler::RegistrationError, /cannot be negative/) do
+        handler.register(path, "text/plain", max_full_response_bytes: -1_i64)
+      end
+    end
+  end
+
   it "uses Int64 byte offsets" do
     with_range_file("") do |path|
       offset = 4_294_967_296_i64

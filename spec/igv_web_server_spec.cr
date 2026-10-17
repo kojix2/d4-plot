@@ -320,7 +320,9 @@ describe D4Plot::IGVWebServer do
       fasta_url = reference["fastaURL"].as_s
       fasta_url.should_not contain(fasta)
 
-      server_get(fasta_url).status_code.should eq(200)
+      full_fasta_response = server_get(fasta_url)
+      full_fasta_response.status_code.should eq(413)
+      full_fasta_response.headers["Accept-Ranges"].should eq("bytes")
 
       headers = HTTP::Headers{"Range" => "bytes=5-8"}
       fasta_response = server_get(fasta_url, headers)

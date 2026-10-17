@@ -34,8 +34,10 @@ module D4Plot
       getter identity : File::Info
       getter size : Int64
       getter modified_ns : Int128
+      getter max_full_response_bytes : Int64
 
-      def initialize(@canonical_path : String, @content_type : String, @identity : File::Info)
+      def initialize(@canonical_path : String, @content_type : String, @identity : File::Info,
+                     @max_full_response_bytes : Int64)
         @size = @identity.size
         @modified_ns = @identity.modification_time.to_unix_ns
       end
@@ -77,10 +79,12 @@ module D4Plot
     # The supplied path may itself be a symlink, but its resolved canonical
     # target is what is registered.  Later symlink or replacement changes are
     # rejected before any bytes are sent.
-    def register(path : String | Path, content_type : String) : String
+    def register(path : String | Path, content_type : String, *, max_full_response_bytes : Int64? = nil) : String
       validate_content_type!(content_type)
+      full_response_limit = max_full_response_bytes || @max_full_response_bytes
+      raise RegistrationError.new("Full-response limit cannot be negative") if full_response_limit < 0
       canonical_path = File.realpath(path)
-      resource = resource_for_registration(canonical_path, content_type)
+      resource = resource_for_registration(canonical_path, content_type, full_response_limit)
 
       loop do
         id = Random::Secure.urlsafe_base64(RESOURCE_ID_BYTES)
@@ -140,7 +144,8 @@ module D4Plot
       respond_stopping(context) unless context.response.closed?
     end
 
-    private def resource_for_registration(canonical_path : String, content_type : String) : Resource
+    private def resource_for_registration(canonical_path : String, content_type : String,
+                                          max_full_response_bytes : Int64) : Resource
       path_info = File.info(canonical_path, false)
       unless regular_file_without_symlink?(path_info)
         raise RegistrationError.new("Registered resources must be regular files")
@@ -152,7 +157,7 @@ module D4Plot
         unless opened_info.file? && path_info.same_file?(opened_info) && canonical_path_current?(canonical_path)
           raise RegistrationError.new("Resource changed while it was being registered")
         end
-        Resource.new(canonical_path, content_type, opened_info)
+        Resource.new(canonical_path, content_type, opened_info, max_full_response_bytes)
       ensure
         file.close
       end
@@ -223,7 +228,7 @@ module D4Plot
             return
           end
           serve_range(context, file, resource, file_size, range, cancelled)
-        elsif file_size > @max_full_response_bytes
+        elsif file_size > resource.max_full_response_bytes
           respond_range_required(context)
         else
           serve_full(context, file, resource, file_size, cancelled)

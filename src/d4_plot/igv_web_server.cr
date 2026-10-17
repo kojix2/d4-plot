@@ -125,11 +125,10 @@ module D4Plot
   # Read-only loopback server used by the browser integration.  API routes are
   # capability URLs issued per server instance; no route accepts a local path.
   class IGVWebServer
-    Log                          = D4Plot::Log.for("web")
-    MAX_FEATURE_BINS             = 1_024
-    MAX_CONTROL_BODY_BYTES       = 4 * 1024
-    MAX_QUERY_VALUE_BYTES        = 512
-    MAX_GENERATED_RESOURCE_BYTES = 8_i64 * 1024 * 1024
+    Log                    = D4Plot::Log.for("web")
+    MAX_FEATURE_BINS       = 1_024
+    MAX_CONTROL_BODY_BYTES = 4 * 1024
+    MAX_QUERY_VALUE_BYTES  = 512
 
     HTML        = {{ read_file?("#{__DIR__}/../../assets/igv_viewer.html") }}
     SCRIPT      = {{ read_file?("#{__DIR__}/../../assets/igv_viewer.js") }}
@@ -577,7 +576,9 @@ module D4Plot
     private def serve_generated_resource(context : HTTP::Server::Context, resource : ReferenceResource) : Nil
       return failure(context, 405, "METHOD_NOT_ALLOWED", "Only GET and HEAD are supported") unless context.request.method.in?({"GET", "HEAD"})
       content = resource.content || return failure(context, 500, "RESOURCE_MISSING", "Generated reference resource is unavailable")
-      return failure(context, 413, "RESOURCE_TOO_LARGE", "Generated reference resource is too large") if content.bytesize > MAX_GENERATED_RESOURCE_BYTES
+      if content.bytesize > resource.max_full_response_bytes
+        return failure(context, 413, "RESOURCE_TOO_LARGE", "Generated reference resource is too large")
+      end
       context.response.content_type = resource.content_type
       context.response.headers["Accept-Ranges"] = "none"
       context.response.content_length = content.bytesize
@@ -665,7 +666,8 @@ module D4Plot
       begin
         reference.resources.each do |resource|
           route_id = if path = resource.path
-                       id = @range_files.register(path, resource.content_type)
+                       id = @range_files.register(path, resource.content_type,
+                         max_full_response_bytes: resource.max_full_response_bytes)
                        file_ids << id
                        id
                      else
