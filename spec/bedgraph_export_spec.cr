@@ -32,4 +32,37 @@ describe D4Plot::BedgraphExport do
       end
     end
   end
+
+  it "rejects chromosome names that cannot be represented as a bedGraph field" do
+    File.tempfile("d4-export") do |file|
+      file.print("keep destination")
+      file.close
+
+      ["chr1\nforged", "chr1\u0000forged"].each do |chromosome|
+        view = D4Plot::SampledView.new(D4Plot::Region.new(chromosome, 1_u32, 10_u32), [{1_u32, 3.0}])
+        expect_raises(ArgumentError, /bedGraph cannot represent/) do
+          D4Plot::BedgraphExport.new(file.path, [] of String, "input.d4", "track", view)
+        end
+      end
+      File.read(file.path).should eq("keep destination")
+    end
+  end
+
+  it "exports when a formerly registered source has been removed" do
+    File.tempfile("d4-export") do |file|
+      destination = file.path
+      file.close
+      source = File.tempname("d4-export-removed-source")
+      begin
+        File.write(source, "removed source")
+        File.delete(source)
+        view = D4Plot::SampledView.new(D4Plot::Region.new("chr1", 1_u32, 10_u32), [{1_u32, 3.0}])
+
+        D4Plot::BedgraphExport.new(destination, [source], source, "track", view).write
+        File.read(destination).should contain("chr1\t0\t10\t3")
+      ensure
+        File.delete?(source)
+      end
+    end
+  end
 end
