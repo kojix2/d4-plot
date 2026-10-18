@@ -23,7 +23,7 @@ The screenshot uses `spec/fixtures/rust-multitrack.d4`. Each track has its own Y
 Use **Back**, **Forward**, the zoom controls, or **Whole chromosome**. Drag to pan; Shift-drag or right-drag to select a range. With plot focus, Left/Right pan, `+`/`-` zoom, Home shows the chromosome, and Escape cancels a load or drag.
 
 - **Add D4** appends tracks.
-- **Annotations** opens a local GFF3, GTF, or BED file. Select public genes from the **Public genome** list beside **Go**.
+- **Annotations** opens a local GFF3, GTF, or BED file. Select public genes from the **Public genome** list at the beginning of the navigation row.
 - **Export bins** saves the selected track's displayed bin means as bedGraph.
 - **Save plot as SVG** saves all visible tracks and annotations, including rows outside the scrolled viewport.
 

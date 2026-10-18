@@ -305,7 +305,7 @@ module D4Plot
               PublicGenes.parse_ensembl(body, request.region.chromosome, request.limit)
             end
           else
-            GeneTrack.notice(D4Plot.t("annotation.chromosome_missing", chromosome: request.region.chromosome.inspect))
+            GeneTrack.notice(D4Plot.t("annotation.public_chromosome_unsupported", chromosome: request.region.chromosome.inspect))
           end
         rescue ex
           GeneTrack.notice(D4Plot.t("annotation.public_unavailable", error: ex.message || ex.class.name))

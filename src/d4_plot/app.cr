@@ -229,17 +229,17 @@ module D4Plot
       @track_panel.append(@remove, false)
 
       location = row
-      location.append(UIng::Label.new(D4Plot.t("app.chromosome")), false)
-      location.append(@chromosome_combo, false)
-      location.append(UIng::Label.new(D4Plot.t("app.region")), false)
-      location.append(@region_entry, true)
-      location.append(@go, false)
       location.append(UIng::Label.new(D4Plot.t("annotation.public_genome")), false)
       @public_combo.append(D4Plot.t("annotation.none"))
       ["hg38/GRCh38", "hg19/GRCh37", "hs1/T2T-CHM13", "mm39/GRCm39"].each { |name| @public_combo.append(name) }
       @public_combo.selected = 0
       @public_combo.tooltip = D4Plot.t("annotation.verify_assembly")
       location.append(@public_combo, false)
+      location.append(UIng::Label.new(D4Plot.t("app.chromosome")), false)
+      location.append(@chromosome_combo, false)
+      location.append(UIng::Label.new(D4Plot.t("app.region")), false)
+      location.append(@region_entry, true)
+      location.append(@go, false)
       @navigation.append(location, false)
       display = row
       display.append(@sidebar_toggle, false)

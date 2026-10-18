@@ -142,6 +142,8 @@ describe D4Plot::PublicGeneLoader do
       result.track.genes.first.start1.should eq(2_u32)
       id = loader.submit("ensembl", "hs1", region, 10)
       await_genes(loader, id).track.notice.as(String).should contain("UCSC")
+      id = loader.submit("ucsc", "hg38", D4Plot::Region.new("contig1", 1_u32, 10_u32), 10)
+      await_genes(loader, id).track.notice.should eq(D4Plot.t("annotation.public_chromosome_unsupported", chromosome: "contig1".inspect))
     ensure
       loader.close
       loader.wait
