@@ -690,8 +690,8 @@ module D4Plot
         Definition.new("hg19", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.2bit",
           "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/hg19.chrom.sizes", ucsc,
-          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/hg19/gencode/gencodeV49lift37.bb",
-          gene_track_name: "GENCODE v49lift37 genes")),
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/hg19/gencode/gencodeV50lift37.bb",
+          gene_track_name: "GENCODE v50lift37 genes")),
         Definition.new("hs1", BrowserDefinition.new(
           "https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.2bit",
           "https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.chrom.sizes.txt", ucsc,

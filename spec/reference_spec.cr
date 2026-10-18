@@ -260,7 +260,7 @@ describe D4Plot::ReferenceSpec do
   it "loads assembly-matched gene annotations only for public presets" do
     expected = {
       "hg38" => "gencodeV50.bb",
-      "hg19" => "gencodeV49lift37.bb",
+      "hg19" => "gencodeV50lift37.bb",
       "hs1"  => "ncbiRefSeq.bb",
       "mm39" => "gencodeVM39.bb",
     }
@@ -270,6 +270,7 @@ describe D4Plot::ReferenceSpec do
       track["type"].as_s.should eq("annotation")
       track["format"].as_s.should eq("bigbed")
       track["url"].as_s.should end_with(filename)
+      track["name"].as_s.should eq("GENCODE v50lift37 genes") if id == "hg19"
     end
     contigs = D4Plot::ReferenceSpec.contigs_only({"chr1" => 10_u32}).resolve
     config = contigs.igv_browser_config({"chrom-sizes" => "/reference/chrom-sizes"})
