@@ -1,5 +1,5 @@
 name: d4-plot
-version: 0.0.6
+version: 0.0.7
 
 crystal: '>= 1.21.0'
 
@@ -14,7 +14,7 @@ dependencies:
     github: crystal-i18n/i18n
   uing:
     github: kojix2/uing
-    branch: main
+    version: 0.6.0
   d4:
     github: bio-cr/d4.cr
     version: 0.0.0
