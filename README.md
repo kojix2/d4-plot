@@ -1,10 +1,13 @@
 # d4-plot
 
+[![build](https://github.com/kojix2/d4-plot/actions/workflows/build.yml/badge.svg)](https://github.com/kojix2/d4-plot/actions/workflows/build.yml)
+[![Lines of Code](https://img.shields.io/endpoint?url=https%3A%2F%2Ftokei.kojix2.net%2Fbadge%2Fgithub%2Fkojix2%2Fd4-plot%2Flines)](https://tokei.kojix2.net/github/kojix2/d4-plot)
+
 A native desktop viewer for D4 genomic signal files. D4 Plot compares multiple
 tracks, displays genomic annotations, exports visible bins, and creates coverage
 D4 files from BAM or CRAM.
 
-<img width="519" height="398" src="https://github.com/user-attachments/assets/4764c1b7-2147-476a-8e57-8da2e6cf81fb" alt="D4 Plot window" />
+<img width="600" src="https://kojix2.github.io/d4-plot/screenshots/en/overview.png" alt="Two tracks from spec/fixtures/rust-multitrack.d4 in D4 Plot" />
 
 ## Documentation
 
