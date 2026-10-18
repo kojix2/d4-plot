@@ -14,7 +14,7 @@ Before comparing files, confirm their reference assembly and processing settings
 4. Select a track by its title or in the track list. Enable **Shared Y** to compare heights across tracks.
 5. Hover over the signal to inspect a bin mean. Zoom in for narrow peaks.
 
-![Two tracks from a test D4 with an annotation](../../screenshots/en/overview.png)
+![Two tracks from a test D4](../../screenshots/en/overview.png)
 
 The screenshot uses `spec/fixtures/rust-multitrack.d4`. Each track has its own Y scale.
 

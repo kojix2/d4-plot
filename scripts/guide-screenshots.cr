@@ -127,6 +127,7 @@ begin
   D4Plot::Translations.setup(locale)
   UIng.init
   preferences = D4Plot::Preferences.new(File.join(fixture_dir, "settings.json"), locale)
+  preferences.height_index = 0
   app = D4Plot::App.new(D4Plot::App.create_menu_bar, preferences)
   UIng.on_error { |error, _context| failure = error }
   step = 0
@@ -139,27 +140,31 @@ begin
     case step
     when 0
       if app.guide_ready?(false)
-        app.guide_show_annotation(data[:annotation])
         step += 1
       end
     when 1
-      if app.guide_ready?(true)
+      if app.guide_ready?(false)
         app.guide_capture(File.join(output, "overview.png"))
-        app.guide_narrow
+        app.guide_show_annotation(data[:annotation])
         step += 1
       end
     when 2
+      if app.guide_ready?(true)
+        app.guide_narrow
+        step += 1
+      end
+    when 3
       if app.guide_ready?(true)
         app.guide_capture(File.join(output, "inspect.png"))
         app.guide_open_conversion(data[:bam], File.join(fixture_dir, "new-coverage.d4"))
         step += 1
       end
-    when 3
+    when 4
       app.guide_capture_conversion(File.join(output, "create-d4.png"))
       app.guide_stop
       step += 1
     end
-    step <= 3
+    step <= 4
   rescue ex
     failure = ex
     app.guide_stop
