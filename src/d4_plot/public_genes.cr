@@ -6,7 +6,7 @@ require "./annotation"
 require "./proxy_environment"
 
 module D4Plot
-  struct GeneModel
+  class GeneModel
     getter chromosome : String
     getter start1 : UInt32
     getter end1 : UInt32
@@ -14,15 +14,26 @@ module D4Plot
     getter strand : String?
     getter exons : Array(Tuple(UInt32, UInt32))
 
-    def initialize(@chromosome : String, @start1 : UInt32, @end1 : UInt32, @name : String,
-                   @strand : String?, @exons : Array(Tuple(UInt32, UInt32))); end
+    def initialize(
+      @chromosome : String,
+      @start1 : UInt32,
+      @end1 : UInt32,
+      @name : String,
+      @strand : String?,
+      @exons : Array(Tuple(UInt32, UInt32))
+    )
+    end
+
+    def_equals_and_hash chromosome, start1, end1, name, strand, exons
   end
 
-  struct GeneTrack
+  class GeneTrack
     getter genes : Array(GeneModel)
     getter notice : String?
 
     def initialize(@genes : Array(GeneModel), @notice : String? = nil); end
+
+    def_equals_and_hash genes, notice
 
     def self.notice(message : String) : self
       new([] of GeneModel, message)
@@ -253,8 +264,33 @@ module D4Plot
     end
   end
 
-  record PublicGeneRequest, id : Int32, source : String, genome : String, region : Region, limit : Int32
-  record PublicGeneResult, request : PublicGeneRequest, track : GeneTrack
+  class PublicGeneRequest
+    getter id : Int32
+    getter source : String
+    getter genome : String
+    getter region : Region
+    getter limit : Int32
+
+    def initialize(
+      @id : Int32,
+      @source : String,
+      @genome : String,
+      @region : Region,
+      @limit : Int32
+    )
+    end
+
+    def_equals_and_hash id, source, genome, region, limit
+  end
+
+  class PublicGeneResult
+    getter request : PublicGeneRequest
+    getter track : GeneTrack
+
+    def initialize(@request : PublicGeneRequest, @track : GeneTrack); end
+
+    def_equals_and_hash request, track
+  end
 
   class PublicGeneLoader
     alias Fetcher = Proc(String, String, String, Region, Int32, String)

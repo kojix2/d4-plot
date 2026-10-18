@@ -9,7 +9,14 @@ module D4Plot
   # A contig length is deliberately represented as Int64 at this boundary.
   # The current D4 reader has UInt32 coordinates, so larger values are rejected
   # while parsing rather than being truncated.
-  record Contig, name : String, length : Int64
+  class Contig
+    getter name : String
+    getter length : Int64
+
+    def initialize(@name : String, @length : Int64); end
+
+    def_equals_and_hash name, length
+  end
 
   # An ordered, validated chromosome dictionary.  Order comes from the source
   # FAI/chrom.sizes file and is retained for IGV's chromosome chooser.
@@ -117,7 +124,22 @@ module D4Plot
     end
   end
 
-  record FaiEntry, contig : Contig, offset : Int64, bases_per_line : Int64, bytes_per_line : Int64
+  class FaiEntry
+    getter contig : Contig
+    getter offset : Int64
+    getter bases_per_line : Int64
+    getter bytes_per_line : Int64
+
+    def initialize(
+      @contig : Contig,
+      @offset : Int64,
+      @bases_per_line : Int64,
+      @bytes_per_line : Int64
+    )
+    end
+
+    def_equals_and_hash contig, offset, bases_per_line, bytes_per_line
+  end
 
   # Parsed FAI metadata.  This performs inexpensive structural checks without
   # scanning the entire FASTA, which matters for multi-gigabyte references.
@@ -801,9 +823,51 @@ module D4Plot
     ConservativeAlias
   end
 
-  record ContigMatch, reference_name : String, track_name : String, length : Int64, kind : ContigMatchKind
-  record LengthMismatch, reference_name : String, track_name : String, reference_length : Int64, track_length : Int64, kind : ContigMatchKind
-  record AmbiguousContig, reference_name : String, candidates : Array(String), kind : ContigMatchKind
+  class ContigMatch
+    getter reference_name : String
+    getter track_name : String
+    getter length : Int64
+    getter kind : ContigMatchKind
+
+    def initialize(
+      @reference_name : String,
+      @track_name : String,
+      @length : Int64,
+      @kind : ContigMatchKind
+    )
+    end
+
+    def_equals_and_hash reference_name, track_name, length, kind
+  end
+
+  class LengthMismatch
+    getter reference_name : String
+    getter track_name : String
+    getter reference_length : Int64
+    getter track_length : Int64
+    getter kind : ContigMatchKind
+
+    def initialize(
+      @reference_name : String,
+      @track_name : String,
+      @reference_length : Int64,
+      @track_length : Int64,
+      @kind : ContigMatchKind
+    )
+    end
+
+    def_equals_and_hash reference_name, track_name, reference_length, track_length, kind
+  end
+
+  class AmbiguousContig
+    getter reference_name : String
+    getter candidates : Array(String)
+    getter kind : ContigMatchKind
+
+    def initialize(@reference_name : String, @candidates : Array(String), @kind : ContigMatchKind); end
+
+    def_equals_and_hash reference_name, candidates, kind
+  end
 
   class ReferenceCompatibility
     getter status : CompatibilityStatus

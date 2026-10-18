@@ -16,11 +16,13 @@ module D4Plot
     def initialize(@chromosome : String, @start1 : UInt32, @end1 : UInt32, @kind : String, @name : String?, @strand : String?); end
   end
 
-  struct AnnotationTrack
+  class AnnotationTrack
     getter features : Array(AnnotationFeature)
     getter notice : String?
 
     def initialize(@features : Array(AnnotationFeature), @notice : String? = nil); end
+
+    def_equals_and_hash features, notice
 
     def self.features(features : Array(AnnotationFeature))
       new(features)

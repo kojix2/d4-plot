@@ -8,8 +8,31 @@ module D4Plot
   class BackgroundIO
     Log = D4Plot::Log.for("background_io")
 
-    record Job, id : Int64, operation : String, work : Proc(Nil), done : Proc(Exception?, Nil)
-    record Result, job : Job, error : Exception?
+    class Job
+      getter id : Int64
+      getter operation : String
+      getter work : Proc(Nil)
+      getter done : Proc(Exception?, Nil)
+
+      def initialize(
+        @id : Int64,
+        @operation : String,
+        @work : Proc(Nil),
+        @done : Proc(Exception?, Nil)
+      )
+      end
+
+      def_equals_and_hash id, operation, work, done
+    end
+
+    class Result
+      getter job : Job
+      getter error : Exception?
+
+      def initialize(@job : Job, @error : Exception?); end
+
+      def_equals_and_hash job, error
+    end
 
     @mutex = Thread::Mutex.new
     @wake = Thread::ConditionVariable.new

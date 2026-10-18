@@ -1,12 +1,14 @@
 require "./i18n"
 
 module D4Plot
-  struct Region
+  class Region
     getter chromosome : String
     getter start1 : UInt32
     getter end1 : UInt32
 
     def initialize(@chromosome : String, @start1 : UInt32, @end1 : UInt32); end
+
+    def_equals_and_hash chromosome, start1, end1
 
     def self.parse(text : String) : Region?
       if match = text.strip.match(/^([^:\s]+)\s*:\s*(\d+|\d{1,3}(?:,\d{3})+)(?:\s*-\s*(\d+|\d{1,3}(?:,\d{3})+))?$/)

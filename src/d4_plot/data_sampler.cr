@@ -9,14 +9,27 @@ module D4Plot
   # user-facing UInt32 coordinate model.  Web requests use Int64 end to end,
   # even though the current D4 format deliberately rejects contigs larger
   # than UInt32::MAX.
-  record BinRange, start0 : Int64, end0 : Int64 do
+  record BinRange,
+    start0 : Int64,
+    end0 : Int64 do
     def length : Int64
       end0 - start0
     end
   end
 
-  record SampledBin, start0 : Int64, end0 : Int64, value : Float64
-  record DisplayBins, bins : Array(SampledBin), exact : Bool
+  record SampledBin,
+    start0 : Int64,
+    end0 : Int64,
+    value : Float64
+
+  class DisplayBins
+    getter bins : Array(SampledBin)
+    getter exact : Bool
+
+    def initialize(@bins : Array(SampledBin), @exact : Bool); end
+
+    def_equals_and_hash bins, exact
+  end
 
   class DataSampler
     Log                         = D4Plot::Log.for("sampler")

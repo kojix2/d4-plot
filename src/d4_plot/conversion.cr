@@ -16,12 +16,46 @@ module D4Plot
 
   class ConversionCancelled < Exception; end
 
-  record ConversionRequest,
-    input : String, output : String, reference : String = "",
-    mode : CoverageMode = CoverageMode::Standard, mapq : Int32 = 0,
-    threads : Int32 = 0, exclude_flags : UInt16 = 1796_u16,
-    include_flags : UInt16 = 0_u16, read_groups : Array(String) = [] of String,
-    min_fragment : Int32 = -1, max_fragment : Int32 = -1 do
+  class ConversionRequest
+    getter input : String
+    getter output : String
+    getter reference : String
+    getter mode : CoverageMode
+    getter mapq : Int32
+    getter threads : Int32
+    getter exclude_flags : UInt16
+    getter include_flags : UInt16
+    getter read_groups : Array(String)
+    getter min_fragment : Int32
+    getter max_fragment : Int32
+
+    def initialize(
+      @input : String,
+      @output : String,
+      @reference : String = "",
+      @mode : CoverageMode = CoverageMode::Standard,
+      @mapq : Int32 = 0,
+      @threads : Int32 = 0,
+      @exclude_flags : UInt16 = 1796_u16,
+      @include_flags : UInt16 = 0_u16,
+      @read_groups : Array(String) = [] of String,
+      @min_fragment : Int32 = -1,
+      @max_fragment : Int32 = -1
+    )
+    end
+
+    def_equals_and_hash input, output, reference, mode, mapq, threads, exclude_flags, include_flags,
+      read_groups, min_fragment, max_fragment
+
+    def copy_with(*, input : String = @input, output : String = @output, reference : String = @reference,
+                  mode : CoverageMode = @mode, mapq : Int32 = @mapq, threads : Int32 = @threads,
+                  exclude_flags : UInt16 = @exclude_flags, include_flags : UInt16 = @include_flags,
+                  read_groups : Array(String) = @read_groups, min_fragment : Int32 = @min_fragment,
+                  max_fragment : Int32 = @max_fragment) : self
+      self.class.new(input, output, reference, mode, mapq, threads, exclude_flags, include_flags,
+        read_groups, min_fragment, max_fragment)
+    end
+
     def options : Mopdepth::Options
       Mopdepth::Options.new(mode: mode, minimum_mapping_quality: mapq,
         minimum_fragment_length: min_fragment < 0 ? nil : min_fragment,
@@ -116,8 +150,29 @@ module D4Plot
     end
   end
 
-  record ConversionProgress, stage : String, chromosome : String = "",
-    current : Int32 = 0, total : Int32 = 0, records : Int64 = 0_i64
+  class ConversionProgress
+    getter stage : String
+    getter chromosome : String
+    getter current : Int32
+    getter total : Int32
+    getter records : Int64
+
+    def initialize(
+      @stage : String,
+      @chromosome : String = "",
+      @current : Int32 = 0,
+      @total : Int32 = 0,
+      @records : Int64 = 0_i64
+    )
+    end
+
+    def_equals_and_hash stage, chromosome, current, total, records
+
+    def copy_with(*, stage : String = @stage, chromosome : String = @chromosome,
+                  current : Int32 = @current, total : Int32 = @total, records : Int64 = @records) : self
+      self.class.new(stage, chromosome, current, total, records)
+    end
+  end
 
   class D4Converter
     CHECK_INTERVAL = 65_536

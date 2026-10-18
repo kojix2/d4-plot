@@ -2,18 +2,57 @@ require "./track_layer"
 require "./annotation"
 
 module D4Plot
-  record ViewRequest, id : Int32, sources : Array(TrackSource), region : Region,
-    bins : Int32, use_index : Bool, annotation_path : String?, annotation_limit : Int32,
-    annotation_fallback : String? = nil
+  class ViewRequest
+    getter id : Int32
+    getter sources : Array(TrackSource)
+    getter region : Region
+    getter bins : Int32
+    getter use_index : Bool
+    getter annotation_path : String?
+    getter annotation_limit : Int32
+    getter annotation_fallback : String?
 
-  record ViewResult, request : ViewRequest, layers : Array(LayerSample), annotation_track : AnnotationTrack?,
-    elapsed_ms : Float64, error : String?, annotation_error : String? = nil
+    def initialize(
+      @id : Int32,
+      @sources : Array(TrackSource),
+      @region : Region,
+      @bins : Int32,
+      @use_index : Bool,
+      @annotation_path : String?,
+      @annotation_limit : Int32,
+      @annotation_fallback : String? = nil
+    )
+    end
+
+    def_equals_and_hash id, sources, region, bins, use_index, annotation_path, annotation_limit, annotation_fallback
+  end
+
+  class ViewResult
+    getter request : ViewRequest
+    getter layers : Array(LayerSample)
+    getter annotation_track : AnnotationTrack?
+    getter elapsed_ms : Float64
+    getter error : String?
+    getter annotation_error : String?
+
+    def initialize(
+      @request : ViewRequest,
+      @layers : Array(LayerSample),
+      @annotation_track : AnnotationTrack?,
+      @elapsed_ms : Float64,
+      @error : String?,
+      @annotation_error : String? = nil
+    )
+    end
+
+    def_equals_and_hash request, layers, annotation_track, elapsed_ms, error, annotation_error
+  end
 
   # Reusing a descriptor solely by pathname makes an atomic replacement of a
   # D4 or annotation file invisible to the viewer. Keep both the file
   # identity and the observable contents stamp so a same-path replacement
   # reopens/reloads it on the next request.
-  private struct ViewFileStamp
+  private class ViewFileStamp
     getter size : Int64
     getter modified_ns : Int128
     getter identity : File::Info
@@ -22,6 +61,8 @@ module D4Plot
       @size = @identity.size
       @modified_ns = @identity.modification_time.to_unix_ns
     end
+
+    def_equals_and_hash size, modified_ns, identity
 
     def same_source?(other : ViewFileStamp) : Bool
       @identity.same_file?(other.identity) && @size == other.size && @modified_ns == other.modified_ns

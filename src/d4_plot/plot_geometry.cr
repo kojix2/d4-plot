@@ -1,5 +1,5 @@
 module D4Plot
-  struct PlotGeometry
+  class PlotGeometry
     OVERVIEW_HIT_TOP       = 34.0
     OVERVIEW_HIT_BOTTOM    = 56.0
     OVERVIEW_BAR_TOP       = 38.0
@@ -16,6 +16,8 @@ module D4Plot
       @height = Math.max(area_height - @top - 58.0 - annotation_height - (annotation_height > 0 ? 28.0 : 0.0), 1.0)
       @annotation_top = @top + @height + 58.0
     end
+
+    def_equals_and_hash left, top, width, height, annotation_top
 
     def fraction(x : Float64) : Float64
       ((x - @left) / @width).clamp(0.0, 1.0)
@@ -49,11 +51,13 @@ module D4Plot
 
   # Geometry is in document coordinates. libui already adjusts scrolling-area
   # draw clips and mouse events; applying a second scroll offset is incorrect.
-  struct StackGeometry
+  class StackGeometry
     HEADER = 78.0
     getter width : Float64, row_height : Float64, count : Int32
 
     def initialize(@width, @row_height, @count); end
+
+    def_equals_and_hash width, row_height, count
 
     def row_top(index : Int32)
       HEADER + index * row_height

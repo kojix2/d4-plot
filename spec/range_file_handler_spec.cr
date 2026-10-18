@@ -1,7 +1,15 @@
 require "./spec_helper"
 require "../src/d4_plot/range_file_handler"
 
-private record RangeHandlerResponse, status : Int32, headers : HTTP::Headers, body : String
+private class RangeHandlerResponse
+  getter status : Int32
+  getter headers : HTTP::Headers
+  getter body : String
+
+  def initialize(@status : Int32, @headers : HTTP::Headers, @body : String); end
+
+  def_equals_and_hash status, headers, body
+end
 
 private def with_range_file(contents : String, &)
   file = File.tempfile("d4-plot-range-file", ".data")

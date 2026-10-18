@@ -28,7 +28,7 @@ module D4Plot
     private class RequestCancelled < Exception
     end
 
-    private struct Resource
+    private class Resource
       getter canonical_path : String
       getter content_type : String
       getter identity : File::Info
@@ -42,17 +42,21 @@ module D4Plot
         @modified_ns = @identity.modification_time.to_unix_ns
       end
 
+      def_equals_and_hash canonical_path, content_type, identity, size, modified_ns, max_full_response_bytes
+
       def unchanged?(info : File::Info) : Bool
         info.same_file?(@identity) && info.size == @size && info.modification_time.to_unix_ns == @modified_ns
       end
     end
 
-    private struct ByteRange
+    private class ByteRange
       getter first : Int64
       getter last : Int64
 
       def initialize(@first : Int64, @last : Int64)
       end
+
+      def_equals_and_hash first, last
 
       def size : Int64
         @last - @first + 1_i64

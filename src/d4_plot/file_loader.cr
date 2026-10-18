@@ -2,9 +2,42 @@ require "./track_layer"
 require "./log"
 
 module D4Plot
-  record FileLoadRequest, id : Int32, paths : Array(String), existing : Array(TrackSource)
-  record FileLoadProgress, id : Int32, current : Int32, total : Int32, path : String
-  record FileLoadResult, id : Int32, sources : Array(TrackSource), error : String? = nil
+  class FileLoadRequest
+    getter id : Int32
+    getter paths : Array(String)
+    getter existing : Array(TrackSource)
+
+    def initialize(@id : Int32, @paths : Array(String), @existing : Array(TrackSource)); end
+
+    def_equals_and_hash id, paths, existing
+  end
+
+  class FileLoadProgress
+    getter id : Int32
+    getter current : Int32
+    getter total : Int32
+    getter path : String
+
+    def initialize(
+      @id : Int32,
+      @current : Int32,
+      @total : Int32,
+      @path : String
+    )
+    end
+
+    def_equals_and_hash id, current, total, path
+  end
+
+  class FileLoadResult
+    getter id : Int32
+    getter sources : Array(TrackSource)
+    getter error : String?
+
+    def initialize(@id : Int32, @sources : Array(TrackSource), @error : String? = nil); end
+
+    def_equals_and_hash id, sources, error
+  end
 
   # Metadata reads use their own handles and never call the native UI. A new
   # request or cancellation invalidates both queued and in-flight results.

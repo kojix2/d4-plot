@@ -87,7 +87,16 @@ module D4Plot
     end
   end
 
-  record SignalResult, bins : Array(SampledBin), bin_width : Int64, cache_hit : Bool, exact : Bool do
+  class SignalResult
+    getter bins : Array(SampledBin)
+    getter bin_width : Int64
+    getter cache_hit : Bool
+    getter exact : Bool
+
+    def initialize(@bins : Array(SampledBin), @bin_width : Int64, @cache_hit : Bool, @exact : Bool); end
+
+    def_equals_and_hash bins, bin_width, cache_hit, exact
+
     def duplicate(cache_hit : Bool = self.cache_hit) : SignalResult
       SignalResult.new(bins.dup, bin_width, cache_hit, exact)
     end
@@ -97,7 +106,7 @@ module D4Plot
   # file can be atomically replaced with another file that happens to have
   # the same size and timestamp; in that case size/mtime alone would retain
   # an old file descriptor and cached bins for the new pathname.
-  private struct SignalFileStamp
+  private class SignalFileStamp
     getter size : Int64
     getter modified_ns : Int128
     getter identity : File::Info
@@ -107,12 +116,21 @@ module D4Plot
       @modified_ns = @identity.modification_time.to_unix_ns
     end
 
+    def_equals_and_hash size, modified_ns, identity
+
     def same_source?(other : SignalFileStamp) : Bool
       @identity.same_file?(other.identity) && @size == other.size && @modified_ns == other.modified_ns
     end
   end
 
-  private record SignalClientNavigation, navigation : Int64, last_seen : Time::Instant
+  private class SignalClientNavigation
+    getter navigation : Int64
+    getter last_seen : Time::Instant
+
+    def initialize(@navigation : Int64, @last_seen : Time::Instant); end
+
+    def_equals_and_hash navigation, last_seen
+  end
 
   private class SignalCacheEntry
     property last_used : Int64

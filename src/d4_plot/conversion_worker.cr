@@ -19,10 +19,32 @@ module D4Plot
     end
   end
 
-  record ConversionSnapshot, state : ConversionState = ConversionState::Idle,
-    progress : ConversionProgress = ConversionProgress.new(D4Plot.t("conversion.ready_short")),
-    output : String? = nil, error : String? = nil, field : String? = nil,
-    elapsed : Time::Span = Time::Span.zero
+  class ConversionSnapshot
+    getter state : ConversionState
+    getter progress : ConversionProgress
+    getter output : String?
+    getter error : String?
+    getter field : String?
+    getter elapsed : Time::Span
+
+    def initialize(
+      @state : ConversionState = ConversionState::Idle,
+      @progress : ConversionProgress = ConversionProgress.new(D4Plot.t("conversion.ready_short")),
+      @output : String? = nil,
+      @error : String? = nil,
+      @field : String? = nil,
+      @elapsed : Time::Span = Time::Span.zero
+    )
+    end
+
+    def_equals_and_hash state, progress, output, error, field, elapsed
+
+    def copy_with(*, state : ConversionState = @state, progress : ConversionProgress = @progress,
+                  output : String? = @output, error : String? = @error, field : String? = @field,
+                  elapsed : Time::Span = @elapsed) : self
+      self.class.new(state, progress, output, error, field, elapsed)
+    end
+  end
 
   # One conversion, independent of view reads. No worker callback touches UIng.
   class ConversionWorker

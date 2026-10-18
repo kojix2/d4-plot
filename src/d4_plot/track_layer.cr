@@ -2,7 +2,22 @@ require "./i18n"
 require "./view"
 
 module D4Plot
-  record TrackSource, path : String, name : String, chromosomes : Hash(String, UInt32), denominator : Float64 do
+  class TrackSource
+    getter path : String
+    getter name : String
+    getter chromosomes : Hash(String, UInt32)
+    getter denominator : Float64
+
+    def initialize(
+      @path : String,
+      @name : String,
+      @chromosomes : Hash(String, UInt32),
+      @denominator : Float64
+    )
+    end
+
+    def_equals_and_hash path, name, chromosomes, denominator
+
     def key
       {path, name}
     end
@@ -64,5 +79,13 @@ module D4Plot
     def initialize(@source); end
   end
 
-  record LayerSample, source : TrackSource, view : SampledView?, error : String?
+  class LayerSample
+    getter source : TrackSource
+    getter view : SampledView?
+    getter error : String?
+
+    def initialize(@source : TrackSource, @view : SampledView?, @error : String?); end
+
+    def_equals_and_hash source, view, error
+  end
 end
