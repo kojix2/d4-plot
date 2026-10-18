@@ -35,7 +35,7 @@ module D4Plot
       @reference : String = "",
       @mode : CoverageMode = CoverageMode::Standard,
       @mapq : Int32 = 0,
-      @threads : Int32 = 0,
+      @threads : Int32 = 2,
       @exclude_flags : UInt16 = 1796_u16,
       @include_flags : UInt16 = 0_u16,
       @read_groups : Array(String) = [] of String,

@@ -17,7 +17,7 @@ module D4Plot
     @mode = UIng::Combobox.new
     @mode_hint = UIng::Label.new("")
     @mapq = UIng::Spinbox.new(0, 255, 0)
-    @threads = UIng::Spinbox.new(0, 64, 0)
+    @threads = UIng::Spinbox.new(0, 64, 2)
     @exclude = UIng::Entry.new
     @include = UIng::Entry.new
     @groups = UIng::Entry.new

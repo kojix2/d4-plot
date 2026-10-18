@@ -27,7 +27,7 @@ The screenshot uses a generated BAM; supply your own indexed alignment file.
 - minimum MAPQ;
 - include/exclude SAM flags (by default, unmapped, secondary, QC-failed, and duplicate reads are excluded: `0x704`; supplementary reads are not);
 - read groups and absolute template-length limits;
-- BAM/CRAM decompression threads.
+- BAM/CRAM decompression threads (default: 2).
 
 Choose **Create D4** to start. The viewer stays usable during conversion. On completion, choose **Add to view** to display the result; the file is saved even if you do not add it.
 
