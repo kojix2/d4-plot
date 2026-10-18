@@ -111,11 +111,13 @@ class D4Plot::App
 
   def guide_open_conversion(input : String, output : String) : Nil
     open_conversion
-    @conversion_window.not_nil!.guide_set_files(input, output)
+    window = @conversion_window || raise "Conversion window was not opened"
+    window.guide_set_files(input, output)
   end
 
   def guide_capture_conversion(path : String) : Nil
-    @conversion_window.not_nil!.guide_capture(path)
+    window = @conversion_window || raise "Conversion window was not opened"
+    window.guide_capture(path)
   end
 
   def guide_stop : Nil
@@ -150,38 +152,38 @@ begin
   step = 0
   started = Time.instant
   UIng.timer(400) do
-    begin
-      raise failure.not_nil! if failure
-      raise "Guide screenshots timed out" if Time.instant - started > 45.seconds
-      case step
-      when 0
-        if app.guide_ready?(false)
-          app.guide_show_annotation(data[:annotation])
-          step += 1
-        end
-      when 1
-        if app.guide_ready?(true)
-          app.guide_capture(File.join(output, "overview.png"))
-          app.guide_narrow
-          step += 1
-        end
-      when 2
-        if app.guide_ready?(true)
-          app.guide_capture(File.join(output, "inspect.png"))
-          app.guide_open_conversion(data[:bam], File.join(fixture_dir, "new-coverage.d4"))
-          step += 1
-        end
-      when 3
-        app.guide_capture_conversion(File.join(output, "create-d4.png"))
-        app.guide_stop
+    if error = failure
+      raise error
+    end
+    raise "Guide screenshots timed out" if Time.instant - started > 45.seconds
+    case step
+    when 0
+      if app.guide_ready?(false)
+        app.guide_show_annotation(data[:annotation])
         step += 1
       end
-      step <= 3
-    rescue ex
-      failure = ex
+    when 1
+      if app.guide_ready?(true)
+        app.guide_capture(File.join(output, "overview.png"))
+        app.guide_narrow
+        step += 1
+      end
+    when 2
+      if app.guide_ready?(true)
+        app.guide_capture(File.join(output, "inspect.png"))
+        app.guide_open_conversion(data[:bam], File.join(fixture_dir, "new-coverage.d4"))
+        step += 1
+      end
+    when 3
+      app.guide_capture_conversion(File.join(output, "create-d4.png"))
       app.guide_stop
-      false
+      step += 1
     end
+    step <= 3
+  rescue ex
+    failure = ex
+    app.guide_stop
+    false
   end
   app.run(data[:tracks], GuideScreenshots::REGION)
 ensure
