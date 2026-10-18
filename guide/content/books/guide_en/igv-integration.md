@@ -1,98 +1,43 @@
 # IGV integration
 
-D4 Plot can send the current locus to IGV Desktop or display D4 and other genome
-tracks in its local IGV.js viewer. These are separate features.
-
-## Which viewer should I use?
-
-| If you want to… | Start with… |
+| Task | Action |
 | --- | --- |
-| Inspect and compare D4 signals or make a quick figure | **D4 Plot** |
-| See BAM/CRAM, VCF, BED, GTF, BigWig, and D4 together in a browser | **IGV.js** |
-| Continue working in an existing IGV Desktop session | **View region in IGV Desktop** |
+| Send the current locus to an existing IGV Desktop session | **IGV → View region in IGV Desktop** |
+| View D4 with BAM/CRAM, VCF, BED, GTF, or BigWig | **IGV → Open genome browser (IGV.js)…** |
+| Run the browser viewer without the desktop app | [`d4-plot serve` or `d4-plot-server`](command-line.md) |
 
-The IGV.js viewer runs locally, but a public reference preset or remote track
-may require network access. For local reference access, use a local FASTA and
-index; do not add remote tracks when data access must stay on the laboratory
-computer.
+## IGV Desktop
 
-| Action | What it does | Requirement |
-| --- | --- | --- |
-| **IGV → View region in IGV Desktop** | Moves an already-running IGV Desktop to the current locus | IGV Desktop must accept external control on `127.0.0.1:60151` |
-| **IGV → Open genome browser (IGV.js)…** | Shows D4 and additional genome tracks in a browser | None; without D4 the browser starts with hg38 |
-| `d4-plot serve` / `d4-plot-server` | Serves the same IGV.js viewer without the native GUI | Provide a D4 file, `--genome`, or `--reference` |
-
-## Send a locus to IGV Desktop
-
-1. Start IGV Desktop and select the same reference assembly as the D4 data.
-2. Open a D4 track and navigate to the desired locus in D4 Plot.
+1. Start IGV Desktop with the same reference assembly as the D4.
+2. Navigate to a locus in D4 Plot.
 3. Choose **IGV → View region in IGV Desktop**.
 
-- D4 Plot sends **only the locus** through IGV Desktop's `/goto` command. It
-  does not start IGV Desktop, change its genome, or load D4 tracks into it.
-- The connection runs in the background. D4 Plot reports success in its status
-  area and failure in an error dialog.
-- D4 metadata alone cannot establish its reference assembly. Matching contig
-  names and lengths do not prove that both applications use the same assembly.
+D4 Plot sends only the locus to `127.0.0.1:60151`. It does not start IGV Desktop, change its assembly, or load tracks. Confirm the assembly in both apps; D4 metadata cannot verify it.
 
-## View D4 and other tracks in IGV.js
+## IGV.js browser
 
-1. Choose **IGV → Open genome browser (IGV.js)…** in D4 Plot. You can start
-   without a D4 file and add other tracks in the browser.
-2. In the browser, select a reference. If needed, select tracks under **D4
-   tracks** and click **Apply selection**. You can deselect every D4 track to
-   view only the tracks you add.
-3. Use **Add track** to add a local file or data URL. IGV.js can display BAM,
-   CRAM, VCF, BED, GTF, GFF3, BigWig, and other supported formats beside D4.
-   Supply an index when needed. If the format cannot be inferred from the name,
-   enter a format or track type override.
-4. Navigate and zoom in the browser. D4 uses at most 1024 bins per request.
-   With a usable D4 sum index, bins show exact means even across a chromosome. For
-   large ranges without a usable sum index, the browser may show bounded sampled means; zoom in
-   for exact values or add a sum index to the D4 file.
+Choose **IGV → Open genome browser (IGV.js)…**. The browser can start without D4. Select a reference, then choose D4 tracks under **D4 tracks** and click **Apply selection**. The first 12 tracks are selected initially; you can deselect all of them.
 
-| Item | Behavior |
+Use **Add track** to open a local file or URL. Supply an index for formats that require one; set Format or Track type if IGV.js cannot infer it. Added local files must be selected again after a reference or D4 selection change, or a page reload. Remote URLs need browser access, CORS for other origins, and HTTP Range for indexed data.
+
+| Reference | Behavior |
 | --- | --- |
-| Initial locus | Uses the visible D4 Plot locus; falls back to a valid locus if it does not fit the selected reference. |
-| Tracks | Selects the first 12 tracks by default; choose others under **D4 tracks**. |
-| Added tracks | Use **Add track** with a local file or URL. Supply matching indexes for large BAM, CRAM, compressed VCF, and annotation files when available. |
-| Reference | Starts with D4-derived **Contigs only** when D4 is open, otherwise `hg38`; the browser can switch to `hg38`, `hg19`, `hs1`, or `mm39`. |
-| Gene annotations | Public presets load an assembly-matched gene track automatically: GENCODE for `hg38`, `hg19`, and `mm39`; NCBI RefSeq for `hs1`. Contigs only and local references have no automatic gene track. |
-| D4 values | Uses up to 1024 resolution-dependent bins per request. Wide ranges without a usable sum index may use sampled means; narrow peaks can be missed. Zoom in for exact values. |
-| Connection | Binds only to `127.0.0.1`. The URL contains a session token; do not publish it. |
+| **Contigs only** | Default with D4. Names and lengths only; no bases or verified assembly. |
+| `hg38`, `hg19`, `hs1`, `mm39` | Public presets. The browser fetches reference data from IGV/UCSC hosts, which may learn the reference and approximate viewed intervals. |
+| Local FASTA/FAI or IGV genome JSON | Select through the [server CLI](command-line.md) for local reference access. |
 
-Reference choices have different data and privacy implications:
+Without D4, the browser starts with `hg38`. Public presets add an assembly-matched gene track: GENCODE for `hg38`, `hg19`, and `mm39`; NCBI RefSeq for `hs1`. Contigs only and local references add none. Added tracks must match the reference's contig names and assembly. CRAM needs sequence bases.
 
-| Choice | Sequence data | Consideration |
-| --- | --- | --- |
-| **Contigs only** | D4 contig names and lengths only | No bases are available. A D4-derived dictionary does not verify which assembly produced the D4 file. |
-| Public preset | Fetched from public IGV/UCSC hosts | Requires network access; the reference and approximate viewed intervals may be visible to those hosts. |
-| Local FASTA / IGV genome JSON | Uses a local FASTA and FAI | Specify it through the CLI below for fully local reference access. |
+D4 requests contain at most 1024 bins. With a usable sum index, bin means are exact. Wide ranges without one may use sampled means and miss narrow peaks; zoom in or add a sum index.
 
-Added tracks must use contig names and an assembly that match the selected
-reference. CRAM needs a reference with sequence data. The browser reads local
-files directly; select them again after changing the reference or D4 selection,
-or reloading the page. Remote data must be reachable from the browser.
-Cross-origin servers need CORS, and indexed files need HTTP Range support.
-
-The browser's **View locus in IGV Desktop** button is available only when the
-selected reference has a contig dictionary and the browser shows one locus.
-Public presets do not have a verified dictionary, so the button is disabled
-for them. It sends only the locus; it does not change IGV Desktop's assembly.
-
-## Run without the native GUI
-
-If you need the same browser viewer on a workstation without the desktop app,
-see [Command-line usage](command-line.md). It explains how to choose a public
-or local reference and start the local server.
+The server binds to `127.0.0.1`. Its URL contains a session token; do not publish it. The browser's **View locus in IGV Desktop** button requires a reference with a verified contig dictionary and one locus. It sends only the locus.
 
 ## Troubleshooting
 
-| Symptom | What to check |
+| Symptom | Check |
 | --- | --- |
-| Cannot reach IGV Desktop | Check that IGV Desktop is running and accepts external control on `127.0.0.1:60151`. D4 Plot does not start it. |
-| No tracks in the browser | Check the **D4 tracks** selection and whether D4 contig names and lengths match the selected reference. |
-| An added track does not display | Check its format, index, and reference contig names. For a URL, also check CORS and HTTP Range support. |
-| A public preset does not load | Check network access, or start the server with a local FASTA/FAI. |
-| An older browser tab stops working | After changing D4 Plot tracks, reopen it with **IGV → Open genome browser (IGV.js)…**. |
-| An older build shows an internal error when sending a locus to IGV Desktop | Update D4 Plot. If you build from source, rebuild it after updating. |
+| IGV Desktop does not respond | It is running and accepts control on `127.0.0.1:60151`. |
+| D4 is missing | **D4 tracks** selection and reference contig names/lengths. |
+| Added track is missing | Format, index, assembly, and, for URLs, CORS/HTTP Range. |
+| Public preset fails | Network access; use local FASTA/FAI if needed. |
+| Old browser tab fails after track changes | Reopen the browser from D4 Plot. |

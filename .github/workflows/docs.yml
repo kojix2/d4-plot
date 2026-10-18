@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "config/locales/**"
       - "scripts/guide-screenshots.cr"
+      - "spec/fixtures/rust-multitrack.d4"
       - "shard.yml"
       - "shard.lock"
       - ".github/workflows/docs.yml"

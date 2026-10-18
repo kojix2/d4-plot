@@ -1,11 +1,6 @@
 # Development
 
-Most researchers can skip this page. It is for developers, package maintainers,
-and IT staff who build D4 Plot from source or investigate a problem. For normal
-use, install a release package and start with [Start here](quick-start.md).
-
-Install the native dependencies described in [Installation](installation.md),
-then run the checks used during development:
+Install the native dependencies in [Installation](installation.md), then run:
 
 ```sh
 shards install --frozen
@@ -14,22 +9,17 @@ ameba
 crystal tool format --check src spec examples
 ```
 
-The CI workflow runs specs and release builds on Ubuntu, macOS, and Windows
-UCRT64. Run the native UI smoke test in a graphical session:
+CI builds on Ubuntu, macOS, and Windows UCRT64. Run the UI smoke test in a graphical session:
 
 ```sh
 crystal run scripts/ui-smoke.cr
 ```
 
-To change the application icon, replace `assets/d4-plot.png` with a square PNG
-that has a transparent background, then run `bash scripts/refresh-icons.sh`
-with ImageMagick installed. The macOS icon is generated while packaging the app
-bundle.
+To update the icon, replace `assets/d4-plot.png` with a square transparent PNG and run `bash scripts/refresh-icons.sh` with ImageMagick installed. Packaging generates the macOS icon.
 
 ## Guide screenshots
 
-On macOS, build the Nicolino site first, then generate the synthetic guide
-images from the native application in the repository root:
+On macOS, build the Nicolino site, then run from the repository root:
 
 ```sh
 mkdir -p guide/output/screenshots
@@ -37,76 +27,24 @@ crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
 crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
 ```
 
-The two language directories must not already exist. Rebuild the site before
-rerunning these commands because Nicolino may replace its output directory.
-The script captures the
-application windows directly and creates its own synthetic D4, BED, and BAM
-fixtures. The documentation workflow generates both sets on a macOS runner,
-then adds them to the Pages build.
+The language directories must not exist before running the script. It reads `spec/fixtures/rust-multitrack.d4` and creates a BED annotation and BAM input. The docs workflow captures both languages on macOS and adds them to the Pages build.
 
-## Diagnostic logs
+## Logs
 
-D4 Plot uses Crystal's standard `Log` library. `INFO` is the default; set
-`LOG_LEVEL=DEBUG` before launching to include read strategy, cache hits, request
-cancellation, paths, genomic regions, and exception backtraces. `LOG_LEVEL=NONE`
-disables application diagnostics. Invalid levels fall back to `INFO` with a warning.
+Set `LOG_LEVEL=DEBUG` for read strategy, cache, cancellation, paths, coordinates, and backtraces; `LOG_LEVEL=NONE` disables diagnostics. Default is `INFO`. Desktop logs are `d4-plot-<process-id>.log` in:
 
-The desktop app writes to `d4-plot-<process-id>.log` in:
+- Windows: `%LOCALAPPDATA%\D4 Plot\logs`, then `%APPDATA%`, then home
+- macOS: `~/Library/Logs/D4 Plot`
+- Linux: `$XDG_STATE_HOME/d4-plot/logs`, or `~/.local/state/d4-plot/logs`
 
-- Windows: `%LOCALAPPDATA%\D4 Plot\logs` (then `%APPDATA%`, then the home directory).
-- macOS: `~/Library/Logs/D4 Plot`.
-- Linux: `$XDG_STATE_HOME/d4-plot/logs`, or `~/.local/state/d4-plot/logs`.
+The server writes logs to stderr; its URL and help go to stdout. `D4_PLOT_LOG_FILE` selects a file for either executable. Logs rotate near 5 MiB with two backups. Old process logs remain until removed. If a log file cannot be opened, output falls back to stderr.
 
-`d4-plot serve` and `d4-plot-server` write logs to stderr. The viewer URL and help
-remain on stdout. Set `D4_PLOT_LOG_FILE` to write either entry point's logs to a
-chosen file. Use a different path for each simultaneously running process.
-Files rotate at approximately 5 MiB, keeping two backups (`.1` and `.2`), or
-approximately 15 MiB per process/file path. Old process logs are retained until
-you remove them; the directory has no aggregate size limit. If a log file cannot
-be opened, logging falls back to stderr.
+Use `request_id` for reads and HTTP, `job_id` for conversions and background writes. HTTP responses carry `X-Request-ID`. DEBUG logs may contain paths, track names, and coordinates; review them before sharing. Capability URLs are omitted from logs, but a URL printed to stdout remains usable.
 
-For example, in PowerShell:
+The bounded logging queue drops new entries when full and reports `log.entries_dropped`. Shutdown drains accepted entries; forced termination can lose pending entries.
 
-```powershell
-$env:LOG_LEVEL = 'DEBUG'
-$env:D4_PLOT_LOG_FILE = "$env:TEMP\d4-plot-debug.log"
-.\bin\d4-plot.exe
-# After reproducing the problem, close the app to drain pending log entries.
-Remove-Item Env:LOG_LEVEL, Env:D4_PLOT_LOG_FILE
-```
+## UI thread
 
-Each entry contains a timestamp, severity, process ID, source, stable event name,
-and metadata. Follow `request_id` for file/view reads and HTTP requests, or
-`job_id` for conversions and background writes. Generated IDs are unique within
-a process. HTTP responses include `X-Request-ID` to locate the corresponding
-server entry. Ordinary error entries contain the exception class; DEBUG entries
-include an exception and backtrace snapshot captured on the failing thread.
-Review DEBUG logs before sharing because they can contain file paths, track names,
-and genomic coordinates. Viewer capability URLs are omitted/redacted from the
-application logs; the URL printed to stdout is still a working access link.
+`UIng.main` runs on the native UI thread and polls worker results every 30 ms. Native callbacks must not perform file I/O, sleep, wait on channels, or join workers; a yielding fiber may resume on another OS thread.
 
-The logging dispatcher uses a bounded queue and native synchronization so UI
-callbacks never yield waiting for log delivery or perform log file I/O. At
-capacity it drops new entries and later reports `log.entries_dropped`. Write
-failure disables that output and emits a best-effort stderr notice. Shutdown
-drains accepted entries after UI teardown; forced termination can lose pending
-entries. No per-base/per-bin or paint/mouse-move logs are emitted.
-
-## Native UI runtime
-
-The application runs `UIng.main` on the native UI thread and polls worker
-results every 30 ms. Native callbacks must not perform filesystem I/O, sleep,
-wait on channels, or join workers: a yielding Crystal operation can resume on a
-different OS thread.
-
-Capture immutable data and submit background writes through `BackgroundIO`;
-apply their completions from its `poll` method. Startup reads use
-`UIRuntime.load` before windows are created. That helper blocks the current OS
-thread and must not be called from a UI callback. Accepted writes are drained
-after native UI teardown.
-
-`BackgroundIO` uses a `Concurrent` execution context. HTTP calls to IGV
-Desktop run there; only their results are applied by `poll` on the UI thread.
-Especially on macOS, do not touch UIng controls from a fiber doing network
-I/O. HTTP responses do not always have a body: an IGV Desktop 204 response,
-for example, must be accepted without reading `body_io`.
+Use `UIRuntime.load` for startup reads before creating windows. Submit writes and IGV Desktop HTTP calls through `BackgroundIO`; apply results from `poll` on the UI thread. Wait for accepted writes after native UI teardown. An IGV Desktop HTTP 204 response has no body and must be handled without reading `body_io`.

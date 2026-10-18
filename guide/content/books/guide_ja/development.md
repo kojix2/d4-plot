@@ -1,10 +1,6 @@
 # 開発
 
-このページは、ほとんどの研究者は読む必要がありません。ソースからD4 Plotをビルドする
-開発者・パッケージ管理者や、問題を調査するIT担当者向けです。通常の利用ではリリース
-パッケージをインストールし、[まずここから](quick-start.md)始めてください。
-
-[インストール](installation.md)に記載したネイティブ依存関係を導入し、次のチェックを実行します。
+[インストール](installation.md)にあるネイティブ依存関係を導入し、次を実行します。
 
 ```sh
 shards install --frozen
@@ -13,21 +9,17 @@ ameba
 crystal tool format --check src spec examples
 ```
 
-CI workflowではUbuntu、macOS、Windows UCRT64でspecとrelease buildを実行します。
-ネイティブUIのsmoke testはグラフィカルセッションで実行してください。
+CIはUbuntu、macOS、Windows UCRT64でビルドします。UIのsmoke testはグラフィカルセッションで実行します。
 
 ```sh
 crystal run scripts/ui-smoke.cr
 ```
 
-アプリケーションアイコンを変更するには、`assets/d4-plot.png`を透明背景の正方形PNGで
-置き換え、ImageMagickを導入した環境で`bash scripts/refresh-icons.sh`を実行します。
-macOSアイコンはアプリケーションバンドルのパッケージ時に生成されます。
+アイコンは`assets/d4-plot.png`を透明背景の正方形PNGに置き換え、ImageMagickを入れて`bash scripts/refresh-icons.sh`を実行します。macOSアイコンはパッケージ時に生成します。
 
 ## ガイドのスクリーンショット
 
-macOSでは、まずNicolinoでサイトをビルドし、その後リポジトリのルートで次を実行すると、
-ネイティブアプリケーションから合成データの画像を生成できます。
+macOSでNicolinoサイトをビルドしてから、リポジトリのルートで実行します。
 
 ```sh
 mkdir -p guide/output/screenshots
@@ -35,70 +27,24 @@ crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
 crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
 ```
 
-言語別の出力ディレクトリは、実行前に存在しない必要があります。Nicolinoの再ビルドで
-出力ディレクトリが置き換わる場合があるため、再撮影時も先にサイトをビルドしてください。
-スクリプトはアプリの
-ウィンドウだけを撮影し、合成D4・BED・BAMを自分で生成します。ドキュメントの
-GitHub ActionsではmacOSランナーで日英両方を撮影し、Pagesのビルドに追加します。
+実行前に言語別ディレクトリが存在しないことを確認してください。スクリプトは`spec/fixtures/rust-multitrack.d4`を読み、例に使うBEDとBAMを生成します。docsワークフローはmacOSで日英両方を撮影し、Pagesに追加します。
 
-## 診断ログ
+## ログ
 
-Crystal標準ライブラリの`Log`を使用します。通常は`INFO`で、起動前に
-`LOG_LEVEL=DEBUG`を設定すると、読み取り方式、キャッシュの利用、リクエストの取消、
-ファイルパス、ゲノム座標、例外のバックトレースも記録します。`LOG_LEVEL=NONE`で
-アプリケーションの診断ログを無効化できます。不正なレベルは警告を出して`INFO`に戻します。
+`LOG_LEVEL=DEBUG`で読み取り方式、キャッシュ、取消、パス、座標、バックトレースを記録します。`LOG_LEVEL=NONE`で無効化します。初期値は`INFO`です。デスクトップ版は`d4-plot-<process-id>.log`を次へ保存します。
 
-デスクトップ版は次のディレクトリに`d4-plot-<プロセスID>.log`を保存します。
+- Windows: `%LOCALAPPDATA%\D4 Plot\logs`、次に`%APPDATA%`、ホーム
+- macOS: `~/Library/Logs/D4 Plot`
+- Linux: `$XDG_STATE_HOME/d4-plot/logs`、未設定時は`~/.local/state/d4-plot/logs`
 
-- Windows: `%LOCALAPPDATA%\D4 Plot\logs`。未設定時は`%APPDATA%`、ホームディレクトリの順に使用。
-- macOS: `~/Library/Logs/D4 Plot`。
-- Linux: `$XDG_STATE_HOME/d4-plot/logs`。未設定時は`~/.local/state/d4-plot/logs`。
+サーバーのログは標準エラー出力、URLとヘルプは標準出力です。`D4_PLOT_LOG_FILE`でどちらの実行ファイルも保存先を指定できます。約5 MiBでローテーションし、2世代を保持します。過去のプロセスのログは手動で削除します。ファイルを開けない場合は標準エラー出力へ切り替えます。
 
-`d4-plot serve`と`d4-plot-server`は標準エラー出力へ記録します。ビューアーのURLと
-ヘルプは標準出力へ表示します。どちらも`D4_PLOT_LOG_FILE`で保存先を指定できます。
-同時起動するプロセスには別々の保存先を指定してください。ファイルは約5 MiBで
-ローテーションし、過去2世代（`.1`、`.2`）を保持します。容量はプロセス／保存先ごとに
-約15 MiBです。過去のプロセスのログは手動で削除するまで残り、ディレクトリ全体の
-容量制限はありません。ログファイルを開けない場合は標準エラー出力へ切り替えます。
+ファイル読み込みとHTTPには`request_id`、変換とバックグラウンド書き込みには`job_id`を使います。HTTP応答には`X-Request-ID`があります。DEBUGログにはパス、トラック名、座標が含まれるため、共有前に確認してください。接続トークン付きURLはログに残しませんが、標準出力のURLは接続に使用できます。
 
-PowerShellでの例:
+上限付きログキューが満杯になると新しいログを破棄し、`log.entries_dropped`で報告します。通常終了時は受理済みログを書き出しますが、強制終了では失われる場合があります。
 
-```powershell
-$env:LOG_LEVEL = 'DEBUG'
-$env:D4_PLOT_LOG_FILE = "$env:TEMP\d4-plot-debug.log"
-.\bin\d4-plot.exe
-# 問題を再現後、アプリを終了すると保留中のログも書き出されます。
-Remove-Item Env:LOG_LEVEL, Env:D4_PLOT_LOG_FILE
-```
+## UIスレッド
 
-各ログには時刻、レベル、プロセスID、出力元、固定のイベント名、付加情報が含まれます。
-ファイル／表示の読み込みとHTTP通信は`request_id`、変換とバックグラウンド書き込みは
-`job_id`で追跡します。生成するIDはプロセス内で一意です。HTTP応答の
-`X-Request-ID`から対応するサーバーログを検索できます。通常のエラーは例外の種類を
-記録し、DEBUGではエラーが発生したスレッド上で取得した例外とバックトレースを記録します。
-DEBUGログにはパス、トラック名、ゲノム座標を含むため、共有前に内容を確認してください。
-接続トークン付きURLはアプリケーションログから除外・マスクします。標準出力に表示する
-URLは引き続き接続に使えるリンクです。
+`UIng.main`はネイティブUIスレッドで動き、30 msごとにworkerの結果を取り込みます。ネイティブcallbackでファイルI/O、sleep、channel待機、worker joinを行わないでください。yieldしたfiberが別のOSスレッドで再開する可能性があります。
 
-ログの配送には上限付きキューとネイティブ同期を使い、GUIコールバック内では配送待ちの
-yieldやログファイルI/Oを行いません。キューが満杯の場合は新しいログを破棄し、
-`log.entries_dropped`で件数を報告します。書き込み失敗時はその出力を停止し、可能なら
-標準エラー出力へ通知します。終了時はUIの破棄後に受理済みのログを書き出します。
-強制終了では未出力ログが失われることがあります。塩基・bin単位や再描画・マウス移動の
-ログは出力しません。
-
-## ネイティブUIランタイム
-
-アプリケーションはネイティブUIスレッドで`UIng.main`を実行し、workerの結果を30 msごとに
-pollします。ネイティブcallback内でファイルI/O、sleep、channel待機、worker joinを行っては
-いけません。yieldするCrystalの処理は別のOSスレッドで再開する可能性があります。
-
-変更されないデータを取り込み、バックグラウンド書き込みを`BackgroundIO`へ投入し、完了処理は
-その`poll`から適用します。起動時の読み込みにはウィンドウ作成前に`UIRuntime.load`を使います。
-このhelperは現在のOSスレッドをblockするため、UI callbackから呼び出してはいけません。
-受理済みの書き込みはネイティブUI終了後に完了まで待機されます。
-
-`BackgroundIO`は`Concurrent`実行コンテキストを使用します。IGV DesktopへのHTTP通信も
-ここで実行し、結果だけをUIスレッドの`poll`で反映します。macOSでは特に、ネットワーク
-I/Oを行うfiberからUIngのGUIを操作しないでください。HTTP応答の本文は常に存在するとは
-限りません。たとえばIGV Desktopが204を返した場合、`body_io`を読まずに成功として扱います。
+起動時の読み込みはウィンドウ作成前に`UIRuntime.load`を使います。書き込みとIGV DesktopへのHTTP通信は`BackgroundIO`へ送り、結果をUIスレッドの`poll`で反映します。受理済み書き込みはUI破棄後に完了まで待機します。IGV DesktopのHTTP 204応答には本文がないため、`body_io`を読まずに処理します。

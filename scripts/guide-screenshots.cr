@@ -2,7 +2,7 @@
 
 # Capture publication screenshots from the native macOS windows.
 # Usage: crystal run scripts/guide-screenshots.cr -- OUTPUT_DIRECTORY [en|ja]
-# OUTPUT_DIRECTORY must not exist. All genomic data are synthetic.
+# OUTPUT_DIRECTORY must not exist. The displayed D4 is a repository test fixture.
 require "../src/d4_plot/app"
 require "file_utils"
 
@@ -19,8 +19,9 @@ require "file_utils"
 {% end %}
 
 module GuideScreenshots
-  CHROMOSOME_SIZE = 10_000
-  REGION          = "chr1:1,001-9,000"
+  CHROMOSOME_SIZE = 20_000
+  REGION          = "1:9,001-16,000"
+  TRACK_FIXTURE   = File.expand_path("../spec/fixtures/rust-multitrack.d4", __DIR__)
 
   def self.capture(window : UIng::Window, path : String) : Nil
     {% if flag?(:darwin) %}
@@ -34,42 +35,22 @@ module GuideScreenshots
     {% end %}
   end
 
-  private def self.peak(position : Int32, center : Int32, radius : Int32, height : Int32) : Int32
-    distance = (position - center).abs
-    distance >= radius ? 0 : height * (radius - distance) // radius
-  end
-
-  private def self.coverage(position : Int32, sample : Int32) : Int32
-    baseline = 3 + (position // 41) % 3
-    if sample == 0
-      baseline + peak(position, 2_800, 620, 32) + peak(position, 6_700, 900, 18)
-    else
-      baseline + peak(position, 3_050, 720, 19) + peak(position, 6_500, 760, 29)
-    end
-  end
-
   def self.make_fixtures(directory : String) : NamedTuple(tracks: Array(String), annotation: String, bam: String)
-    tracks = ["sample-A", "sample-B"].map_with_index do |name, sample|
-      path = File.join(directory, "#{name}.d4")
-      values = Array.new(CHROMOSOME_SIZE) { |position| coverage(position, sample) }
-      D4.create(path, chromosomes: [D4::Chromosome.new("chr1", CHROMOSOME_SIZE)]) do |writer|
-        writer.write_values("chr1", 0, values)
-      end
-      path
-    end
+    sources = D4Plot::TrackSource.load(TRACK_FIXTURE)
+    raise "Unexpected guide D4 fixture contents" unless sources.size == 2 && sources.all? { |source| source.chromosomes["1"]? == CHROMOSOME_SIZE }
 
     annotation_path = File.join(directory, "demo-genes.bed")
-    File.write(annotation_path, "chr1\t2300\t4600\tDemoGeneA\nchr1\t6000\t7800\tDemoGeneB\n")
+    File.write(annotation_path, "1\t9975\t10200\tDemoGeneA\n1\t13000\t14300\tDemoGeneB\n")
 
     bam = File.join(directory, "demo-alignment.bam")
-    header = HTS::Bam::Header.parse("@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:chr1\tLN:#{CHROMOSOME_SIZE}\n")
+    header = HTS::Bam::Header.parse("@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:1\tLN:#{CHROMOSOME_SIZE}\n")
     HTS::Bam.open(bam, "wb") do |file|
       file.write_header(header)
-      file.write(HTS::Bam::Record.new(header, "demo-read", 0_u16, "chr1", 2_750_i64, 60_u8, "10M",
+      file.write(HTS::Bam::Record.new(header, "demo-read", 0_u16, "1", 10_005_i64, 60_u8, "10M",
         "A" * 10, [30_u8] * 10, -1, 0_i64, 0_i64))
     end
     HTS::Bam.build_index(bam, verbose: false)
-    {tracks: tracks, annotation: annotation_path, bam: bam}
+    {tracks: [TRACK_FIXTURE], annotation: annotation_path, bam: bam}
   end
 end
 
@@ -96,13 +77,12 @@ class D4Plot::App
   end
 
   def guide_show_annotation(path : String) : Nil
-    @shared_y.checked = true
     @pending_annotation_path = path
     refresh
   end
 
   def guide_narrow : Nil
-    request_view(D4Plot::Region.new("chr1", 2_001_u32, 5_000_u32))
+    request_view(D4Plot::Region.new("1", 9_951_u32, 10_250_u32))
   end
 
   def guide_capture(path : String) : Nil
