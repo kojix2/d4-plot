@@ -155,17 +155,17 @@ module D4Plot
       end
       UIng.timer(30) do
         if @closed
-          0
+          false
         else
           UIRuntime.check_thread!
           @background_io.poll
-          next 0 if @closed
+          next false if @closed
           receive_files
-          next 0 if @closed
+          next false if @closed
           receive_result
-          next 0 if @closed
+          next false if @closed
           poll_conversion
-          1
+          true
         end
       end
       update_controls

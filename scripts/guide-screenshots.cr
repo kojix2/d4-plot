@@ -176,11 +176,11 @@ begin
         app.guide_stop
         step += 1
       end
-      step > 3 ? 0 : 1
+      step <= 3
     rescue ex
       failure = ex
       app.guide_stop
-      0
+      false
     end
   end
   app.run(data[:tracks], GuideScreenshots::REGION)

@@ -81,7 +81,7 @@ end
 class UIng::Button
   def smoke_click
     callback = @on_clicked_box || raise "Button callback is missing"
-    Box(Proc(Nil)).unbox(callback).call
+    ::Box(Proc(Nil)).unbox(callback).call
   end
 end
 
@@ -456,7 +456,7 @@ class D4Plot::App
         UiSmoke.click(@sidebar_toggle)
         clicks += 1
         @smoke_clicks_done = clicks == 40
-        @smoke_clicks_done ? 0 : 1
+        !@smoke_clicks_done
       end
     else
       return false unless @smoke_clicks_done
@@ -523,7 +523,7 @@ begin
   })
   app = D4Plot::App.new(D4Plot::App.create_menu_bar, preferences, file_loader)
   UIng.on_error { |error, _context| failure = error }
-  UIng.timer(10) { UiSmoke.tick; 1 }
+  UIng.timer(10) { UiSmoke.tick; true }
   step = 0
   started = Time.instant
   UIng.timer(700) do
@@ -533,11 +533,11 @@ begin
     end
     raise "UI smoke test timed out" if Time.instant - started > 60.seconds
     step += 1 if app.smoke_step(step, screenshots, fixtures)
-    step > 21 ? 0 : 1
+    step <= 21
   rescue ex
     failure = ex
     app.smoke_stop
-    0
+    false
   end
   app.run
 ensure
