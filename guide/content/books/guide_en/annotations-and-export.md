@@ -2,7 +2,9 @@
 
 ## Annotations
 
-Choose **Annotations** to open GFF3, GTF, or BED for the same reference assembly as the D4. Chromosome names must match exactly (`1` differs from `chr1`). GFF3/GTF display gene, transcript, mRNA, and exon features.
+Choose a public genome in the row with **Chromosome**, **Region**, and **Go** to display genes for hg38/GRCh38, hg19/GRCh37, hs1/T2T-CHM13, or mm39/GRCm39. Choose **Annotations** in the toolbar to open a local GFF3, GTF, or BED file directly. Public genes and the local file can appear in separate rows at the same time. Public genes show transcripts and their exons. **Settings → Public gene source** selects UCSC (the default) or Ensembl. UCSC uses `knownGene` for hg38, hg19, and mm39, and `ncbiRefSeq` for hs1. Ensembl uses its own gene models and its GRCh37 service for hg19. Ensembl with hs1 is currently unsupported here and shows a notice; select UCSC for hs1. The public row names the source in both the desktop view and SVG. An internet connection is required, and each region is fetched again. If the request fails, the public row shows an error while the local annotation remains visible.
+
+No public genome is selected by default. A new **Open D4** clears both annotation selections; **Add D4** keeps them. D4 does not identify its reference assembly, so select the matching public genome yourself. Conventional names such as `1` and `chr1` are mapped for public genes. Local files still require exact chromosome names (`1` differs from `chr1`). GFF3/GTF display gene, transcript, mRNA, and exon features.
 
 Plain or gzip files can be loaded into memory up to 32 MiB and 100,000 parsed features. For larger files, use bgzip with a tabix `.tbi` or `.csi` index. Indexed `.gz` files are queried through HTSlib.
 

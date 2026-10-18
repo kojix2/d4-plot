@@ -23,9 +23,12 @@ module D4Plot
                    @layers : Array(TrackLayer), @annotation : AnnotationTrack?,
                    @settings : PlotSettings, @chromosome_size : UInt32?,
                    @width : Int32, @row_height : Float64, @shared_y : Bool,
-                   @selected : Tuple(String, String)?)
+                   @selected : Tuple(String, String)?, @public_genes : GeneTrack? = nil,
+                   @public_name : String? = nil)
       @stack = StackGeometry.new(@width.to_f64, @row_height, @layers.size)
-      @height = @stack.height(AnnotationRenderer.height_for(@annotation))
+      annotation_height = AnnotationRenderer.height_for(@annotation)
+      annotation_height += AnnotationRenderer::MAX_HEIGHT if @public_genes
+      @height = @stack.height(annotation_height)
       @contents = String.build { |io| render(io) }
     end
 
@@ -74,6 +77,7 @@ module D4Plot
         draw_layer(io, layer, index, shared_range)
       end
       label(io, D4Plot.t("plot.all_hidden"), layout.left, 110.0, layout.width, :center) if @layers.empty?
+      draw_public_genes(io, layout)
       draw_annotation(io, layout)
       io << "</svg>\n"
     end
@@ -186,19 +190,21 @@ module D4Plot
       track = @annotation
       return unless track
       top = @stack.annotation_top
+      top += AnnotationRenderer::MAX_HEIGHT if @public_genes
       line(io, layout.left, top, layout.left + layout.width, top, "#c7ccd1")
+      label(io, D4Plot.t("annotation.local_title"), layout.left, top + 4, layout.width)
       if notice = track.notice
-        label(io, notice, layout.left, top + 12, layout.width, :center, color: "#73787f")
+        label(io, notice, layout.left, top + AnnotationRenderer::HEADER_HEIGHT + 12, layout.width, :center, color: "#73787f")
         return
       end
 
       clip(io, "annotations", layout.left, top, layout.width, AnnotationRenderer::MAX_HEIGHT)
       io << %(<g clip-path="url(#annotations)">\n)
-      lanes = AnnotationLaneAllocator.new((AnnotationRenderer::MAX_HEIGHT / AnnotationRenderer::LANE).floor.to_i - 1)
+      lanes = AnnotationLaneAllocator.new(((AnnotationRenderer::MAX_HEIGHT - AnnotationRenderer::HEADER_HEIGHT) / AnnotationRenderer::LANE).floor.to_i - 1)
       hidden = 0
       track.features.sort_by { |feature| {feature.start1, feature.end1, feature.kind} }.each do |feature|
         if lane = lanes.assign(feature)
-          draw_feature(io, feature, lane, layout, top)
+          draw_feature(io, feature, lane, layout, top + AnnotationRenderer::HEADER_HEIGHT)
         else
           hidden += 1
         end
@@ -207,6 +213,57 @@ module D4Plot
       if hidden > 0
         label(io, D4Plot.t("plot.additional_features", number: hidden), layout.left,
           top + AnnotationRenderer::MAX_HEIGHT - 17, layout.width, :center, color: "#73787f")
+      end
+    end
+
+    private def draw_public_genes(io : IO, layout : PlotGeometry) : Nil
+      track = @public_genes
+      return unless track
+      top = @stack.annotation_top
+      line(io, layout.left, top, layout.left + layout.width, top, "#c7ccd1")
+      label(io, @public_name || D4Plot.t("annotation.public_title", genome: "", source: "UCSC"), layout.left, top + 4, layout.width)
+      if notice = track.notice
+        label(io, notice, layout.left, top + AnnotationRenderer::HEADER_HEIGHT + 12, layout.width, :center, color: "#73787f")
+        return
+      end
+      clip(io, "public-genes", layout.left, top, layout.width, AnnotationRenderer::MAX_HEIGHT)
+      io << %(<g clip-path="url(#public-genes)">\n)
+      lanes = AnnotationLaneAllocator.new(((AnnotationRenderer::MAX_HEIGHT - AnnotationRenderer::HEADER_HEIGHT) / AnnotationRenderer::LANE).floor.to_i - 1)
+      hidden = 0
+      track.genes.sort_by { |gene| {gene.start1, gene.end1} }.each do |gene|
+        if lane = lanes.assign(gene.start1, gene.end1)
+          draw_gene(io, gene, lane, layout, top + AnnotationRenderer::HEADER_HEIGHT)
+        else
+          hidden += 1
+        end
+      end
+      io << "</g>\n"
+      if hidden > 0
+        label(io, D4Plot.t("plot.additional_features", number: hidden), layout.left,
+          top + AnnotationRenderer::MAX_HEIGHT - 17, layout.width, :center, color: "#73787f")
+      end
+    end
+
+    private def draw_gene(io : IO, gene : GeneModel, lane : Int32, layout : PlotGeometry, top : Float64) : Nil
+      x1 = layout.x_for(gene.start1.to_i64 - 1, @region).clamp(layout.left, layout.left + layout.width)
+      x2 = layout.x_for(gene.end1.to_i64, @region).clamp(layout.left, layout.left + layout.width)
+      y = top + 18.0 + lane * AnnotationRenderer::LANE
+      line(io, x1, y, x2, y, "#2e4757")
+      if (strand = gene.strand) && (strand == "+" || strand == "-") && x2 - x1 > 12
+        direction = strand == "+" ? 1.0 : -1.0
+        tip = strand == "+" ? x2 - 2 : x1 + 2
+        io << %(<path d="M#{num(tip - 4 * direction)} #{num(y - 3)} L#{num(tip)} #{num(y)} L#{num(tip - 4 * direction)} #{num(y + 3)}" fill="none" stroke="#2e4757"/>\n)
+      end
+      if x2 - x1 > 34
+        characters = Math.max(((x2 - x1) / 8).floor.to_i, 2)
+        name = gene.name
+        name = name[0, characters - 1] + "…" if name.size > characters
+        label(io, name, x1 + 3, y - 18, x2 - x1 - 6, color: "#262626")
+      end
+      gene.exons.each do |(first, last)|
+        left = layout.x_for(first.to_i64 - 1, @region).clamp(layout.left, layout.left + layout.width)
+        right = layout.x_for(last.to_i64, @region).clamp(layout.left, layout.left + layout.width)
+        rect(io, left, y - 4, Math.max(right - left, 1.0), 8, "#1f5c85", opacity: 0.9) if right > left
       end
     end
 

@@ -15,6 +15,7 @@ require "./ui_runtime"
 require "./bedgraph_export"
 require "./svg_export"
 require "./igv_web_server"
+require "./public_genes"
 
 module D4Plot
   class App
@@ -33,7 +34,9 @@ module D4Plot
     @welcome = UIng::Box.new(:vertical, padded: true)
     @navigation = UIng::Box.new(:vertical, padded: true)
     @annotation_row = UIng::Box.new(:horizontal, padded: true)
+    @public_row = UIng::Box.new(:horizontal, padded: true)
     @loader = ViewLoader.new
+    @gene_loader = PublicGeneLoader.new
     @file_loader : FileLoader
     @file_load_id : Int32?
     @file_append = false
@@ -57,6 +60,10 @@ module D4Plot
     @height = UIng::Combobox.new
     @source_entry = UIng::Entry.new(read_only: true)
     @annotation : AnnotationTrack?
+    @public_genes : GeneTrack?
+    @public_genome : String?
+    @public_request_id = 0
+    @public_loading = false
     @annotation_path : String?
     @pending_annotation_path : String?
     @request_id = 0
@@ -79,6 +86,9 @@ module D4Plot
     @progress = UIng::ProgressBar.new
     @cancel_files = UIng::Button.new(D4Plot.t("toolbar.cancel"))
     @annotation_label = UIng::Label.new("")
+    @public_label = UIng::Label.new("")
+    @public_combo = UIng::Combobox.new
+    @remove_public = UIng::Button.new(D4Plot.t("app.remove"))
     @remove_annotation = UIng::Button.new(D4Plot.t("app.remove"))
     @status = UIng::Label.new(D4Plot.t("app.status_ready"))
     @inspection = UIng::Label.new(D4Plot.t("app.inspection_short"))
@@ -164,6 +174,8 @@ module D4Plot
           next false if @closed
           receive_result
           next false if @closed
+          receive_public_genes
+          next false if @closed
           poll_conversion
           true
         end
@@ -185,6 +197,7 @@ module D4Plot
       @background_io.close
       @background_io.wait
       @loader.wait
+      @gene_loader.wait
       @file_loader.wait
       @conversion_worker.wait
       @igv_web_server.try(&.wait)
@@ -221,6 +234,12 @@ module D4Plot
       location.append(UIng::Label.new(D4Plot.t("app.region")), false)
       location.append(@region_entry, true)
       location.append(@go, false)
+      location.append(UIng::Label.new(D4Plot.t("annotation.public_genome")), false)
+      @public_combo.append(D4Plot.t("annotation.none"))
+      ["hg38/GRCh38", "hg19/GRCh37", "hs1/T2T-CHM13", "mm39/GRCm39"].each { |name| @public_combo.append(name) }
+      @public_combo.selected = 0
+      @public_combo.tooltip = D4Plot.t("annotation.verify_assembly")
+      location.append(@public_combo, false)
       @navigation.append(location, false)
       display = row
       display.append(@sidebar_toggle, false)
@@ -234,6 +253,12 @@ module D4Plot
       display.append(@details_toggle, false)
       @navigation.append(display, false)
       root.append(@navigation, false)
+
+      @public_label.set_minimum_size(0, -1)
+      @public_row.append(@public_label, true)
+      @public_row.append(@remove_public, false)
+      root.append(@public_row, false)
+      @public_row.hide
 
       @annotation_label.set_minimum_size(0, -1)
       @annotation_row.append(@annotation_label, true)
@@ -352,6 +377,29 @@ module D4Plot
       @tools.create.on_clicked { open_conversion }
       @conversion_status.on_clicked { open_conversion }
       @tools.annotations.on_clicked { open_annotation_dialog }
+      @public_combo.on_selected do |index|
+        next if @updating
+        @public_genome = index == 0 ? nil : PublicGenes::GENOMES[index - 1]?
+        @gene_loader.cancel
+        @public_genes = nil
+        @public_loading = false
+        update_public_label
+        if region = @completed_region
+          request_public_genes(region) unless @loading
+        end
+        resize_canvas
+      end
+      @remove_public.on_clicked do
+        @updating = true
+        @public_combo.selected = 0
+        @updating = false
+        @public_genome = nil
+        @gene_loader.cancel
+        @public_genes = nil
+        @public_loading = false
+        update_public_label
+        resize_canvas
+      end
       @tools.settings.on_clicked { open_settings }
       @go.on_clicked { go_to_entry }
       @chromosome_combo.on_selected { |index| select_chromosome(index) unless @updating }
@@ -391,7 +439,7 @@ module D4Plot
       end
       @handler.draw do |_, params|
         @renderer.draw(params, visible_layers, @completed_region, @settings, @chromosomes, @annotation, @loading || !@file_load_id.nil?,
-          stack_geometry, @shared_y.checked?, selected_layer.try(&.source.key))
+          stack_geometry, @shared_y.checked?, selected_layer.try(&.source.key), @public_genes, public_title)
       end
       @handler.mouse_event { |_, event| mouse_event(event) }
       @handler.mouse_crossed do |_, left|
@@ -420,7 +468,9 @@ module D4Plot
     private def resize_canvas
       sidebar = !@layers.empty? && @preferences.sidebar_visible?
       @canvas_width = Math.max(@window.content_size[0] - (sidebar ? 356 : 64), 240)
-      @area.set_size(@canvas_width, stack_geometry.height(AnnotationRenderer.height_for(@annotation)))
+      annotation_height = AnnotationRenderer.height_for(@annotation)
+      annotation_height += AnnotationRenderer::MAX_HEIGHT if @public_genes
+      @area.set_size(@canvas_width, stack_geometry.height(annotation_height))
       @area.queue_redraw_all
     end
 
@@ -494,6 +544,14 @@ module D4Plot
         @annotation_path = nil
         @pending_annotation_path = nil
         @annotation_row.hide
+        @public_genome = nil
+        @public_genes = nil
+        @public_loading = false
+        @gene_loader.cancel
+        @updating = true
+        @public_combo.selected = 0
+        @updating = false
+        update_public_label
         @selected = 0
         @area.scroll_to(0, 0, 1, 1)
       end
@@ -517,6 +575,14 @@ module D4Plot
         @annotation = nil
         @annotation_path = nil
         @annotation_row.hide
+        @public_genome = nil
+        @public_genes = nil
+        @public_loading = false
+        @gene_loader.cancel
+        @updating = true
+        @public_combo.selected = 0
+        @updating = false
+        update_public_label
         @region_entry.text = ""
         @source_entry.text = ""
         @source_entry.tooltip = ""
@@ -652,6 +718,9 @@ module D4Plot
       show_status(D4Plot.t("app.loading", region: region))
       @status.tooltip = D4Plot.t("app.loading_inspection")
       @request_id = @loader.submit(visible_layers.map(&.source), region, @settings.point_count, @settings.use_sum_index?, @pending_annotation_path || @annotation_path, @settings.annotation_feature_limit, @annotation_path)
+      @gene_loader.cancel
+      @public_loading = false
+      @public_genes = GeneTrack.notice(D4Plot.t("annotation.public_loading")) if @public_genome
       update_controls
       @area.queue_redraw_all
     end
@@ -670,6 +739,11 @@ module D4Plot
         rollback_history
         show_status(D4Plot.t("app.read_failed", error: error))
         restore_location
+        if region = @completed_region
+          request_public_genes(region) if @public_genome
+        else
+          @public_genes = nil
+        end
       else
         # Publish the whole generation together. A failed/missing track has an
         # explicit empty row; old-coordinate samples never survive a commit.
@@ -681,6 +755,7 @@ module D4Plot
         end
         @completed_region = result.request.region
         @annotation = result.annotation_track
+        request_public_genes(result.request.region)
         if error = result.annotation_error
           @annotation_label.text = D4Plot.t("app.annotation_load_failed",
             selection: D4Plot.t(@annotation_path ? "app.previous_selection_kept" : "app.no_annotation_selected"))
@@ -707,6 +782,42 @@ module D4Plot
       end
       update_controls
       resize_canvas
+    end
+
+    private def request_public_genes(region : Region) : Nil
+      return unless genome = @public_genome
+      @public_genes = GeneTrack.notice(D4Plot.t("annotation.public_loading"))
+      @public_loading = true
+      @public_request_id = @gene_loader.submit(@settings.public_annotation_source, genome, region, @settings.annotation_feature_limit)
+      update_public_label
+      update_controls
+      resize_canvas
+    end
+
+    private def receive_public_genes : Nil
+      return unless result = @gene_loader.poll
+      return unless result.request.id == @public_request_id && result.request.genome == @public_genome && result.request.source == @settings.public_annotation_source
+      return unless result.request.region == @completed_region && !@loading
+      @public_genes = result.track
+      @public_loading = false
+      update_public_label
+      update_controls
+      resize_canvas
+    end
+
+    private def public_title : String?
+      source = @settings.public_annotation_source == "ensembl" ? "Ensembl" : "UCSC"
+      @public_genome.try { |genome| D4Plot.t("annotation.public_title", genome: genome, source: source) }
+    end
+
+    private def update_public_label : Nil
+      if title = public_title
+        @public_label.text = "#{title} · #{D4Plot.t("annotation.verify_assembly")}"
+        @public_label.tooltip = D4Plot.t("annotation.verify_assembly")
+        @public_row.show
+      else
+        @public_row.hide
+      end
     end
 
     private def active_region : Region?
@@ -763,6 +874,8 @@ module D4Plot
       was_loading = @loading
       clear_drag
       @loader.cancel
+      @gene_loader.cancel
+      @public_loading = false
       @loading = false
       @requested_region = nil
       if @pending_annotation_path
@@ -771,6 +884,11 @@ module D4Plot
       end
       rollback_history
       restore_location
+      if region = @completed_region
+        request_public_genes(region) if @public_genome && !@file_load_id
+      else
+        @public_genes = nil
+      end
       show_status(D4Plot.t("app.loading_cancelled")) if was_loading
       show_status(D4Plot.t("app.files_cancelled")) if was_opening
       update_controls
@@ -812,8 +930,20 @@ module D4Plot
         window.show
       else
         window = SettingsWindow.new(@settings, @preferences, @window, @background_io, ->(reload_data : Bool) {
+          previous_source = @settings.public_annotation_source
           @settings = @preferences.settings
           @tools.native.display_mode = @settings.toolbar_display_mode
+          if previous_source != @settings.public_annotation_source
+            @gene_loader.cancel
+            @public_genes = nil
+            @public_loading = false
+            update_public_label
+            if !reload_data && !@loading
+              if region = @completed_region
+                request_public_genes(region) if @public_genome
+              end
+            end
+          end
           reload_data ? refresh : @area.queue_redraw_all
         }, -> { @settings_window = nil })
         @settings_window = window
@@ -848,8 +978,10 @@ module D4Plot
       return unless destination = destination || @window.save_file
       path = SvgExport.destination(destination)
       sources = @layers.map(&.source.path) + [@annotation_path].compact
+      return if @public_loading
       export = SvgExport.new(path, sources, region, visible_layers, @annotation, @settings,
-        @chromosomes[region.chromosome]?, @canvas_width, @row_height, @shared_y.checked?, selected_layer.try(&.source.key))
+        @chromosomes[region.chromosome]?, @canvas_width, @row_height, @shared_y.checked?,
+        selected_layer.try(&.source.key), @public_genes, public_title)
       @background_io.submit(-> { export.write }, operation: "plot.svg_export") do |error|
         if error
           show_error(D4Plot.t("app.could_not_save_image"), error)
@@ -951,7 +1083,9 @@ module D4Plot
       igv_ready = has_layers && @file_load_id.nil? && !@closed
       set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
       set_enabled(@igv_web_menu_item, @file_load_id.nil? && !@closed)
-      set_enabled(@save_image_menu_item, view_summary_ready?)
+      set_enabled(@save_image_menu_item, view_summary_ready? && !@public_loading)
+      set_enabled(@public_combo, has_layers && @file_load_id.nil?)
+      set_enabled(@remove_public, !@public_genome.nil? && @file_load_id.nil?)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)
       @remove_annotation.text = D4Plot.t(@annotation_path || @pending_annotation_path ? "app.remove" : "app.dismiss")
     end
@@ -1232,6 +1366,7 @@ module D4Plot
       @quit_window.try(&.destroy)
       @quit_window = nil
       @loader.close
+      @gene_loader.close
       @file_loader.close
       @file_done = nil
       @track_panel.delete(@track_list.native)

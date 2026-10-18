@@ -1,6 +1,7 @@
 require "uing"
 require "./i18n"
 require "./annotation"
+require "./public_genes"
 require "./region"
 
 module D4Plot
@@ -14,43 +15,94 @@ module D4Plot
     end
 
     def assign(feature : AnnotationFeature) : Int32?
-      @lane_ends.each_with_index do |end1, index|
-        if feature.start1 > end1
-          @lane_ends[index] = feature.end1
+      assign(feature.start1, feature.end1)
+    end
+
+    def assign(start1 : UInt32, end1 : UInt32) : Int32?
+      @lane_ends.each_with_index do |lane_end, index|
+        if start1 > lane_end
+          @lane_ends[index] = end1
           return index
         end
       end
 
       return if @lane_ends.size >= @max_lanes
 
-      @lane_ends << feature.end1
+      @lane_ends << end1
       @lane_ends.size - 1
     end
   end
 
   class AnnotationRenderer
-    GAP        =  14.0
-    LANE       =  24.0
-    MAX_HEIGHT = 120.0
+    GAP           =  14.0
+    LANE          =  24.0
+    MAX_HEIGHT    = 144.0
+    HEADER_HEIGHT =  24.0
 
     def self.height_for(track : AnnotationTrack?)
       # Keep the annotation lane stable when panning through empty or dense areas.
       track.nil? ? 0.0 : MAX_HEIGHT
     end
 
-    def draw(ctx, track : AnnotationTrack?, region : Region?, plot_left, top, plot_width, height)
+    def draw(ctx, track : AnnotationTrack?, region : Region?, plot_left, top, plot_width, height,
+             title : String? = nil)
       return unless track
       return if height <= 0 || plot_width <= 0
 
       draw_axis(ctx, plot_left, top, plot_width)
+      draw_title(ctx, title, plot_left, top + 4.0, plot_width) if title
       if notice = track.notice
-        draw_notice(ctx, notice, plot_left, top + 12.0, plot_width)
+        draw_notice(ctx, notice, plot_left, top + HEADER_HEIGHT + 12.0, plot_width)
       elsif region
         ctx.save
         ctx.clip_path { |path| path.add_rectangle(plot_left, top, plot_width, height) }
-        draw_features(ctx, track.features, region, plot_left, top, plot_width, height)
+        draw_features(ctx, track.features, region, plot_left, top + HEADER_HEIGHT, plot_width, height - HEADER_HEIGHT)
         ctx.restore
       end
+    end
+
+    def draw_genes(ctx, track : GeneTrack?, region : Region?, plot_left, top, plot_width, height, title : String)
+      return unless track
+      draw_axis(ctx, plot_left, top, plot_width)
+      draw_title(ctx, title, plot_left, top + 4.0, plot_width)
+      if notice = track.notice
+        draw_notice(ctx, notice, plot_left, top + HEADER_HEIGHT + 12.0, plot_width)
+      elsif region
+        lanes = AnnotationLaneAllocator.new(((height - HEADER_HEIGHT) / LANE).floor.to_i - 1)
+        hidden = 0
+        ctx.save
+        ctx.clip_path { |path| path.add_rectangle(plot_left, top, plot_width, height) }
+        track.genes.sort_by { |gene| {gene.start1, gene.end1} }.each do |gene|
+          if lane = lanes.assign(gene.start1, gene.end1)
+            draw_gene(ctx, gene, lane, region, plot_left, top + HEADER_HEIGHT, plot_width)
+          else
+            hidden += 1
+          end
+        end
+        ctx.restore
+        if hidden > 0
+          draw_notice(ctx, D4Plot.t("plot.additional_features", number: hidden), plot_left, top + height - 17, plot_width)
+        end
+      end
+    end
+
+    private def draw_gene(ctx, gene : GeneModel, lane : Int32, region : Region, plot_left, top, plot_width)
+      x1 = plot_left + (gene.start1.to_i64 - 1 - region.start0).to_f / region.length * plot_width
+      x2 = plot_left + (gene.end1.to_i64 - region.start0).to_f / region.length * plot_width
+      x1 = x1.clamp(plot_left, plot_left + plot_width)
+      x2 = x2.clamp(plot_left, plot_left + plot_width)
+      y = top + 18.0 + lane * LANE
+      draw_line(ctx, x1, x2, y, gene.strand)
+      draw_label(ctx, gene.name, x1 + 3.0, y - 18.0, x2 - x1 - 6.0) if x2 - x1 > 34.0
+      gene.exons.each do |(first, last)|
+        left = (plot_left + (first.to_i64 - 1 - region.start0).to_f / region.length * plot_width).clamp(plot_left, plot_left + plot_width)
+        right = (plot_left + (last.to_i64 - region.start0).to_f / region.length * plot_width).clamp(plot_left, plot_left + plot_width)
+        draw_box(ctx, left, y - 4.0, Math.max(right - left, 1.0), 8.0, 0.12, 0.36, 0.52) if right > left
+      end
+    end
+
+    private def draw_title(ctx, title, x, y, width)
+      draw_label(ctx, title, x, y, width)
     end
 
     private def draw_axis(ctx, x, y, width)

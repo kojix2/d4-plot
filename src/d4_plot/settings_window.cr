@@ -15,7 +15,7 @@ module D4Plot
     @destroyed = false
 
     def initialize(@settings : PlotSettings, @preferences : Preferences, @parent : UIng::Window, @background_io : BackgroundIO, @on_apply : Proc(Bool, Nil), @on_close : Proc(Nil))
-      @window = UIng::Window.new(D4Plot.t("settings.title"), 460, 500, margined: true)
+      @window = UIng::Window.new(D4Plot.t("settings.title"), 460, 540, margined: true)
       @bins = UIng::Spinbox.new(16, 4096, @settings.point_count)
       @auto = UIng::Checkbox.new(D4Plot.t("settings.auto_scale"))
       @auto.checked = @settings.y_min.nil? && @settings.y_max.nil?
@@ -30,6 +30,9 @@ module D4Plot
       @color = UIng::ColorButton.new
       @color.set_color(*@settings.plot_color)
       @limit = UIng::Spinbox.new(1, 5000, @settings.annotation_feature_limit)
+      @public_source = UIng::Combobox.new
+      {"UCSC", "Ensembl"}.each { |name| @public_source.append(name) }
+      @public_source.selected = @settings.public_annotation_source == "ensembl" ? 1 : 0
       @toolbar_mode = UIng::Combobox.new
       ["settings.toolbar_vertical", "settings.toolbar_horizontal", "settings.toolbar_icons", "settings.toolbar_labels"].each { |key| @toolbar_mode.append(D4Plot.t(key)) }
       @toolbar_mode.selected = TOOLBAR_MODES.index(@settings.toolbar_display_mode)
@@ -47,6 +50,7 @@ module D4Plot
       form.append(D4Plot.t("settings.reference_lines"), @lines)
       form.append(D4Plot.t("settings.signal_color"), @color)
       form.append(D4Plot.t("settings.annotation_limit"), @limit)
+      form.append(D4Plot.t("settings.public_source"), @public_source)
       form.append(D4Plot.t("settings.toolbar"), @toolbar_mode)
       form.append(D4Plot.t("settings.language"), @language)
       root = UIng::Box.new(:vertical)
@@ -115,6 +119,7 @@ module D4Plot
       candidate.h_lines = lines
       candidate.plot_color = @color.color
       candidate.annotation_feature_limit = @limit.value
+      candidate.public_annotation_source = (@public_source.selected || 0) == 1 ? "ensembl" : "ucsc"
       candidate.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
       @preferences.save_async(@background_io, settings: candidate, locale: selected_locale) do |error|
         if error

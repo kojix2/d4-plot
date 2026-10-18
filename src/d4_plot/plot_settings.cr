@@ -8,6 +8,7 @@ module D4Plot
 
     property point_count : Int32
     property annotation_feature_limit : Int32
+    property public_annotation_source : String
     property toolbar_display_mode : UIng::Toolbar::DisplayMode
     property plot_color : PlotColor
     property? use_sum_index : Bool
@@ -20,6 +21,7 @@ module D4Plot
     def initialize
       @point_count = DataSampler::DEFAULT_POINT_COUNT
       @annotation_feature_limit = 500
+      @public_annotation_source = "ucsc"
       @toolbar_display_mode = UIng::Toolbar::DisplayMode::IconAndTextVertical
       @plot_color = {0.16, 0.42, 0.58, 1.0}
       @use_sum_index = true
@@ -32,6 +34,7 @@ module D4Plot
 
     def to_json(json : JSON::Builder)
       {point_count: @point_count, annotation_feature_limit: @annotation_feature_limit,
+       public_annotation_source: @public_annotation_source,
        toolbar_display_mode: @toolbar_display_mode.to_s, plot_color: @plot_color,
        use_sum_index: @use_sum_index, show_axis_ticks: @show_axis_ticks,
        y_axis_from_zero: @y_axis_from_zero, y_min: @y_min, y_max: @y_max,
@@ -57,6 +60,9 @@ module D4Plot
       end
       if limit = data["annotation_feature_limit"]?.try(&.as_i64?)
         settings.annotation_feature_limit = limit.to_i if (1..5000).includes?(limit)
+      end
+      if source = data["public_annotation_source"]?.try(&.as_s?)
+        settings.public_annotation_source = source if {"ucsc", "ensembl"}.includes?(source)
       end
     end
 

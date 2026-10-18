@@ -1,6 +1,6 @@
 # Preferences and languages
 
-**Settings** saves language, toolbar mode, row height, sidebar visibility, shared Y, bin count, colors, Y scale, reference lines, and annotation limit. Display settings do not change D4 files.
+**Settings** saves language, toolbar mode, row height, sidebar visibility, shared Y, bin count, colors, Y scale, reference lines, annotation limit, and public gene source. The source defaults to UCSC and can be changed to Ensembl. Display settings do not change D4 files.
 
 | Setting | Use |
 | --- | --- |

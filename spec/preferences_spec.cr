@@ -64,6 +64,7 @@ describe D4Plot::Preferences do
       settings.plot_color = {0.1, 0.2, 0.3, 0.8}
       settings.point_count = 512
       settings.annotation_feature_limit = 123
+      settings.public_annotation_source = "ensembl"
       settings.use_sum_index = false
       settings.show_axis_ticks = false
       settings.y_min = -5.0
@@ -90,14 +91,16 @@ describe D4Plot::Preferences do
       File.write(path, %({"locale":"ja"}))
       old = D4Plot::Preferences.load(path)
       old.settings.toolbar_display_mode.should eq(UIng::Toolbar::DisplayMode::IconAndTextVertical)
+      old.settings.public_annotation_source.should eq("ucsc")
       old.height_index.should eq(1)
       old.sidebar_visible?.should be_true
 
-      File.write(path, %({"locale":"ja","track_height":99,"shared_y":"yes","display":{"point_count":-1,"annotation_feature_limit":100,"toolbar_display_mode":"invalid","plot_color":[1,2,3,4],"y_min":5,"y_max":1,"h_lines":[2,"bad",1,2]}}))
+      File.write(path, %({"locale":"ja","track_height":99,"shared_y":"yes","display":{"point_count":-1,"annotation_feature_limit":100,"public_annotation_source":"invalid","toolbar_display_mode":"invalid","plot_color":[1,2,3,4],"y_min":5,"y_max":1,"h_lines":[2,"bad",1,2]}}))
       loaded = D4Plot::Preferences.load(path)
       loaded.locale.should eq("ja")
       loaded.settings.point_count.should eq(old.settings.point_count)
       loaded.settings.annotation_feature_limit.should eq(100)
+      loaded.settings.public_annotation_source.should eq("ucsc")
       loaded.settings.plot_color.should eq(old.settings.plot_color)
       loaded.settings.y_min.should be_nil
       loaded.settings.y_max.should be_nil

@@ -36,7 +36,7 @@ describe D4Plot::SvgExport do
       document = XML.parse(contents)
       root = document.root || raise "SVG root is missing"
       root["width"].should eq("800")
-      root["height"].should eq(D4Plot::StackGeometry.new(800.0, 220.0, 2).height(120.0).to_s)
+      root["height"].should eq(D4Plot::StackGeometry.new(800.0, 220.0, 2).height(D4Plot::AnnotationRenderer::MAX_HEIGHT).to_s)
       contents.should contain("sample2.d4 / A &lt; B")
       contents.should contain("sample10.d4 / C &amp; D")
       contents.should contain("G&lt;&amp;&gt;")
@@ -44,6 +44,26 @@ describe D4Plot::SvgExport do
       contents.should contain("plot-112")
       contents.should contain("plot-332")
       contents.should contain("L82.000 180.741")
+    end
+  end
+
+  it "exports public genes and local annotations in separate labelled rows" do
+    File.tempfile("d4-plot-two-annotations", ".svg") do |file|
+      file.close
+      region = D4Plot::Region.new("chr1", 1_u32, 100_u32)
+      local = D4Plot::AnnotationTrack.features([D4Plot::AnnotationFeature.new("chr1", 20_u32, 30_u32, "gene", "LOCAL", "+")])
+      gene = D4Plot::GeneModel.new("chr1", 10_u32, 50_u32, "PUBLIC", "+", [{10_u32, 15_u32}, {40_u32, 50_u32}])
+      public_track = D4Plot::GeneTrack.new([gene])
+      D4Plot::SvgExport.new(file.path, [] of String, region, [] of D4Plot::TrackLayer, local,
+        D4Plot::PlotSettings.new, 100_u32, 800, 220.0, false, nil, public_track, "Public genes · hg38").write
+      contents = File.read(file.path)
+      contents.should contain("Public genes · hg38")
+      contents.should contain("Local annotations")
+      contents.should contain("PUBLIC")
+      contents.should contain("LOCAL")
+      contents.should contain("<path d=\"M")
+      root = XML.parse(contents).root.not_nil!
+      root["height"].should eq(D4Plot::StackGeometry.new(800.0, 220.0, 0).height(2 * D4Plot::AnnotationRenderer::MAX_HEIGHT).to_s)
     end
   end
 

@@ -20,7 +20,8 @@ module D4Plot
 
     def draw(params, layers : Array(TrackLayer), completed_region : Region?, settings : PlotSettings,
              chromosomes : Hash(String, UInt32), annotation_track : AnnotationTrack?, loading : Bool,
-             stack : StackGeometry, shared_y : Bool, selected : Tuple(String, String)?)
+             stack : StackGeometry, shared_y : Bool, selected : Tuple(String, String)?,
+             public_genes : GeneTrack? = nil, public_name : String? = nil)
       ctx = params.context
       ctx.fill_path(brush(1.0, 1.0, 1.0)) do |path|
         path.add_rectangle(params.clip_x, params.clip_y, params.clip_width, params.clip_height)
@@ -43,8 +44,14 @@ module D4Plot
       if layers.empty?
         label(ctx, D4Plot.t("plot.all_hidden"), layout.left, 110.0, layout.width, :center)
       end
-      annotation_height = AnnotationRenderer.height_for(annotation_track)
-      @annotation_renderer.draw(ctx, annotation_track, region, layout.left, stack.annotation_top, layout.width, annotation_height)
+      annotation_top = stack.annotation_top
+      if public_genes
+        @annotation_renderer.draw_genes(ctx, public_genes, region, layout.left, annotation_top, layout.width,
+          AnnotationRenderer::MAX_HEIGHT, public_name || D4Plot.t("annotation.public_title", genome: "", source: "UCSC"))
+        annotation_top += AnnotationRenderer::MAX_HEIGHT
+      end
+      @annotation_renderer.draw(ctx, annotation_track, region, layout.left, annotation_top, layout.width,
+        AnnotationRenderer.height_for(annotation_track), D4Plot.t("annotation.local_title"))
     end
 
     private def shared_range_for(layers, completed_region, settings, shared_y)
