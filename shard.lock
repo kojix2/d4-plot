@@ -12,6 +12,10 @@ shards:
     git: https://github.com/bio-cr/hts.cr.git
     version: 0.4.0+git.commit.f2efb5da9b8b08a65d69464071a42bd159639fee
 
+  http_proxy:
+    git: https://github.com/mamantoha/http_proxy.git
+    version: 0.16.0
+
   i18n:
     git: https://github.com/crystal-i18n/i18n.git
     version: 0.2.2

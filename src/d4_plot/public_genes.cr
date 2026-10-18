@@ -3,6 +3,7 @@ require "json"
 require "uri"
 require "wait_group"
 require "./annotation"
+require "./proxy_environment"
 
 module D4Plot
   struct GeneModel
@@ -88,9 +89,16 @@ module D4Plot
                            else
                              {ensembl_host(genome), ensembl_path(genome, chromosome, region)}
                            end
-      client = HTTP::Client.new(URI.parse(host))
+      uri = URI.parse(host)
+      client = HTTP::Client.new(uri)
       client.connect_timeout = 3.seconds
       client.read_timeout = 10.seconds
+      if proxy = ProxyEnvironment.proxy_for(uri)
+        client.proxy = proxy
+        # http_proxy authenticates CONNECT, but also adds this header to the
+        # tunneled request. Keep proxy credentials away from the origin.
+        client.before_request { |request| request.headers.delete("Proxy-Authorization") }
+      end
       client.exec("GET", request_path) do |response|
         raise "#{source == "ucsc" ? "UCSC" : "Ensembl"} API returned HTTP #{response.status_code}" unless response.success?
         buffer = IO::Memory.new

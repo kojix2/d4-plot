@@ -7,6 +7,8 @@ authors:
   - kojix2 <2xijok@gmail.com>
 
 dependencies:
+  http_proxy:
+    github: mamantoha/http_proxy
   hts:
     github: bio-cr/hts.cr
     branch: develop
