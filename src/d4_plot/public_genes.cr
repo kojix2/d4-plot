@@ -30,22 +30,44 @@ module D4Plot
   end
 
   module PublicGenes
-    GENOMES            = {"hg38", "hg19", "hs1", "mm39"}
+    GENOME_CHOICES = {
+      {"hg38", "hg38/GRCh38", "knownGene"},
+      {"hg19", "hg19/GRCh37", "knownGene"},
+      {"hs1", "hs1/T2T-CHM13", "ncbiRefSeq"},
+      {"mm39", "mm39/GRCm39", "knownGene"},
+      {"mm10", "mm10/GRCm38", "knownGene"},
+      {"rn7", "rn7/mRatBN7.2", "ncbiRefSeq"},
+      {"danRer11", "danRer11/GRCz11", "ncbiRefSeq"},
+      {"dm6", "dm6/BDGP Release 6", "ncbiRefSeq"},
+      {"ce11", "ce11/WBcel235", "ncbiRefSeq"},
+      {"sacCer3", "sacCer3/R64", "ncbiRefSeq"},
+    }
+    ENSEMBL_GENOMES    = {"hg38", "hg19", "mm39"}
     SOURCES            = {"ucsc", "ensembl"}
     MAX_REGION_SIZE    = 5_000_000_u32
     MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
     def self.track_for(genome : String) : String
-      raise ArgumentError.new("Unknown public genome: #{genome}") unless GENOMES.includes?(genome)
-      genome == "hs1" ? "ncbiRefSeq" : "knownGene"
+      GENOME_CHOICES.each do |id, _, track|
+        return track if id == genome
+      end
+      raise ArgumentError.new("Unknown public genome: #{genome}")
     end
 
     # The D4 header does not identify an assembly. Only conventional chromosome
     # spellings are mapped; arbitrary contigs are never silently rewritten.
-    def self.remote_chromosome(name : String) : String?
+    def self.remote_chromosome(name : String, genome : String = "hg38") : String?
       return name if /\Achr(?:[1-9][0-9]*|X|Y|M)\z/.matches?(name)
       return "chr#{name}" if /\A(?:[1-9][0-9]*|X|Y)\z/.matches?(name)
       return "chrM" if {"M", "MT", "chrMT"}.includes?(name)
+      if genome == "dm6"
+        return name if /\Achr(?:2L|2R|3L|3R|4)\z/.matches?(name)
+        return "chr#{name}" if /\A(?:2L|2R|3L|3R|4)\z/.matches?(name)
+      elsif {"ce11", "sacCer3"}.includes?(genome)
+        roman = genome == "ce11" ? "(?:I|II|III|IV|V)" : "(?:I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI)"
+        return name if /\Achr#{roman}\z/.matches?(name)
+        return "chr#{name}" if /\A#{roman}\z/.matches?(name)
+      end
       nil
     end
 
@@ -73,8 +95,12 @@ module D4Plot
 
     def self.ensembl_host(genome : String) : String
       track_for(genome)
-      raise ArgumentError.new("Ensembl has no supported hs1 interval gene endpoint") if genome == "hs1"
+      raise ArgumentError.new("Ensembl has no supported #{genome} interval gene endpoint") unless ensembl_supported?(genome)
       genome == "hg19" ? "https://grch37.rest.ensembl.org" : "https://rest.ensembl.org"
+    end
+
+    def self.ensembl_supported?(genome : String) : Bool
+      ENSEMBL_GENOMES.includes?(genome)
     end
 
     def self.ensembl_path(genome : String, chromosome : String, region : Region) : String
@@ -303,9 +329,9 @@ module D4Plot
         track = begin
           if request.region.length > PublicGenes::MAX_REGION_SIZE
             GeneTrack.notice(D4Plot.t("annotation.zoom_in"))
-          elsif request.source == "ensembl" && request.genome == "hs1"
+          elsif request.source == "ensembl" && !PublicGenes.ensembl_supported?(request.genome)
             GeneTrack.notice(D4Plot.t("annotation.source_unavailable", genome: request.genome, source: "Ensembl"))
-          elsif chromosome = request.source == "ucsc" ? PublicGenes.remote_chromosome(request.region.chromosome) : PublicGenes.ensembl_chromosome(request.region.chromosome)
+          elsif chromosome = request.source == "ucsc" ? PublicGenes.remote_chromosome(request.region.chromosome, request.genome) : PublicGenes.ensembl_chromosome(request.region.chromosome)
             body = @fetcher.call(request.source, request.genome, chromosome, request.region, request.limit)
             if request.source == "ucsc"
               PublicGenes.parse(body, request.genome, request.region.chromosome, request.limit)

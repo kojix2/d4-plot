@@ -231,7 +231,7 @@ module D4Plot
       location = row
       location.append(UIng::Label.new(D4Plot.t("annotation.public_genome")), false)
       @public_combo.append(D4Plot.t("annotation.none"))
-      ["hg38/GRCh38", "hg19/GRCh37", "hs1/T2T-CHM13", "mm39/GRCm39"].each { |name| @public_combo.append(name) }
+      PublicGenes::GENOME_CHOICES.each { |_, label, _| @public_combo.append(label) }
       @public_combo.selected = 0
       @public_combo.tooltip = D4Plot.t("annotation.verify_assembly")
       location.append(@public_combo, false)
@@ -379,7 +379,7 @@ module D4Plot
       @tools.annotations.on_clicked { open_annotation_dialog }
       @public_combo.on_selected do |index|
         next if @updating
-        @public_genome = index == 0 ? nil : PublicGenes::GENOMES[index - 1]?
+        @public_genome = index == 0 ? nil : PublicGenes::GENOME_CHOICES[index - 1]?.try(&.[0])
         @gene_loader.cancel
         @public_genes = nil
         @public_loading = false

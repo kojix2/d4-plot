@@ -1,5 +1,6 @@
 require "./spec_helper"
 require "../src/d4_plot/public_genes"
+require "../src/d4_plot/reference"
 
 private def await_genes(loader : D4Plot::PublicGeneLoader, id : Int32) : D4Plot::PublicGeneResult
   deadline = Time.instant + 3.seconds
@@ -13,12 +14,29 @@ private def await_genes(loader : D4Plot::PublicGeneLoader, id : Int32) : D4Plot:
 end
 
 describe D4Plot::PublicGenes do
-  it "maps the four supported assemblies and conventional chromosome names" do
-    {"hg38", "hg19", "mm39"}.each { |genome| D4Plot::PublicGenes.track_for(genome).should eq("knownGene") }
-    D4Plot::PublicGenes.track_for("hs1").should eq("ncbiRefSeq")
+  it "keeps desktop choices aligned with IGV presets" do
+    choices = D4Plot::PublicGenes::GENOME_CHOICES
+    choices.map(&.[0]).to_a.uniq.size.should eq(choices.size)
+    choices.map(&.[1]).to_a.uniq.size.should eq(choices.size)
+    choices.each do |id, label, track|
+      label.should start_with(id)
+      D4Plot::PublicGenes.track_for(id).should eq(track)
+      D4Plot::PresetRegistry.default.fetch(id).id.should eq(id)
+    end
+  end
+
+  it "maps supported assemblies and conventional chromosome names" do
+    {"hg38", "hg19", "mm39", "mm10"}.each { |genome| D4Plot::PublicGenes.track_for(genome).should eq("knownGene") }
+    {"hs1", "rn7", "danRer11", "dm6", "ce11", "sacCer3"}.each { |genome| D4Plot::PublicGenes.track_for(genome).should eq("ncbiRefSeq") }
     D4Plot::PublicGenes.remote_chromosome("1").should eq("chr1")
     D4Plot::PublicGenes.remote_chromosome("MT").should eq("chrM")
     D4Plot::PublicGenes.remote_chromosome("chrX").should eq("chrX")
+    D4Plot::PublicGenes.remote_chromosome("2L", "dm6").should eq("chr2L")
+    D4Plot::PublicGenes.remote_chromosome("chr3R", "dm6").should eq("chr3R")
+    D4Plot::PublicGenes.remote_chromosome("III", "ce11").should eq("chrIII")
+    D4Plot::PublicGenes.remote_chromosome("chrXVI", "sacCer3").should eq("chrXVI")
+    D4Plot::PublicGenes.remote_chromosome("2L", "hg38").should be_nil
+    D4Plot::PublicGenes.remote_chromosome("XVI", "ce11").should be_nil
     D4Plot::PublicGenes.remote_chromosome("contig1").should be_nil
     region = D4Plot::Region.new("1", 11_u32, 20_u32)
     path = D4Plot::PublicGenes.path("hg38", "chr1", region, 5)
@@ -27,6 +45,7 @@ describe D4Plot::PublicGenes do
     path.should contain("maxItemsOutput=6")
     D4Plot::PublicGenes.ensembl_host("hg19").should eq("https://grch37.rest.ensembl.org")
     {"hg38", "mm39"}.each { |genome| D4Plot::PublicGenes.ensembl_host(genome).should eq("https://rest.ensembl.org") }
+    {"hs1", "mm10", "rn7", "danRer11", "dm6", "ce11", "sacCer3"}.each { |genome| D4Plot::PublicGenes.ensembl_supported?(genome).should be_false }
     D4Plot::PublicGenes.ensembl_chromosome("chr1").should eq("1")
     D4Plot::PublicGenes.ensembl_chromosome("chrM").should eq("MT")
     D4Plot::PublicGenes.ensembl_path("mm39", "1", region).should contain("/mus_musculus/1:11-20")
@@ -41,12 +60,26 @@ describe D4Plot::PublicGenes do
     gene.exons.should eq([{11_u32, 20_u32}, {31_u32, 40_u32}])
   end
 
+  it "uses a transcript identifier when mm10 knownGene has no gene name" do
+    body = %({"knownGene":[{"name":"ENSMUST00000124874.7","chrom":"chr1","strand":"-","txStart":10,"txEnd":40,"exonStarts":"10,30,","exonEnds":"20,40,"}]})
+    gene = D4Plot::PublicGenes.parse(body, "mm10", "chr1", 10).genes.first
+    {gene.name, gene.start1, gene.end1, gene.strand}.should eq({"ENSMUST00000124874.7", 11_u32, 40_u32, "-"})
+    gene.exons.should eq([{11_u32, 20_u32}, {31_u32, 40_u32}])
+  end
+
   it "reads bigGenePred block coordinates and reports a capped response" do
     body = %({"ncbiRefSeq":[{"chromStart":100,"chromEnd":150,"blockSizes":"10,20,","chromStarts":"0,30,","name":"NM_1","geneName":"NM_1","geneName2":"ABC"}]})
     gene = D4Plot::PublicGenes.parse(body, "hs1", "chr2", 10).genes.first
     gene.name.should eq("ABC")
     gene.exons.should eq([{101_u32, 110_u32}, {131_u32, 150_u32}])
     D4Plot::PublicGenes.parse(body, "hs1", "chr2", 0).notice.should eq(D4Plot.t("annotation.too_many", limit: 0))
+  end
+
+  it "uses RefSeq gene symbols for the added species" do
+    body = %({"ncbiRefSeq":[{"name":"NM_134645.3","name2":"Zir","txStart":94738,"txEnd":102086,"exonStarts":"94738,100000,","exonEnds":"95000,102086,","strand":"+"}]})
+    gene = D4Plot::PublicGenes.parse(body, "dm6", "2L", 10).genes.first
+    {gene.chromosome, gene.name, gene.start1, gene.end1}.should eq({"2L", "Zir", 94739_u32, 102086_u32})
+    gene.exons.should eq([{94739_u32, 95000_u32}, {100001_u32, 102086_u32}])
   end
 
   it "groups Ensembl transcripts and exons by parent and keeps inclusive coordinates" do
@@ -116,7 +149,7 @@ describe D4Plot::PublicGeneLoader do
     end
   end
 
-  it "discards a stale source response and reports unsupported Ensembl hs1" do
+  it "discards a stale source response and reports unsupported Ensembl assemblies" do
     started = Atomic(Bool).new(false)
     fetcher = ->(source : String, _genome : String, _chromosome : String, _region : D4Plot::Region, _limit : Int32) {
       if source == "ucsc"
@@ -141,6 +174,8 @@ describe D4Plot::PublicGeneLoader do
       result.request.source.should eq("ensembl")
       result.track.genes.first.start1.should eq(2_u32)
       id = loader.submit("ensembl", "hs1", region, 10)
+      await_genes(loader, id).track.notice.as(String).should contain("UCSC")
+      id = loader.submit("ensembl", "mm10", region, 10)
       await_genes(loader, id).track.notice.as(String).should contain("UCSC")
       id = loader.submit("ucsc", "hg38", D4Plot::Region.new("contig1", 1_u32, 10_u32), 10)
       await_genes(loader, id).track.notice.should eq(D4Plot.t("annotation.public_chromosome_unsupported", chromosome: "contig1".inspect))

@@ -263,6 +263,7 @@ describe D4Plot::ReferenceSpec do
       "hg19" => "gencodeV50lift37.bb",
       "hs1"  => "ncbiRefSeq.bb",
       "mm39" => "gencodeVM39.bb",
+      "mm10" => "knownGeneM23.bb",
     }
     expected.each do |id, filename|
       config = D4Plot::ReferenceSpec.preset(id).resolve.igv_browser_config
@@ -271,6 +272,16 @@ describe D4Plot::ReferenceSpec do
       track["format"].as_s.should eq("bigbed")
       track["url"].as_s.should end_with(filename)
       track["name"].as_s.should eq("GENCODE v50lift37 genes") if id == "hg19"
+    end
+    {"rn7", "danRer11", "dm6", "ce11", "sacCer3"}.each do |id|
+      config = D4Plot::ReferenceSpec.preset(id).resolve.igv_browser_config
+      genome = config["genomeList"].as_a.first
+      genome["twoBitURL"].as_s.should end_with("/#{id}.2bit")
+      genome["chromSizesURL"].as_s.should end_with("/#{id}.chrom.sizes")
+      track = genome["tracks"].as_a.first
+      track["type"].as_s.should eq("annotation")
+      track["format"].as_s.should eq("refgene")
+      track["url"].as_s.should end_with("/#{id}/database/ncbiRefSeqCurated.txt.gz")
     end
     contigs = D4Plot::ReferenceSpec.contigs_only({"chr1" => 10_u32}).resolve
     config = contigs.igv_browser_config({"chrom-sizes" => "/reference/chrom-sizes"})

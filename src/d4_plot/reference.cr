@@ -576,10 +576,11 @@ module D4Plot
       @connect_origins : Array(String)
       @gene_track_url : String?
       @gene_track_name : String
+      @gene_track_format : String
 
       def initialize(@two_bit_url : String, @chrom_sizes_url : String, connect_origins : Array(String),
                      @whole_genome_view : Bool = true, @gene_track_url : String? = nil,
-                     @gene_track_name : String = "Genes")
+                     @gene_track_name : String = "Genes", @gene_track_format : String = "bigbed")
         validate_https_url!(@two_bit_url, "twoBitURL")
         validate_https_url!(@chrom_sizes_url, "chromSizesURL")
         @connect_origins = connect_origins.uniq
@@ -591,6 +592,7 @@ module D4Plot
           validate_https_url!(url, "gene track URL")
           validate_resource_origin!(url, "gene track URL")
           raise ReferenceValidationError.new("Preset gene track name is empty") if @gene_track_name.strip.empty?
+          raise ReferenceValidationError.new("Unsupported preset gene track format") unless {"bigbed", "refgene"}.includes?(@gene_track_format)
         end
       end
 
@@ -611,7 +613,7 @@ module D4Plot
                 json.object do
                   json.field "name", @gene_track_name
                   json.field "type", "annotation"
-                  json.field "format", "bigbed"
+                  json.field "format", @gene_track_format
                   json.field "url", url
                   json.field "displayMode", "COLLAPSED"
                 end
@@ -702,7 +704,26 @@ module D4Plot
           "https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/mm39.chrom.sizes", ucsc,
           gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/mm39/gencode/gencodeVM39.bb",
           gene_track_name: "GENCODE VM39 genes")),
+        Definition.new("mm10", BrowserDefinition.new(
+          "https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.2bit",
+          "https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.chrom.sizes", ucsc,
+          gene_track_url: "https://hgdownload.soe.ucsc.edu/gbdb/mm10/knownGeneM23.bb",
+          gene_track_name: "GENCODE VM23 genes")),
+        refseq_preset("rn7", ucsc),
+        refseq_preset("danRer11", ucsc),
+        refseq_preset("dm6", ucsc),
+        refseq_preset("ce11", ucsc),
+        refseq_preset("sacCer3", ucsc),
       ])
+    end
+
+    private def self.refseq_preset(id : String, connect_origins : Array(String)) : Definition
+      base = "https://hgdownload.soe.ucsc.edu/goldenPath/#{id}"
+      Definition.new(id, BrowserDefinition.new(
+        "#{base}/bigZips/#{id}.2bit",
+        "#{base}/bigZips/#{id}.chrom.sizes", connect_origins,
+        gene_track_url: "#{base}/database/ncbiRefSeqCurated.txt.gz",
+        gene_track_name: "NCBI RefSeq curated genes", gene_track_format: "refgene"))
     end
   end
 

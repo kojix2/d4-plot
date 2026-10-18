@@ -23,10 +23,10 @@ Use **Add track** to open a local file or URL. Supply an index for formats that 
 | Reference | Behavior |
 | --- | --- |
 | **Contigs only** | Default with D4. Names and lengths only; no bases or verified assembly. |
-| `hg38`, `hg19`, `hs1`, `mm39` | Public presets. The browser fetches reference data from IGV/UCSC hosts, which may learn the reference and approximate viewed intervals. |
+| `hg38`, `hg19`, `hs1`, `mm39`, `mm10`, `rn7`, `danRer11`, `dm6`, `ce11`, `sacCer3` | Public presets. The browser fetches reference data from UCSC, which may learn the reference and approximate viewed intervals. |
 | Local FASTA/FAI or IGV genome JSON | Select through the [server CLI](command-line.md) for local reference access. |
 
-Without D4, the browser starts with `hg38`. Public presets add an assembly-matched gene track: GENCODE for `hg38`, `hg19`, and `mm39`; NCBI RefSeq for `hs1`. Contigs only and local references add none. Added tracks must match the reference's contig names and assembly. CRAM needs sequence bases.
+Without D4, the browser starts with `hg38`. Public presets add an assembly-matched gene track: GENCODE for `hg38`, `hg19`, `mm39`, and `mm10`; NCBI RefSeq for `hs1` and the five additional species. Contigs only and local references add none. Added tracks must match the reference's contig names and assembly. CRAM needs sequence bases.
 
 D4 requests contain at most 1024 bins. With a usable sum index, bin means are exact. Wide ranges without one may use sampled means and miss narrow peaks; zoom in or add a sum index.
 
