@@ -2,6 +2,7 @@
 
 [![build](https://github.com/kojix2/d4-plot/actions/workflows/build.yml/badge.svg)](https://github.com/kojix2/d4-plot/actions/workflows/build.yml)
 [![Lines of Code](https://img.shields.io/endpoint?url=https%3A%2F%2Ftokei.kojix2.net%2Fbadge%2Fgithub%2Fkojix2%2Fd4-plot%2Flines)](https://tokei.kojix2.net/github/kojix2/d4-plot)
+[![DOI](https://zenodo.org/badge/1413919809.svg)](https://doi.org/10.5281/zenodo.23444683)
 
 A native desktop viewer for D4 genomic signal files. D4 Plot compares multiple
 tracks, displays genomic annotations, exports visible bins, and creates coverage
