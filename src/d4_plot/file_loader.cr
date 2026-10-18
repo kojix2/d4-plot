@@ -22,7 +22,7 @@ module D4Plot
       @id : Int32,
       @current : Int32,
       @total : Int32,
-      @path : String
+      @path : String,
     )
     end
 

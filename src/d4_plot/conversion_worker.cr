@@ -33,7 +33,7 @@ module D4Plot
       @output : String? = nil,
       @error : String? = nil,
       @field : String? = nil,
-      @elapsed : Time::Span = Time::Span.zero
+      @elapsed : Time::Span = Time::Span.zero,
     )
     end
 

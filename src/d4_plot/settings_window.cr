@@ -111,16 +111,7 @@ module D4Plot
       selected_locale = (@language.selected || 0) == 0 ? nil : Translations::SUPPORTED_LOCALES[(@language.selected || 1) - 1]
       previous_locale = @preferences.locale
       language_changed = previous_locale != selected_locale
-      candidate = @settings.dup
-      candidate.point_count = @bins.value
-      candidate.y_min = minimum
-      candidate.y_max = maximum
-      candidate.y_axis_from_zero = @zero.checked?
-      candidate.h_lines = lines
-      candidate.plot_color = @color.color
-      candidate.annotation_feature_limit = @limit.value
-      candidate.public_annotation_source = (@public_source.selected || 0) == 1 ? "ensembl" : "ucsc"
-      candidate.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
+      candidate = settings_candidate(minimum, maximum, lines)
       @preferences.save_async(@background_io, settings: candidate, locale: selected_locale) do |error|
         if error
           @parent.msg_box_error(D4Plot.t("app.preferences_error"), error.message || error.class.name)
@@ -132,6 +123,20 @@ module D4Plot
       @on_apply.call(reload_data)
     rescue ex : ArgumentError | File::Error
       @window.msg_box_error(D4Plot.t("settings.check"), ex.message || D4Plot.t("settings.invalid"))
+    end
+
+    private def settings_candidate(minimum : Float64?, maximum : Float64?, lines : Array(Float64)) : PlotSettings
+      candidate = @settings.dup
+      candidate.point_count = @bins.value
+      candidate.y_min = minimum
+      candidate.y_max = maximum
+      candidate.y_axis_from_zero = @zero.checked?
+      candidate.h_lines = lines
+      candidate.plot_color = @color.color
+      candidate.annotation_feature_limit = @limit.value
+      candidate.public_annotation_source = (@public_source.selected || 0) == 1 ? "ensembl" : "ucsc"
+      candidate.toolbar_display_mode = TOOLBAR_MODES.fetch(@toolbar_mode.selected || 0, TOOLBAR_MODES[0])
+      candidate
     end
 
     private def scale_limits : Tuple(Float64?, Float64?)

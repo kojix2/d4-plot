@@ -20,7 +20,7 @@ module D4Plot
       @end1 : UInt32,
       @name : String,
       @strand : String?,
-      @exons : Array(Tuple(UInt32, UInt32))
+      @exons : Array(Tuple(UInt32, UInt32)),
     )
     end
 
@@ -159,6 +159,15 @@ module D4Plot
       transcripts = [] of Hash(String, JSON::Any)
       gene_names = {} of String => String
       exons = Hash(String, Array(Tuple(UInt32, UInt32))).new { |hash, key| hash[key] = [] of Tuple(UInt32, UInt32) }
+      return GeneTrack.notice(D4Plot.t("annotation.too_many", limit: limit)) unless collect_ensembl_features(entries, limit, transcripts, gene_names, exons)
+      genes = transcripts.compact_map { |fields| ensembl_gene(fields, local_chromosome, gene_names, exons) }
+      return GeneTrack.notice(D4Plot.t("annotation.no_overlap")) if genes.empty?
+      GeneTrack.new(genes)
+    end
+
+    private def self.collect_ensembl_features(entries : Array(JSON::Any), limit : Int32,
+                                              transcripts : Array(Hash(String, JSON::Any)), gene_names : Hash(String, String),
+                                              exons : Hash(String, Array(Tuple(UInt32, UInt32)))) : Bool
       entries.each do |entry|
         fields = entry.as_h? || next
         case string(fields["feature_type"]?)
@@ -168,32 +177,42 @@ module D4Plot
           end
         when "transcript"
           transcripts << fields
-          return GeneTrack.notice(D4Plot.t("annotation.too_many", limit: limit)) if transcripts.size > limit
+          return false if transcripts.size > limit
         when "exon"
-          parent = string(fields["Parent"]?)
-          first = integer(fields["start"]?)
-          last = integer(fields["end"]?)
-          if parent && first && last && first > 0 && last >= first && last <= UInt32::MAX
-            exons[parent] << {first.to_u32, last.to_u32}
-          end
+          append_ensembl_exon(fields, exons)
         end
       end
-      genes = [] of GeneModel
-      transcripts.each do |fields|
-        first = integer(fields["start"]?)
-        last = integer(fields["end"]?)
-        next unless first && last && first > 0 && last >= first && last <= UInt32::MAX
-        id = string(fields["id"]?)
-        parent = string(fields["Parent"]?)
-        name = (parent && gene_names[parent]?) || gene_name(fields["external_name"]?) || id || D4Plot.t("annotation.unknown_gene")
-        strand = integer(fields["strand"]?)
-        direction = strand == 1 ? "+" : strand == -1 ? "-" : nil
-        transcript_exons = id ? exons[id]? || [] of Tuple(UInt32, UInt32) : [] of Tuple(UInt32, UInt32)
-        transcript_exons = transcript_exons.select { |(start1, end1)| start1 >= first && end1 <= last }.sort_by(&.[0])
-        genes << GeneModel.new(local_chromosome, first.to_u32, last.to_u32, name, direction, transcript_exons)
-      end
-      return GeneTrack.notice(D4Plot.t("annotation.no_overlap")) if genes.empty?
-      GeneTrack.new(genes)
+      true
+    end
+
+    private def self.append_ensembl_exon(fields : Hash(String, JSON::Any),
+                                         exons : Hash(String, Array(Tuple(UInt32, UInt32)))) : Nil
+      parent = string(fields["Parent"]?)
+      return unless parent
+      return unless interval = ensembl_interval(fields)
+      first, last = interval
+      exons[parent] << {first.to_u32, last.to_u32}
+    end
+
+    private def self.ensembl_gene(fields : Hash(String, JSON::Any), local_chromosome : String,
+                                  gene_names : Hash(String, String), exons : Hash(String, Array(Tuple(UInt32, UInt32)))) : GeneModel?
+      return unless interval = ensembl_interval(fields)
+      first, last = interval
+      id = string(fields["id"]?)
+      parent = string(fields["Parent"]?)
+      name = (parent && gene_names[parent]?) || gene_name(fields["external_name"]?) || id || D4Plot.t("annotation.unknown_gene")
+      strand = integer(fields["strand"]?)
+      direction = strand == 1 ? "+" : strand == -1 ? "-" : nil
+      transcript_exons = id ? exons[id]? || [] of Tuple(UInt32, UInt32) : [] of Tuple(UInt32, UInt32)
+      transcript_exons = transcript_exons.select { |(start1, end1)| start1 >= first && end1 <= last }.sort_by!(&.[0])
+      GeneModel.new(local_chromosome, first.to_u32, last.to_u32, name, direction, transcript_exons)
+    end
+
+    private def self.ensembl_interval(fields : Hash(String, JSON::Any)) : Tuple(Int64, Int64)?
+      first = integer(fields["start"]?)
+      last = integer(fields["end"]?)
+      return unless first && last && first > 0 && last >= first && last <= UInt32::MAX
+      {first, last}
     end
 
     def self.parse(body : String, genome : String, local_chromosome : String, limit : Int32) : GeneTrack
@@ -203,23 +222,34 @@ module D4Plot
       return GeneTrack.notice(D4Plot.t("annotation.too_many", limit: limit)) if entries.size > limit
       genes = [] of GeneModel
       entries.each do |entry|
-        fields = entry.as_h
-        start0 = integer(fields["txStart"]? || fields["chromStart"]?)
-        end0 = integer(fields["txEnd"]? || fields["chromEnd"]?)
-        next unless start0 && end0 && start0 >= 0 && end0 > start0 && end0 <= UInt32::MAX
-        name = if genome == "hs1"
-                 gene_name(fields["geneName2"]?) || gene_name(fields["geneName"]?)
-               else
-                 gene_name(fields["geneName"]?) || gene_name(fields["geneName2"]?)
-               end
-        name ||= gene_name(fields["name2"]?) || gene_name(fields["name"]?) || D4Plot.t("annotation.unknown_gene")
-        strand = string(fields["strand"]?)
-        strand = nil unless strand == "+" || strand == "-"
-        exons = parse_exons(fields, start0, end0)
-        genes << GeneModel.new(local_chromosome, (start0 + 1).to_u32, end0.to_u32, name, strand, exons)
+        if gene = ucsc_gene(entry.as_h, genome, local_chromosome)
+          genes << gene
+        end
       end
       return GeneTrack.notice(D4Plot.t("annotation.no_overlap")) if genes.empty?
       GeneTrack.new(genes)
+    end
+
+    private def self.ucsc_gene(fields : Hash(String, JSON::Any), genome : String, local_chromosome : String) : GeneModel?
+      return unless interval = ucsc_interval(fields)
+      start0, end0 = interval
+      name = if genome == "hs1"
+               gene_name(fields["geneName2"]?) || gene_name(fields["geneName"]?)
+             else
+               gene_name(fields["geneName"]?) || gene_name(fields["geneName2"]?)
+             end
+      name ||= gene_name(fields["name2"]?) || gene_name(fields["name"]?) || D4Plot.t("annotation.unknown_gene")
+      strand = string(fields["strand"]?)
+      strand = nil unless strand == "+" || strand == "-"
+      exons = parse_exons(fields, start0, end0)
+      GeneModel.new(local_chromosome, (start0 + 1).to_u32, end0.to_u32, name, strand, exons)
+    end
+
+    private def self.ucsc_interval(fields : Hash(String, JSON::Any)) : Tuple(Int64, Int64)?
+      start0 = integer(fields["txStart"]? || fields["chromStart"]?)
+      end0 = integer(fields["txEnd"]? || fields["chromEnd"]?)
+      return unless start0 && end0 && start0 >= 0 && end0 > start0 && end0 <= UInt32::MAX
+      {start0, end0}
     end
 
     private def self.parse_exons(fields : Hash(String, JSON::Any), start0 : Int64, end0 : Int64) : Array(Tuple(UInt32, UInt32))
@@ -276,7 +306,7 @@ module D4Plot
       @source : String,
       @genome : String,
       @region : Region,
-      @limit : Int32
+      @limit : Int32,
     )
     end
 
@@ -362,28 +392,30 @@ module D4Plot
     private def work : Nil
       while request = next_request
         next unless request.id == @generation.get
-        track = begin
-          if request.region.length > PublicGenes::MAX_REGION_SIZE
-            GeneTrack.notice(D4Plot.t("annotation.zoom_in"))
-          elsif request.source == "ensembl" && !PublicGenes.ensembl_supported?(request.genome)
-            GeneTrack.notice(D4Plot.t("annotation.source_unavailable", genome: request.genome, source: "Ensembl"))
-          elsif chromosome = request.source == "ucsc" ? PublicGenes.remote_chromosome(request.region.chromosome, request.genome) : PublicGenes.ensembl_chromosome(request.region.chromosome)
-            body = @fetcher.call(request.source, request.genome, chromosome, request.region, request.limit)
-            if request.source == "ucsc"
-              PublicGenes.parse(body, request.genome, request.region.chromosome, request.limit)
-            else
-              PublicGenes.parse_ensembl(body, request.region.chromosome, request.limit)
-            end
-          else
-            GeneTrack.notice(D4Plot.t("annotation.public_chromosome_unsupported", chromosome: request.region.chromosome.inspect))
-          end
-        rescue ex
-          GeneTrack.notice(D4Plot.t("annotation.public_unavailable", error: ex.message || ex.class.name))
-        end
+        track = fetch_track(request)
         @mutex.synchronize do
           @result = PublicGeneResult.new(request, track) unless @closed || request.id != @generation.get
         end
       end
+    end
+
+    private def fetch_track(request : PublicGeneRequest) : GeneTrack
+      if request.region.length > PublicGenes::MAX_REGION_SIZE
+        GeneTrack.notice(D4Plot.t("annotation.zoom_in"))
+      elsif request.source == "ensembl" && !PublicGenes.ensembl_supported?(request.genome)
+        GeneTrack.notice(D4Plot.t("annotation.source_unavailable", genome: request.genome, source: "Ensembl"))
+      elsif chromosome = request.source == "ucsc" ? PublicGenes.remote_chromosome(request.region.chromosome, request.genome) : PublicGenes.ensembl_chromosome(request.region.chromosome)
+        body = @fetcher.call(request.source, request.genome, chromosome, request.region, request.limit)
+        if request.source == "ucsc"
+          PublicGenes.parse(body, request.genome, request.region.chromosome, request.limit)
+        else
+          PublicGenes.parse_ensembl(body, request.region.chromosome, request.limit)
+        end
+      else
+        GeneTrack.notice(D4Plot.t("annotation.public_chromosome_unsupported", chromosome: request.region.chromosome.inspect))
+      end
+    rescue ex
+      GeneTrack.notice(D4Plot.t("annotation.public_unavailable", error: ex.message || ex.class.name))
     end
 
     private def next_request : PublicGeneRequest?

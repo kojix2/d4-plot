@@ -18,7 +18,7 @@ module D4Plot
         @id : Int64,
         @operation : String,
         @work : Proc(Nil),
-        @done : Proc(Exception?, Nil)
+        @done : Proc(Exception?, Nil),
       )
       end
 

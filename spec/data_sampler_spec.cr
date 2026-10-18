@@ -138,12 +138,12 @@ describe D4Plot::DataSampler do
         bins = [D4Plot::BinRange.new(0_i64, 10_i64)]
         exact = D4Plot::DataSampler.display_bins(file.default_track, "chr", bins,
           max_streaming_bases: 10_i64, max_sample_bases: 4_i64)
-        exact.exact.should be_true
+        exact.exact?.should be_true
         exact.bins.first.value.should eq(0.9)
 
         sampled = D4Plot::DataSampler.display_bins(file.default_track, "chr", bins,
           max_streaming_bases: 5_i64, max_sample_bases: 4_i64)
-        sampled.exact.should be_false
+        sampled.exact?.should be_false
         sampled.bins.first.value.should eq(1.0)
         sampled.bins.first.start0.should eq(0_i64)
         sampled.bins.first.end0.should eq(10_i64)

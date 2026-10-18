@@ -67,11 +67,11 @@ describe D4Plot::SignalQuery do
     query = D4Plot::SignalQuery.new
     begin
       first = query.query(source, "chr", layout, "reference-r1", "browser-a", 1_i64)
-      first.cache_hit.should be_false
+      first.cache_hit?.should be_false
       first.bins.map(&.value).should eq([0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 0.0])
 
       cached = query.query(source, "chr", layout, "reference-r1", "browser-a", 1_i64)
-      cached.cache_hit.should be_true
+      cached.cache_hit?.should be_true
       cached.bins.should eq(first.bins)
     ensure
       query.close
@@ -115,11 +115,11 @@ describe D4Plot::SignalQuery do
     begin
       query.activate_revision("reference-r1")
       first = query.query(source, "chr", layout, "reference-r1", "browser-a", 1_i64)
-      first.cache_hit.should be_false
+      first.cache_hit?.should be_false
 
       query.activate_revision("reference-r2")
       second = query.query(source, "chr", layout, "reference-r2", "browser-a", 2_i64)
-      second.cache_hit.should be_true
+      second.cache_hit?.should be_true
       second.bins.should eq(first.bins)
     ensure
       query.close
@@ -145,7 +145,7 @@ describe D4Plot::SignalQuery do
       query = D4Plot::SignalQuery.new(max_open_files: 1)
       begin
         query.activate_revision("reference-r1")
-        query.query(first, "chr", layout, "reference-r1", "browser-a", 1_i64).cache_hit.should be_false
+        query.query(first, "chr", layout, "reference-r1", "browser-a", 1_i64).cache_hit?.should be_false
         # A distinct source evicts first_path's D4 descriptor but should not
         # evict its result cache yet.
         query.query(second, "chr", layout, "reference-r1", "browser-a", 1_i64)
@@ -156,7 +156,7 @@ describe D4Plot::SignalQuery do
 
         # Path, size, and mtime are intentionally unchanged. Only the file
         # identity proves this is a new source, so the old cache must miss.
-        query.query(first, "chr", layout, "reference-r1", "browser-a", 2_i64).cache_hit.should be_false
+        query.query(first, "chr", layout, "reference-r1", "browser-a", 2_i64).cache_hit?.should be_false
       ensure
         query.close
         query.wait
@@ -187,7 +187,7 @@ describe D4Plot::SignalQuery do
       query = D4Plot::SignalQuery.new
       begin
         first = query.query(source, "chr", layout, "reference-r1", "browser-a", 1_i64)
-        first.cache_hit.should be_false
+        first.cache_hit?.should be_false
         first.bins.map(&.value).should eq([1.0, 1.0, 1.0, 1.0])
         initial_info = File.info(path)
 
@@ -202,7 +202,7 @@ describe D4Plot::SignalQuery do
         initial_info.modification_time.to_unix_ns.should_not eq(updated_info.modification_time.to_unix_ns)
 
         second = query.query(source, "chr", layout, "reference-r1", "browser-a", 2_i64)
-        second.cache_hit.should be_false
+        second.cache_hit?.should be_false
         second.bins.map(&.value).should eq([9.0, 9.0, 9.0, 9.0])
       ensure
         query.close
@@ -248,7 +248,7 @@ describe D4Plot::SignalQuery do
           query.query(first, "chr", layout, "reference-r1", "first", (version + 1).to_i64)
           query.query(second, "chr", layout, "reference-r1", "second", (version + 1).to_i64)
         end
-        query.query(third, "chr", layout, "reference-r1", "third", 2_i64).cache_hit.should be_true
+        query.query(third, "chr", layout, "reference-r1", "third", 2_i64).cache_hit?.should be_true
       ensure
         query.close
         query.wait

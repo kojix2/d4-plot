@@ -40,7 +40,7 @@ module D4Plot
       @include_flags : UInt16 = 0_u16,
       @read_groups : Array(String) = [] of String,
       @min_fragment : Int32 = -1,
-      @max_fragment : Int32 = -1
+      @max_fragment : Int32 = -1,
     )
     end
 
@@ -162,7 +162,7 @@ module D4Plot
       @chromosome : String = "",
       @current : Int32 = 0,
       @total : Int32 = 0,
-      @records : Int64 = 0_i64
+      @records : Int64 = 0_i64,
     )
     end
 

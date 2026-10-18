@@ -24,7 +24,7 @@ module D4Plot
 
   class DisplayBins
     getter bins : Array(SampledBin)
-    getter exact : Bool
+    getter? exact : Bool
 
     def initialize(@bins : Array(SampledBin), @exact : Bool); end
 

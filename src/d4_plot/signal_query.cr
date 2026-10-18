@@ -90,14 +90,14 @@ module D4Plot
   class SignalResult
     getter bins : Array(SampledBin)
     getter bin_width : Int64
-    getter cache_hit : Bool
-    getter exact : Bool
+    getter? cache_hit : Bool
+    getter? exact : Bool
 
     def initialize(@bins : Array(SampledBin), @bin_width : Int64, @cache_hit : Bool, @exact : Bool); end
 
     def_equals_and_hash bins, bin_width, cache_hit, exact
 
-    def duplicate(cache_hit : Bool = self.cache_hit) : SignalResult
+    def duplicate(cache_hit : Bool = cache_hit?) : SignalResult
       SignalResult.new(bins.dup, bin_width, cache_hit, exact)
     end
   end
@@ -313,10 +313,10 @@ module D4Plot
         DataSampler.display_bins(track, request.d4_chromosome, layout.bins, cancelled)
       end
       raise SignalQueryCancelled.new("D4 query was superseded") if stale?(request)
-      cache_result(key, request.source.path, stamp, sampled.bins, layout.width, sampled.exact)
+      cache_result(key, request.source.path, stamp, sampled.bins, layout.width, sampled.exact?)
       Log.debug &.emit("query.completed", request_id: request.request_id, cache_hit: false,
-        exact: sampled.exact, bins: sampled.bins.size, elapsed_ms: Logging.elapsed_ms(started))
-      SignalResult.new(sampled.bins.dup, layout.width, false, sampled.exact)
+        exact: sampled.exact?, bins: sampled.bins.size, elapsed_ms: Logging.elapsed_ms(started))
+      SignalResult.new(sampled.bins.dup, layout.width, false, sampled.exact?)
     rescue ex : SamplingCancelled
       raise SignalQueryCancelled.new(ex.message || "D4 query was superseded")
     end

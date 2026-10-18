@@ -12,7 +12,7 @@ module D4Plot
       @path : String,
       @name : String,
       @chromosomes : Hash(String, UInt32),
-      @denominator : Float64
+      @denominator : Float64,
     )
     end
 

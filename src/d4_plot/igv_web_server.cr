@@ -501,7 +501,7 @@ module D4Plot
           json.field "revision", snapshot.revision
           json.field "chr", chromosome
           json.field "coordinateSystem", "0-based-half-open"
-          json.field "aggregation", result.exact ? "mean" : "sampled_mean"
+          json.field "aggregation", result.exact? ? "mean" : "sampled_mean"
           json.field "binWidth", result.bin_width
           json.field "dataAvailable", true
           json.field "features" do

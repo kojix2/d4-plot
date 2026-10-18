@@ -134,7 +134,7 @@ module D4Plot
       @contig : Contig,
       @offset : Int64,
       @bases_per_line : Int64,
-      @bytes_per_line : Int64
+      @bytes_per_line : Int64,
     )
     end
 
@@ -833,7 +833,7 @@ module D4Plot
       @reference_name : String,
       @track_name : String,
       @length : Int64,
-      @kind : ContigMatchKind
+      @kind : ContigMatchKind,
     )
     end
 
@@ -852,7 +852,7 @@ module D4Plot
       @track_name : String,
       @reference_length : Int64,
       @track_length : Int64,
-      @kind : ContigMatchKind
+      @kind : ContigMatchKind,
     )
     end
 

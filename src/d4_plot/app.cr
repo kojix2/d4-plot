@@ -377,18 +377,7 @@ module D4Plot
       @tools.create.on_clicked { open_conversion }
       @conversion_status.on_clicked { open_conversion }
       @tools.annotations.on_clicked { open_annotation_dialog }
-      @public_combo.on_selected do |index|
-        next if @updating
-        @public_genome = index == 0 ? nil : PublicGenes::GENOME_CHOICES[index - 1]?.try(&.[0])
-        @gene_loader.cancel
-        @public_genes = nil
-        @public_loading = false
-        update_public_label
-        if region = @completed_region
-          request_public_genes(region) unless @loading
-        end
-        resize_canvas
-      end
+      @public_combo.on_selected { |index| select_public_genome(index) unless @updating }
       @remove_public.on_clicked do
         @updating = true
         @public_combo.selected = 0
@@ -451,6 +440,18 @@ module D4Plot
       end
       @handler.drag_broken { clear_drag; @area.queue_redraw_all }
       @handler.key_event { |_, event| key_event(event) }
+    end
+
+    private def select_public_genome(index : Int32) : Nil
+      @public_genome = index == 0 ? nil : PublicGenes::GENOME_CHOICES[index - 1]?.try(&.[0])
+      @gene_loader.cancel
+      @public_genes = nil
+      @public_loading = false
+      update_public_label
+      if region = @completed_region
+        request_public_genes(region) unless @loading
+      end
+      resize_canvas
     end
 
     private def selected_layer : TrackLayer?
@@ -797,7 +798,8 @@ module D4Plot
     private def receive_public_genes : Nil
       return unless result = @gene_loader.poll
       return unless result.request.id == @public_request_id && result.request.genome == @public_genome && result.request.source == @settings.public_annotation_source
-      return unless result.request.region == @completed_region && !@loading
+      return if @loading
+      return unless result.request.region == @completed_region
       @public_genes = result.track
       @public_loading = false
       update_public_label

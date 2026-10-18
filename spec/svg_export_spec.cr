@@ -62,7 +62,7 @@ describe D4Plot::SvgExport do
       contents.should contain("PUBLIC")
       contents.should contain("LOCAL")
       contents.should contain("<path d=\"M")
-      root = XML.parse(contents).root.not_nil!
+      root = XML.parse(contents).root || raise "SVG has no root element"
       root["height"].should eq(D4Plot::StackGeometry.new(800.0, 220.0, 0).height(2 * D4Plot::AnnotationRenderer::MAX_HEIGHT).to_s)
     end
   end

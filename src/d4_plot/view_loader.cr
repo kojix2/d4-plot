@@ -7,7 +7,7 @@ module D4Plot
     getter sources : Array(TrackSource)
     getter region : Region
     getter bins : Int32
-    getter use_index : Bool
+    getter? use_index : Bool
     getter annotation_path : String?
     getter annotation_limit : Int32
     getter annotation_fallback : String?
@@ -20,7 +20,7 @@ module D4Plot
       @use_index : Bool,
       @annotation_path : String?,
       @annotation_limit : Int32,
-      @annotation_fallback : String? = nil
+      @annotation_fallback : String? = nil,
     )
     end
 
@@ -41,7 +41,7 @@ module D4Plot
       @annotation_track : AnnotationTrack?,
       @elapsed_ms : Float64,
       @error : String?,
-      @annotation_error : String? = nil
+      @annotation_error : String? = nil,
     )
     end
 
@@ -136,7 +136,7 @@ module D4Plot
         next unless request.id == @generation.get
         started = Time.instant
         Log.debug &.emit("view.started", request_id: request.id, tracks: request.sources.size,
-          region: request.region.to_s, bins: request.bins, use_index: request.use_index)
+          region: request.region.to_s, bins: request.bins, use_index: request.use_index?)
         begin
           cancelled = -> { request.id != @generation.get }
           layers = request.sources.map do |source|
@@ -176,7 +176,7 @@ module D4Plot
       request.region.validate!(source.chromosomes)
       current_file = file_for(source.path)
       points = ::Log.with_context(request_id: request.id) do
-        DataSampler.downsample(current_file.track(source.name), request.region, request.bins, request.use_index, cancelled)
+        DataSampler.downsample(current_file.track(source.name), request.region, request.bins, request.use_index?, cancelled)
       end
       LayerSample.new(source, SampledView.new(request.region, points), nil)
     rescue ex : SamplingCancelled
