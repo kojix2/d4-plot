@@ -13,6 +13,7 @@ require "./toolbar"
 require "./conversion_window"
 require "./ui_runtime"
 require "./bedgraph_export"
+require "./bigwig_export"
 require "./svg_export"
 require "./igv_web_server"
 require "./public_genes"
@@ -101,12 +102,14 @@ module D4Plot
     @igv_desktop_menu_item : UIng::MenuItem
     @igv_web_menu_item : UIng::MenuItem
     @save_image_menu_item : UIng::MenuItem
+    @bigwig_menu_item : UIng::MenuItem
 
     def self.create_menu_bar
       file = UIng::Menu.new(D4Plot.t("app.file"))
       open = file.append_item(D4Plot.t("app.open_d4"))
       create = file.append_item(D4Plot.t("app.create_d4_from_alignment"))
       export = file.append_item(D4Plot.t("app.export_bins"))
+      bigwig = file.append_item(D4Plot.t("app.export_bigwig"))
       save_image = file.append_item(D4Plot.t("app.save_image"))
       settings = file.append_preferences_item
       file.append_quit_item
@@ -116,7 +119,7 @@ module D4Plot
       help = UIng::Menu.new(D4Plot.t("app.help"))
       guide = help.append_item(D4Plot.t("app.navigation_help"))
       about = help.append_about_item
-      {open: open, create: create, export: export, save_image: save_image, settings: settings, guide: guide, about: about,
+      {open: open, create: create, export: export, bigwig: bigwig, save_image: save_image, settings: settings, guide: guide, about: about,
        igv_desktop: igv_desktop, igv_web: igv_web}
     end
 
@@ -126,6 +129,7 @@ module D4Plot
       @igv_desktop_menu_item = menu_items[:igv_desktop]
       @igv_web_menu_item = menu_items[:igv_web]
       @save_image_menu_item = menu_items[:save_image]
+      @bigwig_menu_item = menu_items[:bigwig]
       @track_list = TrackList.new(
         ->(index : Int32) { select_layer(index); nil },
         ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil },
@@ -139,6 +143,7 @@ module D4Plot
       menu_items[:open].on_clicked { open_file_dialog }
       menu_items[:create].on_clicked { open_conversion }
       menu_items[:export].on_clicked { export_view }
+      @bigwig_menu_item.on_clicked { export_bigwig }
       @save_image_menu_item.on_clicked { save_image }
       @igv_desktop_menu_item.on_clicked { view_in_igv_desktop }
       @igv_web_menu_item.on_clicked { open_igv_web }
@@ -974,6 +979,24 @@ module D4Plot
       show_error(D4Plot.t("app.could_not_export"), ex)
     end
 
+    private def export_bigwig(destination : String? = nil) : Nil
+      return if @closed || @file_load_id
+      return unless layer = selected_layer
+      return unless chosen = destination || @window.save_file
+      path = BigWigExport.destination(chosen)
+      sources = @layers.map(&.source.path) + [@annotation_path].compact
+      export = BigWigExport.new(path, sources, layer.source)
+      @background_io.submit(-> { export.write }, operation: "bigwig.export") do |error|
+        if error
+          show_error(D4Plot.t("app.could_not_export_bigwig"), error)
+        else
+          show_status(D4Plot.t("app.bigwig_exported", name: File.basename(path)))
+        end
+      end
+    rescue ex
+      show_error(D4Plot.t("app.could_not_export_bigwig"), ex)
+    end
+
     private def save_image(destination : String? = nil)
       return if @loading || @file_load_id
       return unless region = @completed_region
@@ -1086,6 +1109,7 @@ module D4Plot
       set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
       set_enabled(@igv_web_menu_item, @file_load_id.nil? && !@closed)
       set_enabled(@save_image_menu_item, view_summary_ready? && !@public_loading)
+      set_enabled(@bigwig_menu_item, igv_ready && !selected_layer.nil?)
       set_enabled(@public_combo, has_layers && @file_load_id.nil?)
       set_enabled(@remove_public, !@public_genome.nil? && @file_load_id.nil?)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)

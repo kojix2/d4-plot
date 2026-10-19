@@ -4,6 +4,10 @@ shards:
     git: https://github.com/crystal-ameba/ameba.git
     version: 1.7.1-dev+git.commit.1551fdad4764b17ed76fda69c6cf37a3bb663e93
 
+  bigwig:
+    git: https://github.com/kojix2/bigwig.cr.git
+    version: 0.0.0
+
   d4:
     git: https://github.com/bio-cr/d4.cr.git
     version: 0.0.0

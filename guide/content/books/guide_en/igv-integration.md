@@ -4,6 +4,7 @@
 | --- | --- |
 | Send the current locus to an existing IGV Desktop session | **IGV → View region in IGV Desktop** |
 | View D4 with BAM/CRAM, VCF, BED, GTF, or BigWig | **IGV → Open genome browser (IGV.js)…** |
+| Export a D4 track for IGV Desktop | **File → Export selected track as BigWig…** |
 | Run the browser viewer without the desktop app | [`d4-plot serve` or `d4-plot-server`](command-line.md) |
 
 ## IGV Desktop
@@ -13,6 +14,8 @@
 3. Choose **IGV → View region in IGV Desktop**.
 
 D4 Plot sends only the locus to `127.0.0.1:60151`. It does not start IGV Desktop, change its assembly, or load tracks. Confirm the assembly in both apps; D4 metadata cannot verify it.
+
+To view the signal itself in IGV Desktop, select a track and choose **File → Export selected track as BigWig…**, then load the `.bw` file in IGV. This exports every chromosome and the unsampled signal with the D4 denominator applied, not the bins currently on screen. BigWig stores values as Float32, so values can lose precision during conversion. D4 Plot writes the BigWig directly; no external converter is needed. Allow disk space for the output and temporary index files. IGV can use the resulting BigWig's zoom summaries for broad views.
 
 ## IGV.js browser
 

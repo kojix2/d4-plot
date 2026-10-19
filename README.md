@@ -5,8 +5,8 @@
 [![DOI](https://zenodo.org/badge/1413919809.svg)](https://doi.org/10.5281/zenodo.23444683)
 
 A native desktop viewer for D4 genomic signal files. D4 Plot compares multiple
-tracks, displays genomic annotations, exports visible bins, and creates coverage
-D4 files from BAM or CRAM.
+tracks, displays genomic annotations, exports visible bins or complete BigWig
+tracks, and creates coverage D4 files from BAM or CRAM.
 
 <img width="600" src="https://kojix2.github.io/d4-plot/screenshots/en/overview.png" alt="Two tracks from spec/fixtures/rust-multitrack.d4 in D4 Plot" />
 
