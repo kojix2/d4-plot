@@ -189,6 +189,39 @@ describe D4Plot::IGVWebServer do
     end
   end
 
+  it "preserves feature validation errors and their precedence" do
+    source = D4Plot::TrackSource.load(File.join(__DIR__, "fixtures/rust-input-10nt.d4"))
+    server = D4Plot::IGVWebServer.new(source)
+    server.start
+    begin
+      state = JSON.parse(server_get("#{server.url}api/state").body)
+      valid = {
+        "track" => state["tracks"].as_a.first["id"].as_s, "chr" => "chr",
+        "start" => "0", "end" => "10", "bp_per_pixel" => "1",
+        "revision" => state["revision"].as_s, "client" => "browser_a", "navigation" => "1",
+      }
+      cases = [
+        { {"revision" => "old", "track" => "missing"}, 409, "SESSION_CHANGED" },
+        { {"track" => "missing", "chr" => "bad chr"}, 404, "TRACK_NOT_FOUND" },
+        { {"chr" => "bad chr", "client" => "bad/client"}, 400, "INVALID_CHROMOSOME" },
+        { {"client" => "bad/client", "navigation" => "-1"}, 400, "INVALID_CLIENT" },
+        { {"navigation" => "-1", "start" => "invalid"}, 400, "INVALID_NAVIGATION" },
+        { {"start" => "10", "end" => "0"}, 400, "INVALID_INTERVAL" },
+        { {"bp_per_pixel" => "0"}, 400, "INVALID_INTERVAL" },
+      ]
+      cases.each do |overrides, status, code|
+        query = URI::Params.encode(valid.merge(overrides))
+        response = server_get("#{server.url}api/features?#{query}")
+        response.status_code.should eq(status)
+        JSON.parse(response.body)["error"].as_s.should eq(code)
+        response.body.should_not contain(source.first.path)
+      end
+    ensure
+      server.close
+      server.wait
+    end
+  end
+
   it "returns bounded chromosome-wide bins for an unindexed D4 instead of a scan-limit error" do
     path = File.tempname("d4-plot-wide-web", ".d4")
     begin

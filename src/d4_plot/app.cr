@@ -1087,11 +1087,18 @@ module D4Plot
       @retired_igv_web_servers << server
     end
 
-    # UI state is derived atomically so controls cannot transiently contradict
-    # one another while a file-load transition is in progress.
-    # ameba:disable Metrics/CyclomaticComplexity
     private def update_controls
       has_layers = !@layers.empty?
+      update_layout_controls(has_layers)
+      update_loading_controls
+      update_region_controls
+      update_layer_controls
+      update_history_controls
+      update_export_controls(has_layers)
+      update_annotation_controls(has_layers)
+    end
+
+    private def update_layout_controls(has_layers : Bool)
       set_visible(@navigation, has_layers)
       set_visible(@track_panel, has_layers && @preferences.sidebar_visible?)
       set_enabled(@sidebar_toggle, has_layers)
@@ -1101,17 +1108,23 @@ module D4Plot
       set_visible(@details, @details_visible && has_layers)
       set_visible(@view_summary, view_summary_ready?)
       @sidebar_toggle.text = D4Plot.t(@track_panel.visible? ? "app.hide_tracks" : "app.show_tracks")
+    end
+
+    private def update_loading_controls
       @progress.value = -1 if @loading && @file_load_id.nil?
       set_visible(@progress, @loading || !@file_load_id.nil?)
       set_visible(@cancel_files, !@file_load_id.nil?)
-      update_region_controls
-      update_layer_controls
-      update_history_controls
+    end
+
+    private def update_export_controls(has_layers : Bool)
       igv_ready = has_layers && @file_load_id.nil? && !@closed
       set_enabled(@igv_desktop_menu_item, igv_ready && !active_region.nil?)
       set_enabled(@igv_web_menu_item, @file_load_id.nil? && !@closed)
       set_enabled(@save_image_menu_item, view_summary_ready? && !@public_loading)
       set_enabled(@bigwig_menu_item, igv_ready && !selected_layer.nil?)
+    end
+
+    private def update_annotation_controls(has_layers : Bool)
       set_enabled(@public_combo, has_layers && @file_load_id.nil?)
       set_enabled(@remove_public, !@public_genome.nil? && @file_load_id.nil?)
       set_enabled(@remove_annotation, @annotation_row.visible? && @file_load_id.nil?)

@@ -51,4 +51,26 @@ describe D4Plot::ServeCLI do
       D4Plot::ServeCLI.parse(serve_arguments("--contigs-only"))
     end
   end
+
+  it "preserves diagnostics for conflicting reference modes and JSON indexes" do
+    cases = [
+      {serve_arguments("--contigs-only", "--genome", "hg38"), "--contigs-only cannot be combined"},
+      {serve_arguments("--contigs-only", "--reference", "reference.fa"), "--contigs-only cannot be combined"},
+      {serve_arguments("--reference", "reference.JSON", "--reference-index", "reference.fai"), "--reference-index cannot be used"},
+      {serve_arguments("--genome", "hg38", "--reference", "reference.fa", "--contigs-only"), "--genome and --reference cannot be used together"},
+    ]
+    cases.each do |arguments, message|
+      expect_raises(D4Plot::ServeCLI::UsageError, message) { D4Plot::ServeCLI.parse(arguments) }
+    end
+  end
+
+  it "handles help before reference conflicts without modifying the caller's arguments" do
+    arguments = serve_arguments("--help", "--genome", "hg38", "--reference", "missing.fa", "sample.d4")
+    original = arguments.dup
+    configuration = D4Plot::ServeCLI.parse(arguments)
+    configuration.help?.should be_true
+    configuration.files.should be_empty
+    configuration.reference_mode.auto?.should be_true
+    arguments.should eq(original)
+  end
 end

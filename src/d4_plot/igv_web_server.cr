@@ -114,6 +114,14 @@ module D4Plot
     end
   end
 
+  private record IGVWebFeatureParameters,
+    chromosome : String,
+    client_id : String,
+    navigation_id : Int64,
+    start0 : Int64,
+    end0 : Int64,
+    bp_per_pixel : Float64
+
   private class IGVWebResourceInstallation
     getter routes : Hash(String, ReferenceResource)
     getter file_route_ids : Array(String)
@@ -460,11 +468,26 @@ module D4Plot
       end
     end
 
-    # The validation branches intentionally preserve a distinct HTTP error for
-    # each untrusted query field.
-    # ameba:disable Metrics/CyclomaticComplexity
     private def send_features(context : HTTP::Server::Context) : Nil
       snapshot = @mutex.synchronize { @snapshot }
+      return unless track = feature_track(context, snapshot)
+      return unless parameters = parse_feature_parameters(context)
+      send_track_features(context, snapshot, track, parameters)
+    rescue ex : SignalQueryBusy
+      failure(context, 429, "QUERY_BUSY", ex.message || "D4 reader queue is full")
+    rescue ex : SignalQueryCancelled
+      failure(context, 409, "QUERY_CANCELLED", ex.message || "D4 query was superseded")
+    rescue SignalQueryClosed
+      failure(context, 503, "SERVER_STOPPING", "The D4 reader is stopping")
+    rescue ex : ArgumentError
+      failure(context, 400, "INVALID_QUERY", ex.message || "Invalid D4 query")
+    rescue ex
+      # Source/OS exception text can contain an absolute D4 path. Keep that
+      # diagnostic in the local process log, never in a browser response.
+      failure(context, 500, "READ_FAILED", "D4 read failed", ex)
+    end
+
+    private def feature_track(context : HTTP::Server::Context, snapshot : IGVWebSession) : IGVWebTrack?
       params = context.request.query_params
       revision = parameter(params, "revision", 128)
       return failure(context, 409, "SESSION_CHANGED", "The browser session changed; reload this page") unless revision == snapshot.revision
@@ -472,6 +495,11 @@ module D4Plot
       track_id = parameter(params, "track", 128)
       track = track_id.try { |id| snapshot.track(id) }
       return failure(context, 404, "TRACK_NOT_FOUND", "Track not found") unless track
+      track
+    end
+
+    private def parse_feature_parameters(context : HTTP::Server::Context) : IGVWebFeatureParameters?
+      params = context.request.query_params
       chromosome = parameter(params, "chr", ContigDictionary::MAX_CONTIG_NAME_BYTES)
       return failure(context, 400, "INVALID_CHROMOSOME", "Invalid chromosome") unless chromosome && valid_chromosome_name?(chromosome)
       client_id = parameter(params, "client", 128)
@@ -484,17 +512,27 @@ module D4Plot
       bp_per_pixel = parse_positive_float(parameter(params, "bp_per_pixel", 64))
       return failure(context, 400, "INVALID_INTERVAL", "Invalid genomic interval") unless start0 && end0 && start0 < end0 && bp_per_pixel
 
-      d4_chromosome = track.d4_chromosome_for(chromosome)
-      return send_empty_features(context, snapshot, chromosome, true) unless d4_chromosome
-      chromosome_size = track.source.chromosomes[d4_chromosome]?.try(&.to_i64)
-      return send_empty_features(context, snapshot, chromosome, true) unless chromosome_size
-      left = start0.clamp(0_i64, chromosome_size)
-      right = end0.clamp(0_i64, chromosome_size)
-      return send_empty_features(context, snapshot, chromosome, false) if left >= right
+      IGVWebFeatureParameters.new(chromosome, client_id, navigation_id, start0, end0, bp_per_pixel)
+    end
 
-      layout = BinLayout.for_viewport(left, right, bp_per_pixel, chromosome_size, MAX_FEATURE_BINS)
-      result = @signal_query.query(track.source, d4_chromosome, layout, snapshot.revision, client_id, navigation_id,
+    private def send_track_features(context : HTTP::Server::Context, snapshot : IGVWebSession,
+                                    track : IGVWebTrack, parameters : IGVWebFeatureParameters) : Nil
+      d4_chromosome = track.d4_chromosome_for(parameters.chromosome)
+      return send_empty_features(context, snapshot, parameters.chromosome, true) unless d4_chromosome
+      chromosome_size = track.source.chromosomes[d4_chromosome]?.try(&.to_i64)
+      return send_empty_features(context, snapshot, parameters.chromosome, true) unless chromosome_size
+      left = parameters.start0.clamp(0_i64, chromosome_size)
+      right = parameters.end0.clamp(0_i64, chromosome_size)
+      return send_empty_features(context, snapshot, parameters.chromosome, false) if left >= right
+
+      layout = BinLayout.for_viewport(left, right, parameters.bp_per_pixel, chromosome_size, MAX_FEATURE_BINS)
+      result = @signal_query.query(track.source, d4_chromosome, layout, snapshot.revision, parameters.client_id, parameters.navigation_id,
         request_id: context.response.headers["X-Request-ID"].to_i64)
+      write_features(context, snapshot, parameters.chromosome, result)
+    end
+
+    private def write_features(context : HTTP::Server::Context, snapshot : IGVWebSession,
+                               chromosome : String, result : SignalResult) : Nil
       context.response.content_type = "application/json; charset=utf-8"
       JSON.build(context.response) do |json|
         json.object do
@@ -517,18 +555,6 @@ module D4Plot
           end
         end
       end
-    rescue ex : SignalQueryBusy
-      failure(context, 429, "QUERY_BUSY", ex.message || "D4 reader queue is full")
-    rescue ex : SignalQueryCancelled
-      failure(context, 409, "QUERY_CANCELLED", ex.message || "D4 query was superseded")
-    rescue SignalQueryClosed
-      failure(context, 503, "SERVER_STOPPING", "The D4 reader is stopping")
-    rescue ex : ArgumentError
-      failure(context, 400, "INVALID_QUERY", ex.message || "Invalid D4 query")
-    rescue ex
-      # Source/OS exception text can contain an absolute D4 path. Keep that
-      # diagnostic in the local process log, never in a browser response.
-      failure(context, 500, "READ_FAILED", "D4 read failed", ex)
     end
 
     private def send_empty_features(context : HTTP::Server::Context, snapshot : IGVWebSession, chromosome : String, unavailable : Bool) : Nil

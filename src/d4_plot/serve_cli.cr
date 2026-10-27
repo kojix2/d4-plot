@@ -116,8 +116,6 @@ module D4Plot
 
     # Public so callers and specs can validate their command line before
     # opening a D4 file or binding a listening socket.
-    # Each option conflict has a separate diagnostic for CLI users.
-    # ameba:disable Metrics/CyclomaticComplexity
     def self.parse(arguments : Array(String)) : Configuration
       args = arguments.dup
       genome : String? = nil
@@ -149,6 +147,12 @@ module D4Plot
       if args.empty? && !genome && !reference_path
         raise UsageError.new("provide a .d4 file, --genome, or --reference")
       end
+      validate_reference_options!(genome, reference_path, reference_index, contigs_only)
+      mode = reference_mode(genome, reference_path, contigs_only)
+      Configuration.new(args, port, region, locale, mode, genome, reference_path, reference_index, open_browser, false)
+    end
+
+    private def self.validate_reference_options!(genome : String?, reference_path : String?, reference_index : String?, contigs_only : Bool) : Nil
       if genome && reference_path
         raise UsageError.new("--genome and --reference cannot be used together")
       end
@@ -161,17 +165,18 @@ module D4Plot
       if reference_index && reference_path.try(&.downcase.ends_with?(".json"))
         raise UsageError.new("--reference-index cannot be used with an IGV genome JSON reference")
       end
+    end
 
-      mode = if genome
-               ReferenceMode::Preset
-             elsif reference_path
-               ReferenceMode::File
-             elsif contigs_only
-               ReferenceMode::ContigsOnly
-             else
-               ReferenceMode::Auto
-             end
-      Configuration.new(args, port, region, locale, mode, genome, reference_path, reference_index, open_browser, false)
+    private def self.reference_mode(genome : String?, reference_path : String?, contigs_only : Bool) : ReferenceMode
+      if genome
+        ReferenceMode::Preset
+      elsif reference_path
+        ReferenceMode::File
+      elsif contigs_only
+        ReferenceMode::ContigsOnly
+      else
+        ReferenceMode::Auto
+      end
     end
 
     def self.usage : String

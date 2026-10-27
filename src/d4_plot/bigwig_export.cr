@@ -19,7 +19,7 @@ module D4Plot
     def write : Nil
       destination = File.expand_path(@path)
       ensure_safe_destination!(destination)
-      chromosomes = @source.chromosomes.keys.sort.map { |name| {name, @source.chromosomes[name]} }
+      chromosomes = @source.chromosomes.keys.sort!.map { |name| {name, @source.chromosomes[name]} }
       raise ArgumentError.new("The selected D4 track has no chromosomes") if chromosomes.empty?
 
       D4.open(@source.path) do |file|
