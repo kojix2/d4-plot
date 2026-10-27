@@ -19,28 +19,34 @@ To update the icon, replace `assets/d4-plot.png` with a square transparent PNG a
 
 ## Guide screenshots
 
-The docs workflow builds a native guide application on Windows, macOS, and Linux,
-then captures its windows with `kojix2/window-screenshot-action@main`. Each platform
-produces English and Japanese overview, inspection, and D4 creation images under
-`screenshots/<windows|macos|ubuntu>/<en|ja>/`. The Pages build combines all three
-platforms, and the README and guide display them in comparison tables.
+The build workflow captures the desktop executable it has just built on Windows,
+macOS, and Linux with `kojix2/window-screenshot-action@main`. Screenshot scenes run
+inside the regular `d4-plot` binary; no separate screenshot application is compiled.
+The docs workflow is called after those builds and generates the site from their
+image artifacts without installing Crystal or compiling the application again.
 
-The application reads `spec/fixtures/rust-multitrack.d4` and generates example BED
-and BAM files. It reveals the target window only after the view is ready; the
-action captures that window and stops the process.
+Each platform produces English and Japanese overview, inspection, and D4 creation
+images under `screenshots/<windows|macos|ubuntu>/<en|ja>/`. The README and guide
+display them in comparison tables.
 
-To preview a scene locally in a graphical session:
+The screenshot mode reads `spec/fixtures/rust-multitrack.d4` from the repository
+root and generates temporary BED and BAM files. It reveals the target window only
+after the view is ready; the action captures that window and stops the process.
+
+To preview scenes with an already-built executable in a graphical session, run
+from the repository root:
 
 ```sh
-crystal run scripts/guide-screenshots.cr -- overview en
-crystal run scripts/guide-screenshots.cr -- inspect ja
-crystal run scripts/guide-screenshots.cr -- create-d4 en
+D4_PLOT_SCREENSHOT_SCENE=overview bin/d4-plot
+D4_PLOT_SCREENSHOT_SCENE=inspect D4_PLOT_SCREENSHOT_LOCALE=ja bin/d4-plot
+D4_PLOT_SCREENSHOT_SCENE=create-d4 bin/d4-plot
 ```
 
-On Windows, build with `bash scripts/build-windows.sh --guide-screenshots`, then run
-`bin/guide-screenshots.exe overview en`. For argument-free action launches, compiled
-copies named `guide-overview`, `guide-inspect`, and `guide-create-d4` select the scene;
-`D4_PLOT_SCREENSHOT_LOCALE` selects `en` or `ja`.
+On Windows, set these environment variables in PowerShell and run
+`bin/d4-plot.exe`. For argument-free action launches, copies of the same executable
+named `guide-overview`, `guide-inspect`, and `guide-create-d4` select the scene with
+`D4_PLOT_SCREENSHOT_SCENE=auto`. Normal startup is unchanged when the variable is
+unset.
 
 ## Logs
 

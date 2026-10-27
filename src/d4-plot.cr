@@ -12,8 +12,14 @@ end
 require "./d4_plot/i18n"
 require "./d4_plot/preferences"
 require "./d4_plot/app"
+require "./d4_plot/guide_screenshots"
 
 D4Plot::UIRuntime.prepare
+
+if scene = ENV["D4_PLOT_SCREENSHOT_SCENE"]?
+  D4Plot::GuideScreenshots.run(scene, ENV["D4_PLOT_SCREENSHOT_LOCALE"]? || "en")
+  exit
+end
 
 begin
   D4Plot::UIRuntime.load { D4Plot::Logging.setup(desktop: true) }

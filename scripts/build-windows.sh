@@ -42,12 +42,6 @@ static_libs+=(-Wl,--end-group -lws2_32)
 windres -I assets -i assets/d4-plot.rc -o build/d4-plot-icon.o
 icon_resource=$(cygpath -m "$PWD/build/d4-plot-icon.o")
 
-if [[ ${1:-} == --guide-screenshots ]]; then
-  crystal build scripts/guide-screenshots.cr --release --no-debug --static \
-    --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/guide-screenshots.exe
-  exit 0
-fi
-
 # `crystal spec` has no `--static` option, so define the same compiler flag
 # explicitly. Besides selecting the archives below, this prevents Windows
 # foreign data symbols from being emitted as DLL imports.

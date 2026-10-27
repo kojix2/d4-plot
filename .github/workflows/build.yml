@@ -47,6 +47,17 @@ jobs:
           shards build d4-plot --release
           shards build d4-plot-server --release
 
+      - name: Install Linux capture dependencies
+        if: matrix.os == 'ubuntu' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          sudo apt-get install --yes xvfb xauth openbox wmctrl imagemagick fonts-noto-cjk
+
+      - name: Capture guide screenshots from the built executable
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: ./.github/actions/capture-guide
+        with:
+          os: ${{ matrix.os }}
+
   headless-server:
     name: Headless server (no GTK)
     runs-on: ubuntu-latest
@@ -87,3 +98,19 @@ jobs:
         run: |
           bash scripts/check-windows.sh bin/d4-plot.exe gui
           bash scripts/check-windows.sh bin/d4-plot-server.exe console
+
+      - name: Capture guide screenshots from the built executable
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: ./.github/actions/capture-guide
+        with:
+          os: windows
+          executable-suffix: .exe
+
+  docs:
+    needs: [build, windows, headless-server]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

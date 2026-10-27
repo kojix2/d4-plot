@@ -1,22 +1,7 @@
 name: docs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "guide/**"
-      - "src/**"
-      - "config/locales/**"
-      - "scripts/guide-screenshots.cr"
-      - "scripts/build-windows.sh"
-      - ".github/actions/setup-windows/**"
-      - "assets/**"
-      - "README.md"
-      - "spec/fixtures/rust-multitrack.d4"
-      - "shard.yml"
-      - "shard.lock"
-      - ".github/workflows/docs.yml"
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -28,112 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  screenshots:
-    name: Screenshots (${{ matrix.os }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows
-            runner: windows-latest
-            executable-suffix: .exe
-          - os: macos
-            runner: macos-latest
-            executable-suffix: ''
-          - os: ubuntu
-            runner: ubuntu-latest
-            executable-suffix: ''
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: crystal-lang/install-crystal@v1
-        if: runner.os != 'Windows'
-        with:
-          crystal: latest
-
-      - name: Set up Windows native dependencies
-        if: runner.os == 'Windows'
-        uses: ./.github/actions/setup-windows
-
-      - name: Install macOS native dependencies
-        if: runner.os == 'macOS'
-        run: brew install htslib pkg-config
-
-      - name: Install Linux native and capture dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libgtk-3-dev libpango1.0-dev libhts-dev \
-            xvfb xauth openbox wmctrl imagemagick fonts-noto-cjk
-
-      - name: Build guide application on Unix
-        if: runner.os != 'Windows'
-        run: |
-          shards install --frozen
-          mkdir -p bin
-          crystal build scripts/guide-screenshots.cr --release --no-debug -o bin/guide-screenshots
-
-      - name: Build guide application on Windows
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: |
-          shards install --frozen
-          bash scripts/build-windows.sh --guide-screenshots
-
-      - name: Prepare scene executables
-        shell: bash
-        env:
-          EXECUTABLE_SUFFIX: ${{ matrix.executable-suffix }}
-        run: |
-          for scene in overview inspect create-d4; do
-            cp "bin/guide-screenshots$EXECUTABLE_SUFFIX" "bin/guide-$scene$EXECUTABLE_SUFFIX"
-          done
-
-      - name: Capture English windows
-        uses: kojix2/window-screenshot-action@main
-        env:
-          D4_PLOT_SCREENSHOT_LOCALE: en
-        with:
-          os: ${{ matrix.os }}
-          app-names: >-
-            bin/guide-overview${{ matrix.executable-suffix }}
-            bin/guide-inspect${{ matrix.executable-suffix }}
-            bin/guide-create-d4${{ matrix.executable-suffix }}
-          output-files: >-
-            screenshots/${{ matrix.os }}/en/overview.png
-            screenshots/${{ matrix.os }}/en/inspect.png
-            screenshots/${{ matrix.os }}/en/create-d4.png
-          window-timeout: '60'
-          capture-delay: '2'
-
-      - name: Capture Japanese windows
-        uses: kojix2/window-screenshot-action@main
-        env:
-          D4_PLOT_SCREENSHOT_LOCALE: ja
-        with:
-          os: ${{ matrix.os }}
-          app-names: >-
-            bin/guide-overview${{ matrix.executable-suffix }}
-            bin/guide-inspect${{ matrix.executable-suffix }}
-            bin/guide-create-d4${{ matrix.executable-suffix }}
-          output-files: >-
-            screenshots/${{ matrix.os }}/ja/overview.png
-            screenshots/${{ matrix.os }}/ja/inspect.png
-            screenshots/${{ matrix.os }}/ja/create-d4.png
-          window-timeout: '60'
-          capture-delay: '2'
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v7
-        with:
-          name: guide-screenshots-${{ matrix.os }}
-          path: screenshots/
-          if-no-files-found: error
-
   build:
-    needs: screenshots
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -1,0 +1,65 @@
+name: Capture guide screenshots
+description: Capture the existing desktop executable without recompiling it
+
+inputs:
+  os:
+    description: ubuntu, macos, or windows
+    required: true
+  executable-suffix:
+    description: Executable suffix for the current platform
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare scene names for the built executable
+      shell: bash
+      env:
+        EXECUTABLE_SUFFIX: ${{ inputs.executable-suffix }}
+      run: |
+        for scene in overview inspect create-d4; do
+          cp "bin/d4-plot$EXECUTABLE_SUFFIX" "bin/guide-$scene$EXECUTABLE_SUFFIX"
+        done
+
+    - name: Capture English windows
+      uses: kojix2/window-screenshot-action@main
+      env:
+        D4_PLOT_SCREENSHOT_SCENE: auto
+        D4_PLOT_SCREENSHOT_LOCALE: en
+      with:
+        os: ${{ inputs.os }}
+        app-names: >-
+          bin/guide-overview${{ inputs.executable-suffix }}
+          bin/guide-inspect${{ inputs.executable-suffix }}
+          bin/guide-create-d4${{ inputs.executable-suffix }}
+        output-files: >-
+          screenshots/${{ inputs.os }}/en/overview.png
+          screenshots/${{ inputs.os }}/en/inspect.png
+          screenshots/${{ inputs.os }}/en/create-d4.png
+        window-timeout: '60'
+        capture-delay: '2'
+
+    - name: Capture Japanese windows
+      uses: kojix2/window-screenshot-action@main
+      env:
+        D4_PLOT_SCREENSHOT_SCENE: auto
+        D4_PLOT_SCREENSHOT_LOCALE: ja
+      with:
+        os: ${{ inputs.os }}
+        app-names: >-
+          bin/guide-overview${{ inputs.executable-suffix }}
+          bin/guide-inspect${{ inputs.executable-suffix }}
+          bin/guide-create-d4${{ inputs.executable-suffix }}
+        output-files: >-
+          screenshots/${{ inputs.os }}/ja/overview.png
+          screenshots/${{ inputs.os }}/ja/inspect.png
+          screenshots/${{ inputs.os }}/ja/create-d4.png
+        window-timeout: '60'
+        capture-delay: '2'
+
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v7
+      with:
+        name: guide-screenshots-${{ inputs.os }}
+        path: screenshots/
+        if-no-files-found: error

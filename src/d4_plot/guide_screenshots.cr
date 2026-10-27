@@ -1,10 +1,6 @@
-#!/usr/bin/env crystal
-
-# Prepare a stable native window for window-screenshot-action on every OS.
-# Usage: crystal run scripts/guide-screenshots.cr -- overview|inspect|create-d4 [en|ja]
-# Compiled copies named guide-<scene>[.exe] also select the scene without arguments.
-# The capture action owns window capture and process termination.
-require "../src/d4_plot/app"
+# Documentation scenes run inside the normal desktop executable. The capture
+# action selects them with D4_PLOT_SCREENSHOT_SCENE; no separate build is needed.
+require "./app"
 require "file_utils"
 
 {% if flag?(:darwin) %}
@@ -17,10 +13,10 @@ require "file_utils"
   end
 {% end %}
 
-module GuideScreenshots
+module D4Plot::GuideScreenshots
   CHROMOSOME_SIZE = 20_000
   REGION          = "1:9,001-16,000"
-  TRACK_FIXTURE   = File.expand_path("../spec/fixtures/rust-multitrack.d4", __DIR__)
+  TRACK_FIXTURE   = File.expand_path("spec/fixtures/rust-multitrack.d4")
 
   def self.activate : Nil
     {% if flag?(:darwin) %}
@@ -98,60 +94,62 @@ class D4Plot::App
   end
 end
 
-scene = ARGV[0]? || File.basename(PROGRAM_NAME, ".exe").sub(/\Aguide-/, "")
-locale = ARGV[1]? || ENV["D4_PLOT_SCREENSHOT_LOCALE"]? || "en"
-raise "Use overview, inspect, or create-d4 for the screenshot scene" unless {"overview", "inspect", "create-d4"}.includes?(scene)
-raise "Use en or ja for screenshots" unless {"en", "ja"}.includes?(locale)
+module D4Plot::GuideScreenshots
+  def self.run(scene : String, locale : String = "en") : Nil
+    scene = File.basename(PROGRAM_NAME, ".exe").sub(/\Aguide-/, "") if scene == "auto"
+    raise "Use overview, inspect, or create-d4 for the screenshot scene" unless {"overview", "inspect", "create-d4"}.includes?(scene)
+    raise "Use en or ja for screenshots" unless {"en", "ja"}.includes?(locale)
 
-D4Plot::UIRuntime.prepare
-# Windows GUI executables can start without stdout/stderr. Readiness is
-# signaled by revealing the window, so this capture helper needs no console IO.
-Log.setup(:none)
-fixtures = D4Plot::UIRuntime.load do
-  path = File.tempname("d4-plot-guide-fixtures")
-  Dir.mkdir(path)
-  {path, GuideScreenshots.make_fixtures(path)}
-end
-fixture_dir, data = fixtures
-failure : Exception? = nil
-begin
-  Dir.cd(fixture_dir)
-  D4Plot::Translations.setup(locale)
-  UIng.init
-  preferences = D4Plot::Preferences.new(File.join(fixture_dir, "settings.json"), locale)
-  preferences.height_index = 0
-  app = D4Plot::App.new(D4Plot::App.create_menu_bar, preferences)
-  UIng.on_error { |error, _context| failure = error }
-  inspecting = false
-  started = Time.instant
-  UIng.timer(100) do
-    D4Plot::UIRuntime.check_thread!
-    if error = failure
-      raise error
+    # Windows GUI executables can start without stdout/stderr. Readiness is
+    # signaled by revealing the window, so this capture helper needs no console IO.
+    ::Log.setup(:none)
+    fixtures = D4Plot::UIRuntime.load do
+      path = File.tempname("d4-plot-guide-fixtures")
+      Dir.mkdir(path)
+      {path, GuideScreenshots.make_fixtures(path)}
     end
-    raise "Guide screenshot preparation timed out" if Time.instant - started > 45.seconds
-    next true unless app.guide_ready?(inspecting)
-    if scene == "inspect" && !inspecting
-      app.guide_prepare_inspection(data[:annotation])
-      inspecting = true
-      next true
+    fixture_dir, data = fixtures
+    failure : Exception? = nil
+    begin
+      Dir.cd(fixture_dir)
+      D4Plot::Translations.setup(locale)
+      UIng.init
+      preferences = D4Plot::Preferences.new(File.join(fixture_dir, "settings.json"), locale)
+      preferences.height_index = 0
+      app = D4Plot::App.new(D4Plot::App.create_menu_bar, preferences)
+      UIng.on_error { |error, _context| failure = error }
+      inspecting = false
+      started = Time.instant
+      UIng.timer(100) do
+        D4Plot::UIRuntime.check_thread!
+        if error = failure
+          raise error
+        end
+        raise "Guide screenshot preparation timed out" if Time.instant - started > 45.seconds
+        next true unless app.guide_ready?(inspecting)
+        if scene == "inspect" && !inspecting
+          app.guide_prepare_inspection(data[:annotation])
+          inspecting = true
+          next true
+        end
+        # Reveal only the final target window, so the action cannot discover an
+        # empty/loading main window or capture it instead of the conversion dialog.
+        if scene == "create-d4"
+          app.guide_open_conversion(File.basename(data[:bam]), "new-coverage.d4")
+        else
+          app.guide_show
+        end
+        GuideScreenshots.activate
+        false
+      rescue ex
+        failure = ex
+        app.guide_stop
+        false
+      end
+      app.run(data[:tracks], GuideScreenshots::REGION, show_window: false)
+    ensure
+      FileUtils.rm_rf(fixture_dir)
     end
-    # Reveal only the final target window, so the action cannot discover an
-    # empty/loading main window or capture it instead of the conversion dialog.
-    if scene == "create-d4"
-      app.guide_open_conversion(File.basename(data[:bam]), "new-coverage.d4")
-    else
-      app.guide_show
-    end
-    GuideScreenshots.activate
-    false
-  rescue ex
-    failure = ex
-    app.guide_stop
-    false
+    failure.try { |error| raise error }
   end
-  app.run(data[:tracks], GuideScreenshots::REGION, show_window: false)
-ensure
-  FileUtils.rm_rf(fixture_dir)
 end
-failure.try { |error| raise error }

@@ -19,26 +19,34 @@ crystal run scripts/ui-smoke.cr
 
 ## ガイドのスクリーンショット
 
-docsワークフローはWindows・macOS・Linuxで撮影用アプリをビルドし、
-`kojix2/window-screenshot-action@main`でウィンドウを撮影します。各OSで日英の
-全体表示・拡大表示・D4作成画面を生成し、`screenshots/<windows|macos|ubuntu>/<en|ja>/`
-に保存します。Pagesのビルドで3 OS分をまとめ、READMEとガイドに比較表で掲載します。
+buildワークフローはWindows・macOS・Linuxで通常の`d4-plot`実行ファイルをビルドし、
+その実行ファイルを`kojix2/window-screenshot-action@main`で撮影します。
+撮影用アプリを別途コンパイルすることはありません。ビルド完了後にdocsワークフローを
+呼び出し、画像アーティファクトからサイトを生成します。docs側でCrystalを導入したり、
+アプリを再コンパイルしたりする処理はありません。
 
-アプリは`spec/fixtures/rust-multitrack.d4`を読み、例に使うBEDとBAMを生成します。
-読み込み完了後に撮影対象のウィンドウを表示し、Actionが撮影とプロセス終了を担当します。
+各OSで日英の全体表示・拡大表示・D4作成画面を生成し、
+`screenshots/<windows|macos|ubuntu>/<en|ja>/`に保存します。
+READMEとガイドには3 OS分を比較表で掲載します。
 
-ローカルのグラフィカルセッションで各画面を確認できます。
+撮影モードはリポジトリのルートにある`spec/fixtures/rust-multitrack.d4`を読み、
+一時的なBEDとBAMを生成します。読み込み完了後に対象ウィンドウを表示し、
+Actionが撮影とプロセス終了を担当します。
+
+ビルド済みの実行ファイルで確認する場合は、グラフィカルセッションで
+リポジトリのルートから実行します。
 
 ```sh
-crystal run scripts/guide-screenshots.cr -- overview en
-crystal run scripts/guide-screenshots.cr -- inspect ja
-crystal run scripts/guide-screenshots.cr -- create-d4 en
+D4_PLOT_SCREENSHOT_SCENE=overview bin/d4-plot
+D4_PLOT_SCREENSHOT_SCENE=inspect D4_PLOT_SCREENSHOT_LOCALE=ja bin/d4-plot
+D4_PLOT_SCREENSHOT_SCENE=create-d4 bin/d4-plot
 ```
 
-Windowsでは`bash scripts/build-windows.sh --guide-screenshots`でビルド後、
-`bin/guide-screenshots.exe overview en`を実行します。Actionから引数なしで起動する場合は、
-実行ファイルを`guide-overview`、`guide-inspect`、`guide-create-d4`という名前でコピーして
-画面を選び、`D4_PLOT_SCREENSHOT_LOCALE`で`en`または`ja`を指定します。
+WindowsではPowerShellで同じ環境変数を設定して`bin/d4-plot.exe`を実行します。
+Actionから引数なしで起動する場合は、同じ実行ファイルを`guide-overview`、
+`guide-inspect`、`guide-create-d4`という名前でコピーし、
+`D4_PLOT_SCREENSHOT_SCENE=auto`で画面を選びます。
+環境変数を設定しない通常の起動動作は変わりません。
 
 ## ログ
 
