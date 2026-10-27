@@ -189,8 +189,8 @@ module D4Plot
       update_controls
     end
 
-    def run(paths : Array(String) = [] of String, region : String? = nil)
-      @window.show
+    def run(paths : Array(String) = [] of String, region : String? = nil, *, show_window : Bool = true)
+      @window.show if show_window
       resize_canvas
       load_d4_files(paths, region) unless paths.empty?
       # Cocoa requires every event-loop iteration to stay on the process main

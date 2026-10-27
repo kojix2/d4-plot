@@ -19,15 +19,28 @@ To update the icon, replace `assets/d4-plot.png` with a square transparent PNG a
 
 ## Guide screenshots
 
-On macOS, build the Nicolino site, then run from the repository root:
+The docs workflow builds a native guide application on Windows, macOS, and Linux,
+then captures its windows with `kojix2/window-screenshot-action@main`. Each platform
+produces English and Japanese overview, inspection, and D4 creation images under
+`screenshots/<windows|macos|ubuntu>/<en|ja>/`. The Pages build combines all three
+platforms, and the README and guide display them in comparison tables.
+
+The application reads `spec/fixtures/rust-multitrack.d4` and generates example BED
+and BAM files. It reveals the target window only after the view is ready; the
+action captures that window and stops the process.
+
+To preview a scene locally in a graphical session:
 
 ```sh
-mkdir -p guide/output/screenshots
-crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
-crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
+crystal run scripts/guide-screenshots.cr -- overview en
+crystal run scripts/guide-screenshots.cr -- inspect ja
+crystal run scripts/guide-screenshots.cr -- create-d4 en
 ```
 
-The language directories must not exist before running the script. It reads `spec/fixtures/rust-multitrack.d4` and creates a BED annotation and BAM input. The docs workflow captures both languages on macOS and adds them to the Pages build.
+On Windows, build with `bash scripts/build-windows.sh --guide-screenshots`, then run
+`bin/guide-screenshots.exe overview en`. For argument-free action launches, compiled
+copies named `guide-overview`, `guide-inspect`, and `guide-create-d4` select the scene;
+`D4_PLOT_SCREENSHOT_LOCALE` selects `en` or `ja`.
 
 ## Logs
 

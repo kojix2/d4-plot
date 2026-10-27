@@ -51,6 +51,11 @@ crystal build src/d4-plot.cr --release --no-debug --static \
 crystal build src/d4-plot-server.cr --release --no-debug --static \
   --link-flags="${static_libs[*]}" -o bin/d4-plot-server.exe
 
+if [[ ${1:-} == --guide-screenshots ]]; then
+  crystal build scripts/guide-screenshots.cr --release --no-debug --static \
+    --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/guide-screenshots.exe
+fi
+
 # Include upstream license texts in both portable ZIP and installer.
 license_work=$(mktemp -d "$PWD/build/package-licenses.XXXXXX")
 trap 'rm -rf "$license_work"' EXIT

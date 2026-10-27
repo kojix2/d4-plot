@@ -19,15 +19,26 @@ crystal run scripts/ui-smoke.cr
 
 ## ガイドのスクリーンショット
 
-macOSでNicolinoサイトをビルドしてから、リポジトリのルートで実行します。
+docsワークフローはWindows・macOS・Linuxで撮影用アプリをビルドし、
+`kojix2/window-screenshot-action@main`でウィンドウを撮影します。各OSで日英の
+全体表示・拡大表示・D4作成画面を生成し、`screenshots/<windows|macos|ubuntu>/<en|ja>/`
+に保存します。Pagesのビルドで3 OS分をまとめ、READMEとガイドに比較表で掲載します。
+
+アプリは`spec/fixtures/rust-multitrack.d4`を読み、例に使うBEDとBAMを生成します。
+読み込み完了後に撮影対象のウィンドウを表示し、Actionが撮影とプロセス終了を担当します。
+
+ローカルのグラフィカルセッションで各画面を確認できます。
 
 ```sh
-mkdir -p guide/output/screenshots
-crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/en en
-crystal run scripts/guide-screenshots.cr -- guide/output/screenshots/ja ja
+crystal run scripts/guide-screenshots.cr -- overview en
+crystal run scripts/guide-screenshots.cr -- inspect ja
+crystal run scripts/guide-screenshots.cr -- create-d4 en
 ```
 
-実行前に言語別ディレクトリが存在しないことを確認してください。スクリプトは`spec/fixtures/rust-multitrack.d4`を読み、例に使うBEDとBAMを生成します。docsワークフローはmacOSで日英両方を撮影し、Pagesに追加します。
+Windowsでは`bash scripts/build-windows.sh --guide-screenshots`でビルド後、
+`bin/guide-screenshots.exe overview en`を実行します。Actionから引数なしで起動する場合は、
+実行ファイルを`guide-overview`、`guide-inspect`、`guide-create-d4`という名前でコピーして
+画面を選び、`D4_PLOT_SCREENSHOT_LOCALE`で`en`または`ja`を指定します。
 
 ## ログ
 

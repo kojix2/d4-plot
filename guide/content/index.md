@@ -9,7 +9,9 @@ D4 Plot displays D4 genomic signals and annotations, and creates coverage D4 fil
 Start with the [English guide](books/guide_en/quick-start.html) or
 [日本語ガイド](books/guide_ja/quick-start.html).
 
-![Two tracks from the test D4](screenshots/en/overview.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![Two tracks from the test D4 (Windows)](screenshots/windows/en/overview.png) | ![Two tracks from the test D4 (macOS)](screenshots/macos/en/overview.png) | ![Two tracks from the test D4 (Linux)](screenshots/ubuntu/en/overview.png) |
 
 Screenshot data: `spec/fixtures/rust-multitrack.d4`.
 

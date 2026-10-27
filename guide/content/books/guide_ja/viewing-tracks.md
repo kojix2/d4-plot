@@ -12,7 +12,9 @@
 
 高さの比較には**Y軸を共有**、形の比較にはトラックごとの自動スケールを使います。領域間の比較には固定Y軸を使います。
 
-![塩基位置10,000付近の2トラック](../../screenshots/ja/inspect.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![塩基位置10,000付近の2トラック (Windows)](../../screenshots/windows/ja/inspect.png) | ![塩基位置10,000付近の2トラック (macOS)](../../screenshots/macos/ja/inspect.png) | ![塩基位置10,000付近の2トラック (Linux)](../../screenshots/ubuntu/ja/inspect.png) |
 
 ## 領域と移動
 

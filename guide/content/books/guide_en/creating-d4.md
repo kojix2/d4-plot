@@ -8,7 +8,9 @@ Choose **Create D4** and provide:
 
 Use the same reference assembly as the tracks and annotations you plan to compare. Conversion cannot correct an assembly mismatch.
 
-![Create D4 dialog with example BAM and output paths](../../screenshots/en/create-d4.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![Create D4 dialog (Windows)](../../screenshots/windows/en/create-d4.png) | ![Create D4 dialog (macOS)](../../screenshots/macos/en/create-d4.png) | ![Create D4 dialog (Linux)](../../screenshots/ubuntu/en/create-d4.png) |
 
 The screenshot uses a generated BAM; supply your own indexed alignment file.
 

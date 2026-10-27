@@ -14,7 +14,9 @@ D4ファイルを使うか、インデックス付きの座標ソート済みBAM
 4. タイトルまたは一覧からトラックを選びます。高さを比較するときは**Y軸を共有**を有効にします。
 5. シグナルにポインタを置いてビン平均を確認します。狭いピークは拡大してください。
 
-![テスト用D4の2トラック](../../screenshots/ja/overview.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![テスト用D4の2トラック (Windows)](../../screenshots/windows/ja/overview.png) | ![テスト用D4の2トラック (macOS)](../../screenshots/macos/ja/overview.png) | ![テスト用D4の2トラック (Linux)](../../screenshots/ubuntu/ja/overview.png) |
 
 画像には`spec/fixtures/rust-multitrack.d4`を使用しています。Y軸はトラックごとに設定しています。
 

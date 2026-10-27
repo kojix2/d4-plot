@@ -8,7 +8,9 @@
 
 比較するトラックやアノテーションと同じ参照アセンブリを使ってください。変換ではアセンブリの不一致を修正できません。
 
-![BAMと出力先を指定したD4作成画面](../../screenshots/ja/create-d4.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![D4作成画面 (Windows)](../../screenshots/windows/ja/create-d4.png) | ![D4作成画面 (macOS)](../../screenshots/macos/ja/create-d4.png) | ![D4作成画面 (Linux)](../../screenshots/ubuntu/ja/create-d4.png) |
 
 画像のBAMは生成した例です。実際の作業にはインデックス付きファイルを指定してください。
 

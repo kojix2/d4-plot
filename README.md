@@ -8,7 +8,9 @@ A native desktop viewer for D4 genomic signal files. D4 Plot compares multiple
 tracks, displays genomic annotations, exports visible bins or complete BigWig
 tracks, and creates coverage D4 files from BAM or CRAM.
 
-<img width="600" src="https://kojix2.github.io/d4-plot/screenshots/en/overview.png" alt="Two tracks from spec/fixtures/rust-multitrack.d4 in D4 Plot" />
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| <img width="320" src="https://kojix2.github.io/d4-plot/screenshots/windows/en/overview.png" alt="D4 Plot on Windows" /> | <img width="320" src="https://kojix2.github.io/d4-plot/screenshots/macos/en/overview.png" alt="D4 Plot on macOS" /> | <img width="320" src="https://kojix2.github.io/d4-plot/screenshots/ubuntu/en/overview.png" alt="D4 Plot on Linux" /> |
 
 ## Documentation
 

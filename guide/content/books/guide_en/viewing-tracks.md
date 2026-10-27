@@ -12,7 +12,9 @@ The plot shows bin means. Wider views combine more bases per bin, so narrow peak
 
 Use **Shared Y** to compare heights. Use separate automatic scales to compare shapes, or a fixed Y range across regions.
 
-![Two fixture tracks near position 10,000](../../screenshots/en/inspect.png)
+| Windows | macOS | Linux |
+| --- | --- | --- |
+| ![Two tracks near position 10,000 (Windows)](../../screenshots/windows/en/inspect.png) | ![Two tracks near position 10,000 (macOS)](../../screenshots/macos/en/inspect.png) | ![Two tracks near position 10,000 (Linux)](../../screenshots/ubuntu/en/inspect.png) |
 
 ## Navigate
 
