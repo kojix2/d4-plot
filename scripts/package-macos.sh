@@ -49,7 +49,10 @@ if [[ -z $arch ]]; then
 fi
 version=${tag#v}
 
-bundle=dist/d4-plot.app
+mkdir -p build dist
+work=$(mktemp -d "$PWD/build/package-macos.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+bundle=$work/d4-plot.app
 executable=$bundle/Contents/MacOS/d4-plot
 server_executable=$bundle/Contents/MacOS/d4-plot-server
 disk_image="dist/d4-plot-${tag}-macos-${arch}.dmg"
@@ -60,15 +63,8 @@ install -m 755 bin/d4-plot-server "$server_executable"
 install -m 644 LICENSE README.md "$bundle/Contents/Resources/"
 crystal run scripts/make-icns.cr -- assets/d4-plot.png "$bundle/Contents/Resources/d4-plot.icns"
 bash scripts/collect-licenses.sh "$bundle/Contents/Resources/licenses"
-# Native libraries copied by dylibbundler retain their Homebrew license texts.
-for formula in htslib libdeflate xz zlib bzip2 openssl@3; do
-  if prefix=$(brew --prefix "$formula" 2>/dev/null); then
-    mkdir -p "$bundle/Contents/Resources/licenses/$formula"
-    while IFS= read -r license; do
-      cp "$license" "$bundle/Contents/Resources/licenses/$formula/"
-    done < <(find -H "$prefix" -maxdepth 1 -type f \( -iname '*license*' -o -iname '*copying*' \))
-  fi
-done
+# Inspect the original paths before dylibbundler rewrites them.
+bash scripts/collect-macos-licenses.sh "$bundle/Contents/Resources/licenses" "$executable" "$server_executable"
 
 cat > "$bundle/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -103,9 +99,13 @@ dylibbundler -ns -od -b -x "$executable" -x "$server_executable" \
 
 codesign --force --deep --sign - "$bundle"
 
-staging=$(mktemp -d "${TMPDIR:-/tmp}/d4-plot-dmg.XXXXXX")
-trap 'rm -R "$staging"' EXIT
+staging=$work/image
+mkdir -p "$staging"
 ditto "$bundle" "$staging/d4-plot.app"
 ln -s /Applications "$staging/Applications"
-hdiutil create -volname "D4 Plot" -srcfolder "$staging" -format UDZO -ov "$disk_image"
+hdiutil create -volname "D4 Plot" -srcfolder "$staging" -format UDZO -ov "$work/package.dmg"
+# Publish only a complete package; a failed build leaves the previous outputs.
+rm -rf dist/d4-plot.app
+mv "$bundle" dist/d4-plot.app
+mv "$work/package.dmg" "$disk_image"
 echo "Created $disk_image"

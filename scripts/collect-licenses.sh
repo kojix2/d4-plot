@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 destination=${1:?License destination required}
-for dependency in d4 hts mopdepth uing; do
+for dependency in bigwig d4 hts http_proxy i18n mopdepth uing; do
   mkdir -p "$destination/$dependency"
   cp "lib/$dependency/LICENSE" "$destination/$dependency/"
 done

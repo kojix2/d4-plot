@@ -52,10 +52,15 @@ crystal build src/d4-plot-server.cr --release --no-debug --static \
   --link-flags="${static_libs[*]}" -o bin/d4-plot-server.exe
 
 # Include upstream license texts in both portable ZIP and installer.
-bash scripts/collect-licenses.sh build/licenses
-mkdir -p build/licenses/htslib
-cp "$htslib_dir/LICENSE" build/licenses/htslib/
-cp "$htslib_dir/htscodecs/LICENSE.md" build/licenses/htslib/htscodecs-LICENSE.md
-mkdir -p build/licenses/msys2
-cp -R "$mingw_prefix/share/licenses/." build/licenses/msys2/
-pacman -Q > build/licenses/msys2-packages.txt
+license_work=$(mktemp -d "$PWD/build/package-licenses.XXXXXX")
+trap 'rm -rf "$license_work"' EXIT
+licenses=$license_work/licenses
+bash scripts/collect-licenses.sh "$licenses"
+mkdir -p "$licenses/htslib"
+cp "$htslib_dir/LICENSE" "$licenses/htslib/"
+cp "$htslib_dir/htscodecs/LICENSE.md" "$licenses/htslib/htscodecs-LICENSE.md"
+mkdir -p "$licenses/msys2"
+cp -R "$mingw_prefix/share/licenses/." "$licenses/msys2/"
+pacman -Q > "$licenses/msys2-packages.txt"
+rm -rf build/licenses
+mv "$licenses" build/licenses

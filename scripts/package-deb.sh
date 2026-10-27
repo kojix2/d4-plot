@@ -3,7 +3,9 @@ set -euo pipefail
 tag=$1
 version=${tag#v}
 
-work=build/package-deb
+mkdir -p build dist
+work=$(mktemp -d "$PWD/build/package-deb.XXXXXX")
+trap 'rm -rf "$work"' EXIT
 package=$work/debian/d4-plot
 install -d -m 755 "$package/DEBIAN" "$package/usr/bin" \
   "$package/usr/share/applications" "$package/usr/share/doc/d4-plot" \
@@ -50,7 +52,7 @@ Description: GUI viewer for D4 genomic signal
 EOF
 chmod 644 "$package/DEBIAN/control"
 
-mkdir -p dist
 archive="dist/d4-plot_${version}_amd64.deb"
-dpkg-deb --build --root-owner-group "$package" "$archive"
+dpkg-deb --build --root-owner-group "$package" "$work/package.deb"
+mv "$work/package.deb" "$archive"
 echo "Created $archive"

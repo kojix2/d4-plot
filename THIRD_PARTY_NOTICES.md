@@ -9,7 +9,13 @@ D4 creation uses [mopdepth](https://github.com/kojix2/mopdepth) (MIT),
 [UIng](https://github.com/kojix2/uing) supplies native GUI bindings (both MIT).
 Exact Crystal dependency revisions are recorded in `shard.lock`.
 
+BigWig export uses [bigwig.cr](https://github.com/kojix2/bigwig.cr), translations
+use [i18n](https://github.com/crystal-i18n/i18n), and HTTP proxy support uses
+[http_proxy](https://github.com/mamantoha/http_proxy) (all MIT).
+
 Packaging scripts copy the dependency license texts into a `licenses` directory.
+macOS packages also include license texts from the Homebrew kegs supplying the
+bundled dynamic libraries, including transitive dependencies.
 Windows packages also include HTSlib/htscodecs licenses, the installed MSYS2
 license collection, and a package-version inventory for native dependencies.
 Native dependencies retain their own licenses; d4-plot's MIT license does not
