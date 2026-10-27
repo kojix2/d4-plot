@@ -23,10 +23,13 @@ The region field accepts `chr1:100-200`, `chr1:100`, or `chr1`. Coordinates are 
 | Drag | Pan |
 | Shift-drag or right-drag | Select range |
 | Double-click / right-double-click | Zoom in / out |
+| Wheel up / down over the plot | Zoom in / out around the pointer |
 | Click outside the chromosome overview's highlighted range | Recenter |
 | **Back** / **Forward** | Move through history |
 | Left / Right, with plot focus | Pan half a view |
 | `+` / `-`, Home, Escape | Zoom, show chromosome, cancel load or drag |
+
+Use the wheel over plot margins or the native scrollbar to scroll vertically through tracks.
 
 Select tracks by title or in the track list. The list can show, hide, reorder, or remove tracks without deleting files. **Height** changes row height; hiding the sidebar gives the plot more room. **Settings** controls bin count, Y scale, reference lines, colors, annotation limit, and toolbar labels.
 

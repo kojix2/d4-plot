@@ -199,8 +199,10 @@ class D4Plot::App
       smoke_late_step(step, directory, fixtures)
     elsif step <= 19
       smoke_tracks_step(step, directory, fixtures)
+    elsif step <= 23
+      smoke_wheel_step(step)
     else
-      smoke_io_stress_step(step, fixtures)
+      smoke_io_stress_step(step - 4, fixtures)
     end
   end
 
@@ -444,6 +446,50 @@ class D4Plot::App
     end
   end
 
+  private def smoke_scroll(x : Float64, y : Float64, delta_y : Float64, delta_x : Float64 = 0.0) : Bool
+    event = UIng::LibUI::AreaScrollEvent.new(x: x, y: y, delta_y: delta_y, delta_x: delta_x)
+    handler = @handler.to_unsafe
+    handler.value.scroll_event.call(handler, @area.to_unsafe, pointerof(event)) != 0
+  end
+
+  private def smoke_wheel_step(step) : Bool
+    return false if @loading || @file_load_id
+    layout = stack_geometry.plot(0)
+    x = layout.left + layout.width * 0.4
+    y = layout.top + 10
+    case step
+    when 20
+      request_view(Region.new("chr1", 6_u32, 15_u32))
+    when 21
+      request_id = @request_id
+      UiSmoke.check(!smoke_scroll(0.0, y, -1.0), "Wheel in the margin blocked native scrolling")
+      UiSmoke.check(!smoke_scroll(x, 10.0, -1.0), "Wheel in the header blocked native scrolling")
+      UiSmoke.check(!smoke_scroll(x, y, 0.0, 1.0), "Horizontal wheel input was consumed")
+      UiSmoke.check(!smoke_scroll(x, y, 0.2, 1.0), "Mostly horizontal trackpad input was consumed")
+      UiSmoke.check(@request_id == request_id, "Wheel outside the plot changed the region")
+      region = @completed_region || raise "Wheel test has no completed view"
+      @drag = {0.4, region, false}
+      UiSmoke.check(smoke_scroll(x, y, -1.0), "Wheel during a drag was not consumed")
+      UiSmoke.check(@request_id == request_id && !@drag.nil?, "Wheel interrupted a drag")
+      clear_drag
+      UiSmoke.check(smoke_scroll(x, y, -1.0), "Plot wheel zoom was not consumed")
+      request_id = @request_id
+      UiSmoke.check(smoke_scroll(x, y, -1.0), "Wheel while loading was not consumed")
+      UiSmoke.check(@request_id == request_id, "Wheel restarted an in-flight load")
+    when 22
+      UiSmoke.check(@completed_region == Region.new("chr1", 8_u32, 12_u32), "Wheel zoom did not halve the range around the pointer")
+      request_id = @request_id
+      @last_wheel_zoom = Time.instant
+      UiSmoke.check(smoke_scroll(x, y, 1.0), "Rapid wheel input was not consumed")
+      UiSmoke.check(@request_id == request_id, "Rapid wheel input bypassed the zoom interval")
+      @last_wheel_zoom = nil
+      UiSmoke.check(smoke_scroll(x, y, 1.0), "Wheel zoom out was not consumed")
+    when 23
+      UiSmoke.check(@completed_region == Region.new("chr1", 6_u32, 15_u32), "Wheel zoom out did not restore the range around the pointer")
+    end
+    true
+  end
+
   private def smoke_io_stress_step(step, fixtures)
     if step == 20
       UiSmoke.slow_writes.set(true)
@@ -533,7 +579,7 @@ begin
     end
     raise "UI smoke test timed out" if Time.instant - started > 60.seconds
     step += 1 if app.smoke_step(step, screenshots, fixtures)
-    step <= 21
+    step <= 25
   rescue ex
     failure = ex
     app.smoke_stop

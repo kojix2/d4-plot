@@ -74,6 +74,7 @@ module D4Plot
     @loading = false
     @closed = false
     @drag : Tuple(Float64, Region, Bool)?
+    @last_wheel_zoom : Time::Instant?
     @track_list : TrackList
     @track_panel = UIng::Box.new(:vertical, padded: true)
     @sidebar_toggle = UIng::Button.new(D4Plot.t("app.show_tracks"))
@@ -436,6 +437,7 @@ module D4Plot
           stack_geometry, @shared_y.checked?, selected_layer.try(&.source.key), @public_genes, public_title)
       end
       @handler.mouse_event { |_, event| mouse_event(event) }
+      @handler.scroll_event { |_, event| scroll_event(event) }
       @handler.mouse_crossed do |_, left|
         if left
           @renderer.hover_index = nil
@@ -1161,6 +1163,30 @@ module D4Plot
       ready = !@loading && @file_load_id.nil?
       set_enabled(@tools.back, @history.back? && ready)
       set_enabled(@tools.forward, @history.forward? && ready)
+    end
+
+    private def scroll_event(event) : Bool
+      return false unless event.delta_y.finite? && event.delta_y != 0
+      return false if event.delta_x.abs >= event.delta_y.abs
+      return false unless @completed_region
+      stack = stack_geometry
+      return false unless index = stack.index_at(event.y)
+      layout = stack.plot(index)
+      return false unless layout.contains?(event.x, event.y)
+      zoom_from_wheel(event.delta_y, layout.fraction(event.x))
+      true
+    end
+
+    private def zoom_from_wheel(delta_y : Float64, fraction : Float64) : Nil
+      # Consume wheel input here even while busy, so a zoom gesture cannot
+      # suddenly turn into native vertical scrolling as samples load.
+      return if @loading || @file_load_id || @drag
+      now = Time.instant
+      if last = @last_wheel_zoom
+        return if now - last < 150.milliseconds
+      end
+      @last_wheel_zoom = now
+      zoom(delta_y < 0 ? 2.0 : 0.5, fraction)
     end
 
     private def mouse_event(event)

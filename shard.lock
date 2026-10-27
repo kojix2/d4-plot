@@ -30,5 +30,5 @@ shards:
 
   uing:
     git: https://github.com/kojix2/uing.git
-    version: 0.6.0
+    version: 0.6.0+git.commit.1ce5c79e113c195b79b44c486e7a95db6113e701
 
