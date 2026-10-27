@@ -104,6 +104,9 @@ raise "Use overview, inspect, or create-d4 for the screenshot scene" unless {"ov
 raise "Use en or ja for screenshots" unless {"en", "ja"}.includes?(locale)
 
 D4Plot::UIRuntime.prepare
+# Windows GUI executables can start without stdout/stderr. Readiness is
+# signaled by revealing the window, so this capture helper needs no console IO.
+Log.setup(:none)
 fixtures = D4Plot::UIRuntime.load do
   path = File.tempname("d4-plot-guide-fixtures")
   Dir.mkdir(path)
@@ -141,7 +144,6 @@ begin
       app.guide_show
     end
     GuideScreenshots.activate
-    puts "Ready for screenshot: #{scene} (#{locale})"
     false
   rescue ex
     failure = ex
