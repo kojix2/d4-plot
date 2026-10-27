@@ -2,7 +2,7 @@ version: 2.0
 shards:
   ameba:
     git: https://github.com/crystal-ameba/ameba.git
-    version: 1.7.1-dev+git.commit.3dcad105eb10d8b03b1fceee5080a577c0677a40
+    version: 1.7.1-dev+git.commit.ca1b4fac23af754030bd264201682a69280e260f
 
   bigwig:
     git: https://github.com/kojix2/bigwig.cr.git
