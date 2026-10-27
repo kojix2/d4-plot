@@ -7,10 +7,13 @@ require "./background_io"
 module D4Plot
   # Loading preferences does not create native UI controls.
   class Preferences
+    TRACK_HEIGHTS        = {160.0, 220.0, 300.0, 400.0}
+    DEFAULT_HEIGHT_INDEX = 2
+
     getter path : String
     property locale : String?
     getter settings = PlotSettings.new
-    property height_index = 1
+    property height_index = DEFAULT_HEIGHT_INDEX
     property? shared_y = false
     property? sidebar_visible = true
 
@@ -37,7 +40,7 @@ module D4Plot
     protected def load_display(data)
       @settings = PlotSettings.from_preferences(data["display"]?)
       if height = data["track_height"]?.try(&.as_i64?)
-        @height_index = height.to_i if (0..2).includes?(height)
+        @height_index = height.to_i if (0...TRACK_HEIGHTS.size).includes?(height)
       end
       @shared_y = data["shared_y"]?.try(&.as_bool?) || false
       @sidebar_visible = data["sidebar_visible"]?.try(&.as_bool?) != false

@@ -53,7 +53,7 @@ module D4Plot
     @chromosomes = {} of String => UInt32
     @chromosome_names = [] of String
     @canvas_width = 1056
-    @row_height = 220.0
+    @row_height : Float64 = Preferences::TRACK_HEIGHTS[Preferences::DEFAULT_HEIGHT_INDEX]
     @add = UIng::Button.new(D4Plot.t("app.add_d4"))
     @remove = UIng::Button.new(D4Plot.t("app.remove"))
     @up = UIng::Button.new(D4Plot.t("app.up"))
@@ -137,7 +137,7 @@ module D4Plot
         ->(index : Int32, visible : Bool) { toggle_layer(index, visible); nil },
         ->(ascending : Bool) { sort_layers(ascending); nil })
       @settings = @preferences.settings
-      @row_height = {160.0, 220.0, 300.0}[@preferences.height_index]
+      @row_height = Preferences::TRACK_HEIGHTS[@preferences.height_index]
       @tools.native.display_mode = @settings.toolbar_display_mode
       setup_ui
       setup_handlers
@@ -256,7 +256,7 @@ module D4Plot
       @shared_y.checked = @preferences.shared_y?
       display.append(@shared_y, false)
       display.append(UIng::Label.new(D4Plot.t("app.height")), false)
-      ["app.compact", "app.normal", "app.large"].each { |key| @height.append(D4Plot.t(key)) }
+      ["app.small", "app.medium", "app.normal", "app.large"].each { |key| @height.append(D4Plot.t(key)) }
       @height.selected = @preferences.height_index
       display.append(@height, false)
       display.append(@details_toggle, false)
@@ -414,7 +414,7 @@ module D4Plot
       @height.on_selected do
         next if @updating
         save_view_preferences
-        @row_height = {160.0, 220.0, 300.0}[@height.selected || 1]
+        @row_height = Preferences::TRACK_HEIGHTS[@height.selected || Preferences::DEFAULT_HEIGHT_INDEX]
         clear_drag
         resize_canvas
       end
@@ -688,7 +688,7 @@ module D4Plot
     end
 
     private def save_view_preferences
-      @preferences.height_index = @height.selected || 1
+      @preferences.height_index = @height.selected || Preferences::DEFAULT_HEIGHT_INDEX
       @preferences.shared_y = @shared_y.checked?
       persist_preferences
     end

@@ -92,7 +92,7 @@ describe D4Plot::Preferences do
       old = D4Plot::Preferences.load(path)
       old.settings.toolbar_display_mode.should eq(UIng::Toolbar::DisplayMode::IconAndTextVertical)
       old.settings.public_annotation_source.should eq("ucsc")
-      old.height_index.should eq(1)
+      old.height_index.should eq(2)
       old.sidebar_visible?.should be_true
 
       File.write(path, %({"locale":"ja","track_height":99,"shared_y":"yes","display":{"point_count":-1,"annotation_feature_limit":100,"public_annotation_source":"invalid","toolbar_display_mode":"invalid","plot_color":[1,2,3,4],"y_min":5,"y_max":1,"h_lines":[2,"bad",1,2]}}))
@@ -105,7 +105,7 @@ describe D4Plot::Preferences do
       loaded.settings.y_min.should be_nil
       loaded.settings.y_max.should be_nil
       loaded.settings.h_lines.should eq([1.0, 2.0])
-      loaded.height_index.should eq(1)
+      loaded.height_index.should eq(2)
       loaded.shared_y?.should be_false
     end
   end
