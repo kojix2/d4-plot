@@ -91,6 +91,57 @@ jobs:
             cp "bin/guide-screenshots$EXECUTABLE_SUFFIX" "bin/guide-$scene$EXECUTABLE_SUFFIX"
           done
 
+      - name: Diagnose Windows guide startup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Type @'
+          using System;
+          using System.Text;
+          using System.Runtime.InteropServices;
+          public class GuideWindowDebug {
+            [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+            [DllImport("user32.dll")] static extern bool EnumWindows(Callback callback, IntPtr data);
+            delegate bool Callback(IntPtr hwnd, IntPtr data);
+            [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+            [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
+            [DllImport("user32.dll", SetLastError=true)] public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder value, int size);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder value, int size);
+            public static string Describe(uint pid) {
+              var lines = new StringBuilder();
+              EnumWindows((hwnd, data) => {
+                uint owner; GetWindowThreadProcessId(hwnd, out owner);
+                if (owner != pid) return true;
+                var title = new StringBuilder(256); var kind = new StringBuilder(256); Rect rect;
+                GetWindowText(hwnd, title, 256); GetClassName(hwnd, kind, 256);
+                bool valid = GetWindowRect(hwnd, out rect);
+                lines.AppendLine($"HWND={hwnd} visible={IsWindowVisible(hwnd)} bounds={valid} rect={rect.Left},{rect.Top},{rect.Right},{rect.Bottom} class={kind} title={title}");
+                return true;
+              }, IntPtr.Zero);
+              return lines.ToString();
+            }
+          }
+          '@
+          $process = Start-Process bin/guide-overview.exe -PassThru -RedirectStandardOutput build/guide-startup.out.txt -RedirectStandardError build/guide-startup.err.txt
+          try {
+            for ($index = 0; $index -lt 12; $index++) {
+              Start-Sleep -Milliseconds 500
+              $process.Refresh()
+              Write-Host "PID=$($process.Id) exited=$($process.HasExited) main=$($process.MainWindowHandle)"
+              Write-Host ([GuideWindowDebug]::Describe([uint32]$process.Id))
+              if ($process.MainWindowHandle -ne [IntPtr]::Zero) {
+                $rect = New-Object GuideWindowDebug+Rect
+                Write-Host "PowerShell bounds=$([GuideWindowDebug]::GetWindowRect($process.MainWindowHandle, [ref]$rect))"
+              }
+              if ($process.HasExited) { break }
+            }
+          } finally {
+            if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+          Get-Content build/guide-startup.out.txt
+          Get-Content build/guide-startup.err.txt
+
       - name: Capture English windows
         uses: kojix2/window-screenshot-action@main
         env:
