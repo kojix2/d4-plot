@@ -78,7 +78,7 @@ class D4Plot::App
 
   def guide_show : Nil
     # Leave room for native decorations within the action's 1280x800 X11 screen.
-    @window.set_content_size(1120, 700)
+    @window.set_content_size(1120, 760)
     @window.show
     @area.focus
     @area.queue_redraw_all

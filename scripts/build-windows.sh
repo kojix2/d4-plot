@@ -42,6 +42,12 @@ static_libs+=(-Wl,--end-group -lws2_32)
 windres -I assets -i assets/d4-plot.rc -o build/d4-plot-icon.o
 icon_resource=$(cygpath -m "$PWD/build/d4-plot-icon.o")
 
+if [[ ${1:-} == --guide-screenshots ]]; then
+  crystal build scripts/guide-screenshots.cr --release --no-debug --static \
+    --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/guide-screenshots.exe
+  exit 0
+fi
+
 # `crystal spec` has no `--static` option, so define the same compiler flag
 # explicitly. Besides selecting the archives below, this prevents Windows
 # foreign data symbols from being emitted as DLL imports.
@@ -50,11 +56,6 @@ crystal build src/d4-plot.cr --release --no-debug --static \
   --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/d4-plot.exe
 crystal build src/d4-plot-server.cr --release --no-debug --static \
   --link-flags="${static_libs[*]}" -o bin/d4-plot-server.exe
-
-if [[ ${1:-} == --guide-screenshots ]]; then
-  crystal build scripts/guide-screenshots.cr --release --no-debug --static \
-    --link-flags="${static_libs[*]} $icon_resource -mwindows" -o bin/guide-screenshots.exe
-fi
 
 # Include upstream license texts in both portable ZIP and installer.
 license_work=$(mktemp -d "$PWD/build/package-licenses.XXXXXX")
