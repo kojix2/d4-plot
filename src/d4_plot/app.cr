@@ -1,6 +1,7 @@
 require "uing"
 require "d4"
 require "./i18n"
+require "./version"
 require "./preferences"
 require "./view_loader"
 require "./file_loader"
@@ -150,7 +151,9 @@ module D4Plot
       @igv_web_menu_item.on_clicked { open_igv_web }
       menu_items[:settings].on_clicked { open_settings }
       menu_items[:guide].on_clicked { show_help }
-      menu_items[:about].on_clicked { @window.msg_box(PROGRAM_NAME, D4Plot.t("app.about")) }
+      menu_items[:about].on_clicked do
+        @window.msg_box(PROGRAM_NAME, "#{PROGRAM_NAME} #{D4Plot::VERSION}\n\n#{D4Plot.t("app.about")}")
+      end
       @window.on_closing do
         if confirm_quit
           shutdown

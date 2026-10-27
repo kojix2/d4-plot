@@ -1,5 +1,6 @@
 require "log"
 require "path"
+require "./version"
 require "./logging/backends"
 require "./logging/non_blocking_dispatcher"
 
@@ -112,7 +113,7 @@ module D4Plot
         end
 
         Log.info &.emit("app.started", mode: desktop ? "desktop" : "server",
-          crystal: Crystal::VERSION, version: {{ read_file("#{__DIR__}/../../shard.yml").split("version: ")[1].lines.first }},
+          crystal: Crystal::VERSION, version: D4Plot::VERSION,
           platform: {{ flag?(:win32) ? "windows" : (flag?(:darwin) ? "macos" : "unix") }})
       end
     end
