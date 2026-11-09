@@ -19,10 +19,10 @@ dependencies:
     branch: main
   d4:
     github: bio-cr/d4.cr
-    version: 0.0.0
+    version: 0.0.1
   mopdepth:
     github: kojix2/mopdepth
-    version: 0.0.7
+    version: 0.0.8
   bigwig:
     github: kojix2/bigwig.cr
     version: 0.0.0

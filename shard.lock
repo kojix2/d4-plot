@@ -2,7 +2,7 @@ version: 2.0
 shards:
   ameba:
     git: https://github.com/crystal-ameba/ameba.git
-    version: 1.7.1-dev+git.commit.ca1b4fac23af754030bd264201682a69280e260f
+    version: 1.7.1-dev+git.commit.1fe2b8b101deccef06a0b6f6dadae80cd01168a2
 
   bigwig:
     git: https://github.com/kojix2/bigwig.cr.git
@@ -10,7 +10,7 @@ shards:
 
   d4:
     git: https://github.com/bio-cr/d4.cr.git
-    version: 0.0.0
+    version: 0.0.1
 
   hts:
     git: https://github.com/bio-cr/hts.cr.git
@@ -26,9 +26,9 @@ shards:
 
   mopdepth:
     git: https://github.com/kojix2/mopdepth.git
-    version: 0.0.7
+    version: 0.0.8
 
   uing:
     git: https://github.com/kojix2/uing.git
-    version: 0.6.0+git.commit.1ce5c79e113c195b79b44c486e7a95db6113e701
+    version: 0.7.1+git.commit.a5ac7c21f14b642c4f5e92bc2b2e3def028e9647
 
